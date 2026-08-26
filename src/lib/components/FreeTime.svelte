@@ -5,6 +5,8 @@
   import { createPlanner, planDay, type Planner } from '$lib/freetime';
   import { pickRotating, type RotatingQuestion } from '$lib/questions';
   import { setDaySlots } from '$lib/day';
+  import { generateQuestions, rankSlots } from '$lib/gemini/plan';
+  import { activeProjects } from '$lib/queries';
 
   /**
    * The Free Time flow (spec 5). Two fixed questions, one or two rotating ones,
@@ -51,7 +53,10 @@
 
   async function chooseBrain(v: BrainState) {
     brain = v;
-    rotating = await pickRotating();
+    // Gemini first, static set if it is unavailable or returns anything we
+    // don't trust. The static path is not a degraded mode — it is what runs
+    // with no key, no signal, or a bad generation.
+    rotating = (await generateQuestions()) ?? (await pickRotating());
     rotatingIndex = 0;
     step = rotating.length ? 'rotating' : 'plan';
     if (step === 'plan') await build();
@@ -75,8 +80,17 @@
 
   async function build() {
     building = true;
-    planner = await createPlanner(answers());
-    slots = await planDay(answers());
+    const a = answers();
+    planner = await createPlanner(a);
+
+    // The pool is already narrowed by pure code, so the model ranks a filtered
+    // shortlist and can never reach into the whole database (spec 5.2).
+    const projects = await activeProjects();
+    const nameFor = (id?: string) =>
+      projects.find((p) => p.id === id)?.name ?? 'Unassigned';
+
+    const ranked = await rankSlots(planner.pool, a, nameFor);
+    slots = ranked ?? (await planDay(a));
     building = false;
   }
 

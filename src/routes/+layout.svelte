@@ -7,11 +7,17 @@
   import { onDestroy } from 'svelte';
   import { handleRedirect, renewIfSafe } from '$lib/google/auth';
   import { startSync } from '$lib/sync';
+  import { processQueue } from '$lib/gemini/commit';
 
   let { children } = $props();
 
   let stopSync: (() => void) | undefined;
-  onDestroy(() => stopSync?.());
+  const drainQueue = () => void processQueue();
+
+  onDestroy(() => {
+    stopSync?.();
+    window.removeEventListener('online', drainQueue);
+  });
 
   /**
    * Four tabs, nothing nested deeper than two levels (spec 4).
@@ -45,6 +51,11 @@
     // below simply runs again on the way back.
     await renewIfSafe();
     stopSync = startSync();
+
+    // Recordings made with no signal are turned into items as soon as there is
+    // one. Fire-and-forget: nothing on screen waits for this.
+    void processQueue();
+    window.addEventListener('online', drainQueue);
 
     // Registering the service worker is what makes the app boot with no
     // network. Imported dynamically because the virtual module only exists in

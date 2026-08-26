@@ -1,7 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 import type {
   Project, Todo, Idea, BuyItem, List, ListItem,
-  Habit, HabitLog, Day, Capture, Note, ConflictLog, Settings
+  Habit, HabitLog, Day, Capture, Note, ConflictLog, Settings, QueuedAudio
 } from './types';
 
 /**
@@ -29,6 +29,7 @@ export class FreeTimeDB extends Dexie {
   notes!: Table<Note, string>;
   conflicts!: Table<ConflictLog, string>;
   settings!: Table<Settings, string>;
+  audioQueue!: Table<QueuedAudio, string>;
 
   constructor() {
     super('freetime');
@@ -51,6 +52,12 @@ export class FreeTimeDB extends Dexie {
       notes: 'id, &projectId, updatedAt, deletedAt',
       conflicts: 'id, table, recordId, createdAt',
       settings: 'id'
+    });
+
+    // Version 2 adds the queue for recordings made offline. Dexie migrates an
+    // existing database in place; adding a store needs no data migration.
+    this.version(2).stores({
+      audioQueue: 'id, processedAt, createdAt'
     });
   }
 }

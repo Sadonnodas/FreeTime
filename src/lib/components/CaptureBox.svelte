@@ -1,5 +1,9 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { capture } from '$lib/store';
+  import { hasApiKey } from '$lib/gemini/client';
+  import { canRecord } from '$lib/audio';
+  import VoiceCapture from './VoiceCapture.svelte';
 
   /**
    * Capture must be under 5 seconds, with no required fields, ever (spec
@@ -10,6 +14,14 @@
   let text = $state('');
   let flash = $state(false);
   let input = $state<HTMLInputElement | null>(null);
+
+  // The mic is hidden rather than disabled without a key: an AI feature that
+  // is visible but dead is worse than one that was never offered (spec 7.4).
+  let voiceAvailable = $state(false);
+  let voiceOpen = $state(false);
+  onMount(async () => {
+    voiceAvailable = canRecord() && (await hasApiKey());
+  });
 
   async function submit(e: SubmitEvent) {
     e.preventDefault();
@@ -38,15 +50,30 @@
              placeholder:text-ink-400 transition-colors
              {flash ? 'border-good bg-ink-800' : 'border-ink-700 bg-ink-800 focus:border-accent'}"
     />
-    <button
-      type="submit"
-      disabled={!text.trim()}
-      class="tap rounded-xl bg-accent px-5 font-medium text-ink-950 disabled:opacity-30"
-    >
-      Add
-    </button>
+    {#if voiceAvailable && !text.trim()}
+      <button
+        type="button"
+        class="tap rounded-xl bg-ink-800 px-4 text-lg text-ink-200"
+        onclick={() => (voiceOpen = true)}
+        aria-label="Record a brain-dump"
+      >
+        ●
+      </button>
+    {:else}
+      <button
+        type="submit"
+        disabled={!text.trim()}
+        class="tap rounded-xl bg-accent px-5 font-medium text-ink-950 disabled:opacity-30"
+      >
+        Add
+      </button>
+    {/if}
   </div>
   {#if flash}
     <p class="mt-2 text-xs text-good">Saved to Brain.</p>
   {/if}
 </form>
+
+{#if voiceOpen}
+  <VoiceCapture onDone={() => (voiceOpen = false)} />
+{/if}

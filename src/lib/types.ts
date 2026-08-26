@@ -120,6 +120,24 @@ export interface Note extends Base {
   markdown: string;
 }
 
+/**
+ * A recording waiting to be transcribed (spec 7.2).
+ *
+ * Queued whenever the app is offline or Gemini fails. The spec is emphatic
+ * about this: losing a brain-dump because there was no signal is the worst
+ * possible failure for this app, so the bytes are written to IndexedDB before
+ * anything is attempted over the network.
+ */
+export interface QueuedAudio extends Base {
+  /** 16 kHz mono WAV, ready to send. Stored as a Blob — IndexedDB takes them
+   *  natively, so there is no base64 inflation sitting on disk. */
+  blob: Blob;
+  durationMs: number;
+  attempts: number;
+  lastError?: string;
+  processedAt?: string;
+}
+
 /** Quiet insurance for the rare sync overwrite (spec 8.3). Surfaced in Settings. */
 export interface ConflictLog extends Base {
   table: string;

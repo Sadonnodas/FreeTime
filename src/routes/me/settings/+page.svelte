@@ -8,10 +8,15 @@
   import { beginSignIn, signOut, isConnected } from '$lib/google/auth';
   import { onSyncState, syncNow, type SyncState } from '$lib/sync';
   import { ago } from '$lib/format';
+  import { getApiKey, setApiKey } from '$lib/gemini/client';
+  import { pendingAudioCount, processQueue } from '$lib/gemini/commit';
 
   let sync = $state<SyncState>({ status: 'idle' });
   let connected = $state(false);
   let authError = $state<string | undefined>(undefined);
+  let apiKey = $state('');
+  let keySaved = $state(false);
+  let queued = $state(0);
   let stop: (() => void) | undefined;
 
   const conflictsQ = liveQuery(async () =>
@@ -22,6 +27,8 @@
     stop = onSyncState((s) => (sync = s));
     connected = await isConnected();
     authError = (await db.settings.get('settings'))?.lastAuthError;
+    apiKey = (await getApiKey()) ?? '';
+    queued = await pendingAudioCount();
   });
   onDestroy(() => stop?.());
 
@@ -142,10 +149,57 @@
 
   <section>
     <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">Gemini</h2>
-    <div class="rounded-xl bg-ink-900 px-4 py-3 text-sm text-ink-400">
-      The API key entry lands in phase 4, along with the assistant and voice capture. It
-      will be stored in this browser only. Everything already here keeps working without
-      it.
+    <div class="rounded-xl bg-ink-900 p-4">
+      <p class="mb-3 text-xs text-ink-400">
+        Turns on voice capture. Get a key from
+        <a class="text-accent underline" href="https://aistudio.google.com/apikey"
+          target="_blank" rel="noreferrer">Google AI Studio</a>. It is stored in this
+        browser only — never in the repo, never in the build. Everything else in the app
+        works without it.
+      </p>
+      <form
+        class="flex gap-2"
+        onsubmit={async (e) => {
+          e.preventDefault();
+          await setApiKey(apiKey);
+          keySaved = true;
+          setTimeout(() => (keySaved = false), 1500);
+        }}
+      >
+        <!-- type=password so the key is not readable over a shoulder or in a
+             screenshot. It is not a secret from the user, only from the room. -->
+        <input
+          bind:value={apiKey}
+          type="password"
+          autocomplete="off"
+          placeholder="AIza…"
+          class="tap min-w-0 flex-1 rounded-xl border border-ink-700 bg-ink-800 px-4 text-sm
+                 outline-none focus:border-accent"
+        />
+        <button class="tap rounded-xl bg-accent px-4 text-sm font-medium text-ink-950">
+          Save
+        </button>
+      </form>
+      {#if keySaved}<p class="mt-2 text-xs text-good">Saved.</p>{/if}
+      <p class="mt-3 text-xs text-ink-400">
+        Worth doing once in Google Cloud Console: restrict the key by HTTP referrer to
+        this site, so a copied key is useless anywhere else.
+      </p>
+
+      {#if queued > 0}
+        <div class="mt-4 border-t border-ink-800 pt-3">
+          <p class="text-sm">
+            {queued} recording{queued === 1 ? '' : 's'} waiting to be processed.
+          </p>
+          <button
+            class="tap mt-2 rounded-lg bg-ink-800 px-3 text-sm text-ink-200"
+            onclick={async () => {
+              await processQueue();
+              queued = await pendingAudioCount();
+            }}>Process now</button
+          >
+        </div>
+      {/if}
     </div>
   </section>
 </div>
