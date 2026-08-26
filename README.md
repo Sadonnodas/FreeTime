@@ -9,7 +9,8 @@ the source of truth. This file covers how the code is put together and how to ru
 
 ## What exists today
 
-Phase 1 of the eight-phase plan in spec §10, plus the data foundations for the rest.
+Phases 1 and 2 of the eight-phase plan in spec §10, plus the data foundations for
+the rest.
 
 | Working | Where |
 | --- | --- |
@@ -19,18 +20,18 @@ Phase 1 of the eight-phase plan in spec §10, plus the data foundations for the 
 | Project detail — Notes / To-dos / Buy | [routes/projects/[id]/+page.svelte](src/routes/projects/%5Bid%5D/+page.svelte) |
 | Brain — inbox, all to-dos, ideas, lists, buy | [routes/brain/+page.svelte](src/routes/brain/+page.svelte) |
 | Me — habits, wins history | [routes/me/+page.svelte](src/routes/me/+page.svelte) |
+| Free Time flow — questions, slot rules, reshuffle | [FreeTime.svelte](src/lib/components/FreeTime.svelte), [freetime.ts](src/lib/freetime.ts) |
 | Day-close screen | [DayClose.svelte](src/lib/components/DayClose.svelte) |
 | Full schema for every record type in spec §3 | [db.ts](src/lib/db.ts), [types.ts](src/lib/types.ts) |
 | Installable, offline-capable PWA | [vite.config.ts](vite.config.ts) |
 
-Not built yet, in the spec's order: the Free Time question flow and AI ranking (2),
-Google OAuth + Drive sync (3), Gemini assistant and voice capture (4), habit cycle
-history and heatmap (5), monthly summary (6), list detail screens (7), Calendar (8),
-and the Notion importer.
+Not built yet, in the spec's order: Google OAuth + Drive sync (3), Gemini assistant and
+voice capture (4), habit cycle history and heatmap (5), monthly summary (6), list detail
+screens (7), Calendar (8), and the Notion importer.
 
-The Today screen currently fills its three slots by picking from open to-dos by hand.
-Phase 2 replaces that picker with the real Free Time flow; the day/unlock machinery it
-writes to is already in place and enforced.
+The Free Time flow runs entirely on local rules. Phase 4 adds Gemini ranking *on top of*
+it, never in place of it — the spec requires a working non-AI path for every AI feature,
+so these rules stay the path most runs take.
 
 ---
 
@@ -42,6 +43,7 @@ npm run dev      # http://localhost:5173/FreeTime
 npm run build    # static site into build/
 npm run preview  # serve build/ locally
 npm run check    # svelte-check, TypeScript strict
+npm test         # vitest, against a real Dexie store via fake-indexeddb
 ```
 
 Everything runs with no network, no accounts, and no keys. That is the point — the AI
@@ -87,6 +89,9 @@ be one refactor away from being lost, so they live in the model:
   `unlockedCount` only grows *after* the day is already closed. Three planned with a
   fourth earned means finishing three is 100%; four planned means it is 75%. Same work,
   opposite feeling.
+- **Slot selection is a deterministic filter** ([freetime.ts](src/lib/freetime.ts)). The
+  app narrows the candidate pool by energy and time in plain code; the model, when it
+  arrives, only ranks what survives. It never reaches into the whole database.
 - **Wins are derived, never logged** ([queries.ts](src/lib/queries.ts) `winsSince`). There
   is no wins table. The feed is computed from `completedAt` on to-dos and `state: 'done'`
   on list items — work the user did for other reasons. Asking them to log wins is exactly

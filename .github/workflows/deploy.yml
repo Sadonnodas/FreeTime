@@ -34,6 +34,11 @@ jobs:
       # same tree you built locally. `npm install` would be free to drift.
       - run: npm ci
 
+      # The build cannot fail on a broken unlock rule — it is data logic, not
+      # types — so the tests gate the deploy rather than trailing behind it.
+      - run: npm run check
+      - run: npm test
+
       - run: npm run build
 
       # Pages must already be enabled with Source = "GitHub Actions" in

@@ -134,5 +134,33 @@ export interface Settings {
   googleRefreshToken?: string;
   lastSyncAt?: string;
   lastMonthlySummaryShown?: string; // YYYY-MM
+  /** questionId -> ISO timestamp last shown, so nothing repeats within 7 days. */
+  questionHistory?: Record<string, string>;
   updatedAt: string;
+}
+
+// -------------------------------------------------- the Free Time flow (5)
+
+/** Always asked, though the wording varies. */
+export type TimeBucket = '20min' | '1-2h' | 'half day' | 'all day';
+export type BrainState = 'fried' | 'normal' | 'sharp';
+
+/**
+ * What the flow learned. `projectPullId` comes from the "what do you secretly
+ * wish you were working on" question and drives the pull slot; undefined means
+ * they skipped it or said nothing in particular.
+ */
+export interface FreeTimeAnswers {
+  time: TimeBucket;
+  brain: BrainState;
+  projectPullId?: string;
+}
+
+export type SlotKind = 'pull' | 'neglected' | 'obligation';
+
+export interface PlannedSlot {
+  kind: SlotKind;
+  todo: Todo;
+  /** One line, shown under the title. Deterministic — no model involved. */
+  reason: string;
 }

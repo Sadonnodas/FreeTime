@@ -10,6 +10,7 @@
   } from '$lib/day';
   import CaptureBox from '$lib/components/CaptureBox.svelte';
   import DayClose from '$lib/components/DayClose.svelte';
+  import FreeTime from '$lib/components/FreeTime.svelte';
 
   /**
    * Dexie's liveQuery re-runs its callback whenever any table it touched
@@ -30,6 +31,7 @@
   let showClose = $state(false);
   let unlockAvailable = $state(false);
   let picking = $state(false);
+  let freeTime = $state(false);
 
   // Resolve the day's slot ids into actual todos, in slot order.
   $effect(() => {
@@ -131,15 +133,21 @@
     </section>
 
     {#if !slotTodos.length && !picking}
+      <!-- The single prominent button when the day is empty (spec 4.1). It
+           opens the full flow; the smaller picker below is only for adding one
+           more to a day that already exists. -->
       <button
         class="mt-6 w-full rounded-2xl bg-accent px-6 py-8 text-xl font-semibold text-ink-950"
-        onclick={() => (picking = true)}
+        onclick={() => (freeTime = true)}
       >
         Free Time
       </button>
-      <p class="mt-3 text-center text-xs text-ink-400">
-        Three is a full day. Two is a complete one.
-      </p>
+      <button
+        class="mt-3 w-full text-center text-xs text-ink-400 underline decoration-ink-700"
+        onclick={() => (picking = true)}
+      >
+        or just pick something
+      </button>
     {:else if roomLeft > 0 && !picking}
       <button
         class="mt-4 w-full rounded-2xl border border-dashed border-ink-700 py-4 text-ink-400"
@@ -217,4 +225,8 @@
 
 {#if showClose}
   <DayClose onDismiss={() => (showClose = false)} />
+{/if}
+
+{#if freeTime}
+  <FreeTime onDone={() => (freeTime = false)} />
 {/if}
