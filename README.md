@@ -9,7 +9,7 @@ the source of truth. This file covers how the code is put together and how to ru
 
 ## What exists today
 
-Phases 1 and 2 of the eight-phase plan in spec §10, plus the data foundations for
+Phases 1, 2 and 3 of the eight-phase plan in spec §10, plus the data foundations for
 the rest.
 
 | Working | Where |
@@ -24,10 +24,15 @@ the rest.
 | Day-close screen | [DayClose.svelte](src/lib/components/DayClose.svelte) |
 | Full schema for every record type in spec §3 | [db.ts](src/lib/db.ts), [types.ts](src/lib/types.ts) |
 | Installable, offline-capable PWA | [vite.config.ts](vite.config.ts) |
+| Google Drive sync, per-record merge | [sync.ts](src/lib/sync.ts), [merge.ts](src/lib/merge.ts) |
+| Google sign-in by redirect | [google/auth.ts](src/lib/google/auth.ts) |
 
-Not built yet, in the spec's order: Google OAuth + Drive sync (3), Gemini assistant and
-voice capture (4), habit cycle history and heatmap (5), monthly summary (6), list detail
-screens (7), Calendar (8), and the Notion importer.
+Not built yet, in the spec's order: Gemini assistant and voice capture (4), habit cycle
+history and heatmap (5), monthly summary (6), list detail screens (7), Calendar (8), and
+the Notion importer.
+
+Sync is written but dormant until you add an OAuth client ID — see **Google setup**
+below. Without one, sign-in is hidden and everything else works exactly as before.
 
 The Free Time flow runs entirely on local rules. Phase 4 adds Gemini ranking *on top of*
 it, never in place of it — the spec requires a working non-AI path for every AI feature,
@@ -142,6 +147,70 @@ deliberate: dev and prod resolving URLs differently is how a broken link ships u
 **To move to a user repo later**, set `BASE = ''` in both svelte.config.js and
 vite.config.ts. Everything else follows automatically.
 
+## Google setup
+
+Sync stays off until `GOOGLE_CLIENT_ID` in [src/lib/config.ts](src/lib/config.ts) is
+filled in. One-time, about ten minutes:
+
+1. **Create a project.** [console.cloud.google.com](https://console.cloud.google.com) →
+   project dropdown → *New Project* → name it `FreeTime`.
+2. **Enable two APIs.** *APIs & Services → Library*, then enable **Google Drive API** and
+   **Google Calendar API**.
+3. **Configure the consent screen.** *APIs & Services → OAuth consent screen* → **External**.
+   Fill in the app name and your email. **Leave it in Testing** — do not publish. Under
+   *Test users*, add your own Google account.
+   Testing mode is deliberate (spec §2.1): `calendar.readonly` is a sensitive scope, and
+   staying in Testing skips Google's verification review entirely. The price is a one-time
+   "Google hasn't verified this app" warning, which you click through via *Advanced*.
+4. **Create the client.** *Credentials → Create credentials → OAuth client ID →*
+   **Web application**.
+   - *Authorised JavaScript origins*: `https://sadonnodas.github.io` and
+     `http://localhost:5173`
+   - *Authorised redirect URIs*: `https://sadonnodas.github.io/FreeTime/` and
+     `http://localhost:5173/FreeTime/`
+   The trailing slash matters. Google matches redirect URIs character for character.
+5. **Paste the client ID** into `GOOGLE_CLIENT_ID` in
+   [src/lib/config.ts](src/lib/config.ts), commit, push. It is public by design — it
+   travels in the URL on every sign-in, and the flow's safety rests on the registered
+   redirect URI, not on hiding this string. Ignore the client *secret*; nothing here uses it.
+
+Then open the app → *Me → Settings → Connect Google*.
+
+### How sign-in actually works, and why
+
+The spec (§2.1) asked for PKCE with a public client and a stored refresh token. **Google
+does not support that for a static site**, which its own discovery document confirms:
+`token_endpoint_auth_methods_supported` lists only `client_secret_post` and
+`client_secret_basic` — there is no `none`, so a client with no secret cannot use the
+token endpoint at all. No token endpoint means no refresh token.
+
+So sign-in uses `response_type=token` (still advertised in
+`response_types_supported`) via a **full-page redirect**, never a popup — popups break out
+of iOS standalone PWA mode and lose the session.
+
+The consequence: **the token lasts one hour and there is no refresh token.** Renewal is
+another redirect with `prompt=none`, which returns instantly and shows nothing while your
+Google session is alive. That happens at app start only — never mid-interaction, because a
+redirect while you are typing would throw away what you were doing. If the hour runs out
+while the app is open, sync simply pauses; every write keeps working locally and catches
+up on the next open.
+
+If you ever want genuinely uninterrupted sync, the only way is a ~30-line backend
+(Cloudflare Worker) holding the client secret to do the token exchange and refresh. That
+would break "No backend" from §1, so it was not built. Your data would still never pass
+through it — only tokens.
+
+### If sign-in is refused
+
+Settings shows Google's error verbatim. The two worth knowing:
+
+- `redirect_uri_mismatch` — the registered URI does not match exactly. Settings prints the
+  one it is actually sending.
+- `unsupported_response_type` / `invalid_request` — the client will not permit the implicit
+  flow. Google deprecated it for new integrations, and the authorization server still
+  advertises it, but per-client policy could differ. If this happens, the token-backend
+  route above is the fallback.
+
 ## Secrets
 
 There are none in this repo, and there must never be any.
@@ -150,14 +219,11 @@ There are none in this repo, and there must never be any.
   is visible in their own browser's network tab, which is acceptable for a single-user
   app on their own device. Restrict it by HTTP referrer to the Pages origin in Google
   Cloud Console.
-- **Google OAuth** uses the PKCE flow as a public client — no secret exists to leak. The
-  refresh token is stored in IndexedDB.
+- **Google OAuth** uses no secret at all — see *Google setup* above. The access token it
+  does hold is short-lived and lives only in IndexedDB.
+- The **OAuth client ID** in `config.ts` is public by design and is not a secret.
 
-Both land in phase 3/4. Nothing is read from `.env` at build time.
-
-When wiring OAuth in phase 3, the authorised redirect URI is
-`https://sadonnodas.github.io/FreeTime/` — note the trailing path segment; Google matches
-it exactly.
+Nothing is read from `.env` at build time.
 
 ## Icons
 

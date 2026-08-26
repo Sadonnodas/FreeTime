@@ -131,7 +131,30 @@ export interface ConflictLog extends Base {
 export interface Settings {
   id: 'settings';
   geminiApiKey?: string;
-  googleRefreshToken?: string;
+
+  /**
+   * Google gives a browser app a 1-hour access token and no refresh token —
+   * the spec's original plan (PKCE, public client, store a refresh token) is
+   * not something Google supports for a static site. So this is short-lived by
+   * nature and is renewed by a full-page redirect; see google/auth.ts.
+   */
+  googleAccessToken?: string;
+  googleTokenExpiresAt?: string;
+  googleGrantedScopes?: string;
+  /** Has the user ever completed consent? Gates silent renewal attempts. */
+  googleConnected?: boolean;
+  /** Backoff marker so a failing silent renewal can't loop. */
+  lastSilentAuthAt?: string;
+  /** Google's own error code from the last failed sign-in, shown in Settings.
+   *  Worth surfacing verbatim: the useful ones are self-explanatory
+   *  (redirect_uri_mismatch, access_denied) and guessing at them wastes time. */
+  lastAuthError?: string;
+
+  /** Drive ids, remembered to save a lookup. Rediscoverable if lost. */
+  driveFolderId?: string;
+  driveNotesFolderId?: string;
+  driveFileIds?: Record<string, string>;
+
   lastSyncAt?: string;
   lastMonthlySummaryShown?: string; // YYYY-MM
   /** questionId -> ISO timestamp last shown, so nothing repeats within 7 days. */

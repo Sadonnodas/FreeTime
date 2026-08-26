@@ -4,6 +4,7 @@
   import type { Habit, HabitState } from '$lib/types';
   import { createHabit, setHabitState } from '$lib/store';
   import { winsSince } from '$lib/queries';
+  import { base } from '$app/paths';
 
   const habitsQ = liveQuery(async () =>
     (await db.habits.toArray()).filter((h) => !h.deletedAt)
@@ -106,9 +107,12 @@
 
   <section>
     <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">Settings</h2>
-    <div class="rounded-xl bg-ink-900 px-4 py-3 text-sm text-ink-400">
-      Google sign-in and the Gemini API key land here in phases 3 and 4. Both are
-      stored in this browser only — never in the repo, never in the build.
-    </div>
+    <a
+      href="{base}/me/settings"
+      class="flex items-center justify-between rounded-xl bg-ink-900 px-4 py-4"
+    >
+      <span>Sync, Google, Gemini</span>
+      <span class="text-ink-400">›</span>
+    </a>
   </section>
 </div>

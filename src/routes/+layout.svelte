@@ -4,8 +4,14 @@
   import { onMount } from 'svelte';
   import { seedIfEmpty } from '$lib/seed';
   import { base } from '$app/paths';
+  import { onDestroy } from 'svelte';
+  import { handleRedirect, renewIfSafe } from '$lib/google/auth';
+  import { startSync } from '$lib/sync';
 
   let { children } = $props();
+
+  let stopSync: (() => void) | undefined;
+  onDestroy(() => stopSync?.());
 
   /**
    * Four tabs, nothing nested deeper than two levels (spec 4).
@@ -28,8 +34,17 @@
   let ready = $state(false);
 
   onMount(async () => {
+    // Order matters. The OAuth fragment has to be consumed before anything
+    // else reads the URL, and the token has to be stored before sync starts.
+    await handleRedirect();
     await seedIfEmpty();
     ready = true;
+
+    // App start is one of the two safe moments to bounce through Google for a
+    // fresh token — nothing is half-typed yet. If this redirects, everything
+    // below simply runs again on the way back.
+    await renewIfSafe();
+    stopSync = startSync();
 
     // Registering the service worker is what makes the app boot with no
     // network. Imported dynamically because the virtual module only exists in
