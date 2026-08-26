@@ -9,7 +9,7 @@ the source of truth. This file covers how the code is put together and how to ru
 
 ## What exists today
 
-Phases 1, 2 and 3 of the eight-phase plan in spec §10, plus the data foundations for
+Phases 1 through 4 of the eight-phase plan in spec §10, plus the data foundations for
 the rest.
 
 | Working | Where |
@@ -26,10 +26,12 @@ the rest.
 | Installable, offline-capable PWA | [vite.config.ts](vite.config.ts) |
 | Google Drive sync, per-record merge | [sync.ts](src/lib/sync.ts), [merge.ts](src/lib/merge.ts) |
 | Google sign-in by redirect | [google/auth.ts](src/lib/google/auth.ts) |
+| Voice capture — record, transcribe, review | [VoiceCapture.svelte](src/lib/components/VoiceCapture.svelte), [audio.ts](src/lib/audio.ts) |
+| Assistant with confirm-before-write | [Assistant.svelte](src/lib/components/Assistant.svelte), [gemini/tools.ts](src/lib/gemini/tools.ts) |
+| AI questions + slot ranking, with fallback | [gemini/plan.ts](src/lib/gemini/plan.ts) |
 
-Not built yet, in the spec's order: Gemini assistant and voice capture (4), habit cycle
-history and heatmap (5), monthly summary (6), list detail screens (7), Calendar (8), and
-the Notion importer.
+Not built yet, in the spec's order: habit cycle history and heatmap (5), monthly summary
+(6), list detail screens (7), Calendar (8), and the Notion importer.
 
 Sync is written but dormant until you add an OAuth client ID — see **Google setup**
 below. Without one, sign-in is hidden and everything else works exactly as before.
@@ -94,6 +96,13 @@ be one refactor away from being lost, so they live in the model:
   `unlockedCount` only grows *after* the day is already closed. Three planned with a
   fourth earned means finishing three is 100%; four planned means it is 75%. Same work,
   opposite feeling.
+- **The assistant never writes silently** ([gemini/tools.ts](src/lib/gemini/tools.ts)).
+  Reads run immediately; writes come back as proposals and land only when tapped. A test
+  asserts every declared tool is deliberately classified, because a write misfiled as a
+  read would execute unnoticed and nothing else would catch it.
+- **Model output is validated, not trusted** ([gemini/plan.ts](src/lib/gemini/plan.ts)).
+  An unknown id, a duplicate, or an "obligation" with no date throws the whole response
+  away and the deterministic path runs instead.
 - **Slot selection is a deterministic filter** ([freetime.ts](src/lib/freetime.ts)). The
   app narrows the candidate pool by energy and time in plain code; the model, when it
   arrives, only ranks what survives. It never reaches into the whole database.
@@ -146,6 +155,27 @@ deliberate: dev and prod resolving URLs differently is how a broken link ships u
 
 **To move to a user repo later**, set `BASE = ''` in both svelte.config.js and
 vite.config.ts. Everything else follows automatically.
+
+## The audio pipeline
+
+Worth knowing, because the spec's version does not work as written.
+
+Spec §7.2 says `MediaRecorder` → blob → Gemini inline audio. But Gemini accepts
+**wav, mp3, aiff, aac, ogg and flac — not webm**, and webm/opus is exactly what Chrome's
+`MediaRecorder` produces, while Safari produces mp4/aac. Sending the raw blob would work
+on one device and fail on the other.
+
+So [audio.ts](src/lib/audio.ts) decodes the recording with the browser's own decoder —
+which by definition understands its own output — and re-encodes to **16 kHz mono WAV**.
+That is explicitly supported, needs no library (a WAV is a 44-byte header followed by
+samples), is what speech models want anyway, and is roughly 6× smaller than 48 kHz
+stereo. Size matters because inline data is base64, which adds another third.
+
+Recording stops hard at ten minutes, before the payload outgrows what can be sent inline.
+
+**Nothing is lost offline.** The WAV is written to IndexedDB before any network call, and
+a failure *after* recording re-queues rather than discarding. The queue drains on the
+next `online` event.
 
 ## Google setup
 

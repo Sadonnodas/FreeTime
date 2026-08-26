@@ -4,6 +4,7 @@
   import { hasApiKey } from '$lib/gemini/client';
   import { canRecord } from '$lib/audio';
   import VoiceCapture from './VoiceCapture.svelte';
+  import Assistant from './Assistant.svelte';
 
   /**
    * Capture must be under 5 seconds, with no required fields, ever (spec
@@ -17,10 +18,15 @@
 
   // The mic is hidden rather than disabled without a key: an AI feature that
   // is visible but dead is worse than one that was never offered (spec 7.4).
+  let hasKey = $state(false);
   let voiceAvailable = $state(false);
   let voiceOpen = $state(false);
+  let assistantOpen = $state(false);
   onMount(async () => {
-    voiceAvailable = canRecord() && (await hasApiKey());
+    hasKey = await hasApiKey();
+    // Recording needs both a key and a browser that can do it; the assistant
+    // only needs the key. Hidden entirely otherwise (spec 7.4).
+    voiceAvailable = canRecord() && hasKey;
   });
 
   async function submit(e: SubmitEvent) {
@@ -50,6 +56,16 @@
              placeholder:text-ink-400 transition-colors
              {flash ? 'border-good bg-ink-800' : 'border-ink-700 bg-ink-800 focus:border-accent'}"
     />
+    {#if hasKey && !text.trim()}
+      <button
+        type="button"
+        class="tap rounded-xl bg-ink-800 px-4 text-lg text-ink-200"
+        onclick={() => (assistantOpen = true)}
+        aria-label="Ask the assistant"
+      >
+        ✦
+      </button>
+    {/if}
     {#if voiceAvailable && !text.trim()}
       <button
         type="button"
@@ -76,4 +92,8 @@
 
 {#if voiceOpen}
   <VoiceCapture onDone={() => (voiceOpen = false)} />
+{/if}
+
+{#if assistantOpen}
+  <Assistant onDone={() => (assistantOpen = false)} />
 {/if}
