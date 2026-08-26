@@ -105,8 +105,13 @@ these as out of scope — they are not missing features.
 Live at **https://sadonnodas.github.io/FreeTime/**
 
 Pushing to `main` runs [.github/workflows/deploy.yml](.github/workflows/deploy.yml),
-which builds and publishes to GitHub Pages. `configure-pages` has `enablement: true`, so
-Pages switches itself on the first time the workflow runs — no settings toggle needed.
+which builds and publishes to GitHub Pages.
+
+**One-time setup:** in *Settings > Pages > Build and deployment*, Source must be set to
+**GitHub Actions**. The workflow cannot do this for you — creating a Pages site needs
+admin rights the built-in `GITHUB_TOKEN` does not have. Left on the default "Deploy from
+a branch", Pages ignores the workflow and runs Jekyll over the repo root instead, which
+publishes this README as a web page rather than the app.
 
 ### The base path
 
