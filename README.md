@@ -9,7 +9,7 @@ the source of truth. This file covers how the code is put together and how to ru
 
 ## What exists today
 
-Phases 1 through 7 of the eight-phase plan in spec §10.
+All eight phases of the plan in spec §10, plus the Notion importer (§9).
 
 | Working | Where |
 | --- | --- |
@@ -31,10 +31,11 @@ Phases 1 through 7 of the eight-phase plan in spec §10.
 | Habit detail — heatmap + cycle history | [habits.ts](src/lib/habits.ts), [me/habits/[id]](src/routes/me/habits/%5Bid%5D/+page.svelte) |
 | Monthly summary, once a month | [monthly.ts](src/lib/monthly.ts) |
 | List detail — want / doing / done | [brain/lists/[id]](src/routes/brain/lists/%5Bid%5D/+page.svelte) |
+| Calendar strip on Today, read-only | [google/calendar.ts](src/lib/google/calendar.ts) |
+| Notion importer with triage | [import/](src/lib/import/), [me/import](src/routes/me/import/+page.svelte) |
 
-Not built yet: Google Calendar on Today (8), and the Notion importer (§9). Calendar is
-deliberately last — it is the fiddliest integration and the least essential, since the
-user's calendar already works fine in Google.
+Everything in the spec is built. Calendar and the importer both need setup to do
+anything visible: Calendar needs Google sign-in, and the importer needs your export.
 
 Sync is written but dormant until you add an OAuth client ID — see **Google setup**
 below. Without one, sign-in is hidden and everything else works exactly as before.
@@ -174,6 +175,33 @@ deliberate: dev and prod resolving URLs differently is how a broken link ships u
 **To move to a user repo later**, set `BASE = ''` in both svelte.config.js and
 vite.config.ts. Everything else follows automatically.
 
+## The Notion importer
+
+Built against the real export, which turned out to matter — two things in it would have
+been imported wrongly by any reasonable-looking parser.
+
+**Dates have no year.** Notion writes `Feb 3`, `Mar 22`, `Feb 3 → Feb 3`. But
+`Date.parse('Mar 22')` happily succeeds, so a naive importer would file 43 stale rows as
+*this* year — every one landing in the past. This app has no "overdue" state by design, so
+a past date simply means "real obligation", and those rows would permanently occupy the
+obligation slot in Free Time with months-old noise. **Year-less dates are refused**, and
+the screen says how many and why. The to-do still imports; it just arrives undated, which
+means it waits.
+
+**Column names are useless.** A real export names unconfigured properties `Property` — and
+in this export that one name is a Yes/No flag in the to-do table and the **URL** in the
+shopping list. No header matching can tell those apart, so columns are also identified by
+what they *contain*. Every guess is shown and can be overridden before anything is written.
+
+**Workstreams are a decision, not an import.** The spec's diagnosis is that the old
+workspace ran Projects *and* Workstreams and neither replaced the other. So each project
+name found in the export gets an explicit choice — use an existing project, create one, or
+leave items unassigned — and the default is **leave unassigned**. Auto-creating a project
+per workstream is exactly how the old system grew nine projects of boilerplate.
+
+Triage ("go through them") exists for the same reason: per §9, forced re-entry is a useful
+filter, and much of that backlog is stale.
+
 ## The audio pipeline
 
 Worth knowing, because the spec's version does not work as written.
@@ -262,6 +290,9 @@ Settings shows Google's error verbatim. The two worth knowing:
 ## Secrets
 
 There are none in this repo, and there must never be any.
+
+- A `notion/` folder is **gitignored**. It holds a personal export and must never be
+  committed or published.
 
 - The **Gemini API key** is pasted into Settings by the user and stored in IndexedDB. It
   is visible in their own browser's network tab, which is acceptable for a single-user

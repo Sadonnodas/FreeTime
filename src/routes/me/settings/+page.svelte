@@ -6,6 +6,7 @@
   import type { ConflictLog } from '$lib/types';
   import { isGoogleConfigured, redirectUri, DRIVE_FOLDER } from '$lib/config';
   import { beginSignIn, signOut, isConnected } from '$lib/google/auth';
+  import { clearCalendarCache } from '$lib/google/calendar';
   import { onSyncState, syncNow, type SyncState } from '$lib/sync';
   import { ago } from '$lib/format';
   import { getApiKey, setApiKey } from '$lib/gemini/client';
@@ -87,6 +88,7 @@
               class="tap rounded-lg px-3 text-sm text-ink-400"
               onclick={async () => {
                 await signOut();
+                clearCalendarCache();
                 connected = false;
               }}>Disconnect</button
             >

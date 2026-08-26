@@ -111,5 +111,13 @@
       <span>Sync, Google, Gemini</span>
       <span class="text-ink-400">›</span>
     </a>
+
+    <a
+      href="{base}/me/import"
+      class="mt-2 flex items-center justify-between rounded-xl bg-ink-900 px-4 py-4"
+    >
+      <span>Import from Notion</span>
+      <span class="text-ink-400">›</span>
+    </a>
   </section>
 </div>

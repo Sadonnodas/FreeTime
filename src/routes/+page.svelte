@@ -11,6 +11,7 @@
   import CaptureBox from '$lib/components/CaptureBox.svelte';
   import DayClose from '$lib/components/DayClose.svelte';
   import MonthlySummary from '$lib/components/MonthlySummary.svelte';
+  import CalendarStrip from '$lib/components/CalendarStrip.svelte';
   import { pendingMonthlySummary, type MonthlySummary as Summary } from '$lib/monthly';
   import { onMount } from 'svelte';
   import FreeTime from '$lib/components/FreeTime.svelte';
@@ -100,8 +101,8 @@
       </p>
     </header>
 
-    <!-- Calendar strip (spec 4.1) is hidden entirely until Calendar is
-         connected in phase 8 — an empty strip would just be noise. -->
+    <!-- Hides itself entirely when there is nothing to show. -->
+    <CalendarStrip />
 
     <!-- The three -->
     <section class="space-y-3">
