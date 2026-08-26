@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import type {
   Project, Todo, Idea, BuyItem, List, ListItem,
   Habit, HabitLog, Day, Capture, Note, ConflictLog, Settings, QueuedAudio,
-  HabitStateChange
+  HabitStateChange, Widget
 } from './types';
 
 /**
@@ -32,6 +32,7 @@ export class FreeTimeDB extends Dexie {
   settings!: Table<Settings, string>;
   audioQueue!: Table<QueuedAudio, string>;
   habitStateChanges!: Table<HabitStateChange, string>;
+  widgets!: Table<Widget, string>;
 
   constructor() {
     super('freetime');
@@ -67,6 +68,11 @@ export class FreeTimeDB extends Dexie {
     // synthesises their first cycle from createdAt, so nothing looks broken.
     this.version(3).stores({
       habitStateChanges: 'id, habitId, at, updatedAt, deletedAt'
+    });
+
+    // Version 4 adds project widgets.
+    this.version(4).stores({
+      widgets: 'id, projectId, order, updatedAt, deletedAt'
     });
   }
 }

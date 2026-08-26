@@ -115,58 +115,60 @@
   };
 </script>
 
-<div class="fixed inset-0 z-50 flex flex-col bg-ink-950">
+<div class="glass-strong rise fixed inset-0 z-50 flex flex-col">
   <div class="flex items-center justify-between px-4 pt-safe">
-    <span class="py-3 text-xs uppercase tracking-wide text-ink-400">Voice capture</span>
+    <span class="section-label py-3">Voice capture</span>
     {#if phase !== 'recording'}
-      <button class="tap px-2 text-ink-400" onclick={onDone} aria-label="Close">×</button>
+      <button class="press tap px-2 text-[22px] leading-none text-ink-400" onclick={onDone} aria-label="Close">×</button>
     {/if}
   </div>
 
   <div class="flex flex-1 flex-col items-center justify-center px-6">
     {#if !supported}
-      <p class="text-center text-ink-400">
+      <p class="footnote text-center">
         This browser can't record audio. Use the text box on Today instead.
       </p>
     {:else if phase === 'idle'}
       <button
-        class="flex h-56 w-56 items-center justify-center rounded-full bg-accent text-2xl
-               font-semibold text-ink-950"
+        class="btn-hero press flex h-60 w-60 items-center justify-center rounded-full
+               text-[1.6rem] font-semibold"
         onclick={start}
       >
         Start
       </button>
-      <p class="mt-6 text-center text-sm text-ink-400">
+      <p class="footnote mt-6 text-center">
         Talk for as long as you like. Tap once more when you're done.
       </p>
     {:else if phase === 'recording'}
       <!-- Deliberately almost empty. Nothing to read, nothing to aim at except
            one very large target. -->
       <button
-        class="flex h-56 w-56 items-center justify-center rounded-full bg-red-500 text-2xl
+        class="press flex h-60 w-60 items-center justify-center rounded-full text-[1.6rem]
                font-semibold text-white"
+        style="background: linear-gradient(135deg, #ff453a, #ff2d55);
+               box-shadow: 0 10px 40px -12px rgba(255,69,58,.75)"
         onclick={stop}
       >
         Stop
       </button>
-      <p class="mt-6 font-mono text-3xl tabular-nums">{mmss(elapsed)}</p>
+      <p class="mt-7 text-[2rem] font-semibold tabular-nums tracking-[-0.02em]">{mmss(elapsed)}</p>
     {:else if phase === 'working'}
-      <p class="text-ink-400">Listening back…</p>
+      <p class="footnote">Listening back…</p>
     {:else if phase === 'queued'}
-      <p class="text-center text-lg">Saved for later.</p>
-      <p class="mt-2 text-center text-sm text-ink-400">
+      <p class="title-2 text-center">Saved for later.</p>
+      <p class="footnote mt-2 text-center">
         No connection right now. The recording is stored and will be turned into items
         the next time you're online.
       </p>
       <button
-        class="tap mt-6 rounded-xl bg-ink-800 px-5 py-3 text-ink-200"
+        class="btn btn-secondary press mt-6"
         onclick={onDone}>Done</button
       >
     {:else if phase === 'error'}
-      <p class="text-center text-lg">That didn't work.</p>
-      <p class="mt-2 text-center text-sm text-ink-400">{message}</p>
+      <p class="title-2 text-center">That didn't work.</p>
+      <p class="footnote mt-2 text-center">{message}</p>
       <button
-        class="tap mt-6 rounded-xl bg-ink-800 px-5 py-3 text-ink-200"
+        class="btn btn-secondary press mt-6"
         onclick={onDone}>Close</button
       >
     {/if}
@@ -174,7 +176,7 @@
 
   {#if phase === 'review'}
     <div class="flex-1 overflow-y-auto px-6">
-      <h2 class="py-4 text-xl font-semibold">
+      <h2 class="large-title py-4">
         {items.length} {items.length === 1 ? 'thing' : 'things'}
       </h2>
 
@@ -183,21 +185,21 @@
            store's trustworthiness is the whole product. -->
       <div class="space-y-2">
         {#each items as item, i (i)}
-          <div class="rounded-2xl border border-ink-700 bg-ink-900 p-3">
+          <div class="card rise p-3">
             <div class="flex items-start gap-2">
-              <span class="mt-0.5 rounded bg-ink-800 px-2 py-0.5 text-xs text-ink-400">
+              <span class="mt-0.5 rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-medium text-ink-400">
                 {KIND_LABEL[item.kind]}
               </span>
               <input
                 bind:value={items[i]!.text}
-                class="min-w-0 flex-1 bg-transparent text-base outline-none"
+                class="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
               />
-              <button class="tap px-1 text-ink-400" onclick={() => drop(i)} aria-label="Discard">
+              <button class="press tap px-1 text-ink-400" onclick={() => drop(i)} aria-label="Discard">
                 ×
               </button>
             </div>
             {#if item.projectName || item.listName || item.energy}
-              <p class="mt-1 pl-1 text-xs text-ink-400">
+              <p class="footnote mt-1 pl-1">
                 {[item.projectName, item.listName, item.energy].filter(Boolean).join(' · ')}
               </p>
             {/if}
@@ -206,7 +208,7 @@
       </div>
 
       {#if transcript}
-        <details class="mt-4 text-sm text-ink-400">
+        <details class="footnote mt-4">
           <summary class="tap py-2">What it heard</summary>
           <p class="whitespace-pre-wrap pb-4">{transcript}</p>
         </details>
@@ -214,11 +216,11 @@
     </div>
 
     <div class="flex gap-2 p-6 pb-safe">
-      <button class="tap flex-1 rounded-2xl bg-ink-800 py-4 text-ink-200" onclick={onDone}>
+      <button class="btn btn-secondary press flex-1 py-4" onclick={onDone}>
         Discard
       </button>
       <button
-        class="flex-1 rounded-2xl bg-accent py-4 font-medium text-ink-950 disabled:opacity-30"
+        class="btn btn-primary press flex-1 py-4"
         disabled={!items.length}
         onclick={commit}
       >

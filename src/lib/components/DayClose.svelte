@@ -20,21 +20,21 @@
   });
 </script>
 
-<div class="fixed inset-0 z-50 flex flex-col bg-ink-950/95 backdrop-blur">
+<div class="glass-strong rise fixed inset-0 z-50 flex flex-col">
   <div class="flex-1 overflow-y-auto px-6 pt-safe">
     <div class="py-10 text-center">
-      <p class="text-5xl">✓</p>
-      <h2 class="mt-4 text-2xl font-semibold">Day closed.</h2>
-      <p class="mt-1 text-ink-400">That's a full day. Anything else is a bonus.</p>
+      <p class="text-[64px] leading-none">✓</p>
+      <h2 class="large-title mt-4">Day closed.</h2>
+      <p class="footnote mt-1">That's a full day. Anything else is a bonus.</p>
     </div>
 
     {#if wins.length}
-      <h3 class="mb-3 text-xs font-medium uppercase tracking-wide text-ink-400">
+      <h3 class="section-label mb-3">
         Closed this week — {wins.length}
       </h3>
       <ul class="space-y-1 pb-6">
         {#each wins as win (win.id)}
-          <li class="rounded-xl bg-ink-900 px-4 py-3 text-ink-200">{win.text}</li>
+          <li class="card-flat px-4 py-3 text-ink-200">{win.text}</li>
         {/each}
       </ul>
     {/if}
@@ -42,7 +42,7 @@
 
   <div class="p-6 pb-safe">
     <button
-      class="w-full rounded-2xl bg-accent py-4 text-lg font-medium text-ink-950"
+      class="btn btn-primary press w-full py-4 text-[17px]"
       onclick={onDismiss}
     >
       Nice

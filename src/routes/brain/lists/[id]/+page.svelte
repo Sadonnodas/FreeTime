@@ -55,8 +55,8 @@
 
 <div class="px-4 pt-safe pb-8">
   <header class="py-4">
-    <a href="{base}/brain" class="text-sm text-ink-400">← Brain</a>
-    <h1 class="mt-1 text-2xl font-semibold tracking-tight">
+    <a href="{base}/brain" class="press footnote inline-block">‹ Brain</a>
+    <h1 class="large-title mt-1">
       {$listQ?.icon ?? ''}
       {$listQ?.name ?? ''}
     </h1>
@@ -67,24 +67,22 @@
       <input
         bind:value={text}
         placeholder="Add something"
-        class="tap min-w-0 flex-1 rounded-xl border border-ink-700 bg-ink-800 px-4 outline-none
-               focus:border-accent"
+        class="field min-w-0 flex-1 "
       />
       <button
         type="button"
-        class="tap rounded-xl bg-ink-800 px-3 text-sm text-ink-400"
+        class="press tap rounded-xl bg-white/8 px-3 text-sm text-ink-400"
         onclick={() => (showUrl = !showUrl)}
         aria-label="Add a link">🔗</button
       >
-      <button class="tap rounded-xl bg-accent px-5 font-medium text-ink-950">Add</button>
+      <button class="btn btn-primary press">Add</button>
     </div>
     {#if showUrl}
       <input
         bind:value={url}
         placeholder="https://…"
         inputmode="url"
-        class="tap mt-2 w-full rounded-xl border border-ink-700 bg-ink-800 px-4 text-sm
-               outline-none focus:border-accent"
+        class="field press mt-2 w-full "
       />
     {/if}
   </form>
@@ -93,14 +91,14 @@
     {@const items = inState(group.value)}
     {#if items.length}
       <section class="mb-6">
-        <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">
+        <h2 class="section-label mb-2">
           {group.label} — {items.length}
         </h2>
         <ul class="space-y-1">
           {#each items as item (item.id)}
-            <li class="flex items-center gap-2 rounded-xl bg-ink-900 px-3">
+            <li class="card-flat flex items-center gap-2 px-3">
               <button
-                class="tap shrink-0 text-xs {item.state === 'done'
+                class="press tap shrink-0 text-xs {item.state === 'done'
                   ? 'text-good'
                   : 'text-ink-400'}"
                 onclick={() => setListItemState(item.id, nextState(item.state))}
@@ -114,7 +112,7 @@
                     href={item.url}
                     target="_blank"
                     rel="noreferrer"
-                    class="block truncate text-accent underline decoration-ink-700"
+                    class="block truncate text-accent"
                   >
                     {item.text}
                   </a>
@@ -125,7 +123,7 @@
                 {/if}
               </div>
               <button
-                class="tap shrink-0 px-1 text-ink-400"
+                class="press tap shrink-0 px-1 text-ink-400"
                 onclick={() => softDelete('listItems', item.id)}
                 aria-label="Remove">×</button
               >
@@ -137,6 +135,6 @@
   {/each}
 
   {#if !(($itemsQ as ListItem[] | undefined) ?? []).length}
-    <p class="py-10 text-center text-sm text-ink-400">Nothing on this list yet.</p>
+    <p class="footnote py-10 text-center">Nothing on this list yet.</p>
   {/if}
 </div>

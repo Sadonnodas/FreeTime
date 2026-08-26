@@ -43,7 +43,7 @@
   }
 </script>
 
-<form onsubmit={submit} class="border-t border-ink-800 bg-ink-900 p-3">
+<form onsubmit={submit} class="glass hairline-t p-3">
   <div class="flex gap-2">
     <input
       bind:this={input}
@@ -52,14 +52,12 @@
       placeholder="Anything at all…"
       enterkeyhint="done"
       autocomplete="off"
-      class="tap flex-1 rounded-xl border px-4 text-base text-ink-50 outline-none
-             placeholder:text-ink-400 transition-colors
-             {flash ? 'border-good bg-ink-800' : 'border-ink-700 bg-ink-800 focus:border-accent'}"
+      class="field min-w-0 flex-1 {flash ? 'border-good/60' : ''}"
     />
     {#if hasKey && !text.trim()}
       <button
         type="button"
-        class="tap rounded-xl bg-ink-800 px-4 text-lg text-ink-200"
+        class="press tap rounded-xl bg-white/8 px-4 text-lg text-ink-200"
         onclick={() => (assistantOpen = true)}
         aria-label="Ask the assistant"
       >
@@ -69,7 +67,7 @@
     {#if voiceAvailable && !text.trim()}
       <button
         type="button"
-        class="tap rounded-xl bg-ink-800 px-4 text-lg text-ink-200"
+        class="press tap rounded-xl bg-white/8 px-4 text-lg text-accent"
         onclick={() => (voiceOpen = true)}
         aria-label="Record a brain-dump"
       >
@@ -79,14 +77,14 @@
       <button
         type="submit"
         disabled={!text.trim()}
-        class="tap rounded-xl bg-accent px-5 font-medium text-ink-950 disabled:opacity-30"
+        class="btn btn-primary press"
       >
         Add
       </button>
     {/if}
   </div>
   {#if flash}
-    <p class="mt-2 text-xs text-good">Saved to Brain.</p>
+    <p class="mt-2 text-[12px] text-good">Saved to Brain.</p>
   {/if}
 </form>
 

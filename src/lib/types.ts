@@ -154,6 +154,43 @@ export interface QueuedAudio extends Base {
   processedAt?: string;
 }
 
+/**
+ * A block on a project page.
+ *
+ * These sit ABOVE the project's three tabs rather than becoming a fourth one.
+ * The spec says a project has exactly three tabs and means it — depth is what
+ * killed the last system — so the widgets are a header you arrange, and Notes /
+ * To-dos / Buy stay exactly as they were.
+ *
+ * Deliberately absent from the kinds below: anything that renders as progress.
+ * No percentage, no bar, no target. `counts` shows two plain numbers and
+ * `activity` is a heatmap of what happened, neither measured against a goal.
+ */
+export type WidgetKind = 'countdown' | 'note' | 'activity' | 'counts' | 'links' | 'image';
+
+export interface WidgetLink {
+  label: string;
+  url: string;
+}
+
+export interface Widget extends Base {
+  projectId: string;
+  kind: WidgetKind;
+  /** Shown as the block's small caps header. Optional. */
+  title?: string;
+  size: 'small' | 'wide';
+  order: number;
+
+  /** countdown */
+  date?: string; // YYYY-MM-DD
+  /** note — plain text pinned to the top of the project */
+  text?: string;
+  /** links */
+  links?: WidgetLink[];
+  /** image — a resized data URL. See widgets.ts for why it is capped. */
+  image?: string;
+}
+
 /** Quiet insurance for the rare sync overwrite (spec 8.3). Surfaced in Settings. */
 export interface ConflictLog extends Base {
   table: string;

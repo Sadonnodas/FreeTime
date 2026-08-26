@@ -132,30 +132,30 @@
 
 <div class="px-4 pt-safe pb-8">
   <header class="py-4">
-    <a href="{base}/me" class="text-sm text-ink-400">← Me</a>
-    <h1 class="mt-1 text-2xl font-semibold tracking-tight">Import</h1>
+    <a href="{base}/me" class="press footnote inline-block">‹ Me</a>
+    <h1 class="large-title mt-1">Import</h1>
   </header>
 
   {#if step === 'pick'}
-    <p class="mb-4 text-sm text-ink-400">
+    <p class="footnote mb-4">
       Pick one CSV from a Notion export. Nothing is written until you say so, and the file
       never leaves this device.
     </p>
-    <label class="tap block rounded-2xl border border-dashed border-ink-700 p-6 text-center">
+    <label class="card press tap block border-dashed p-8 text-center">
       <input type="file" accept=".csv,text/csv" class="hidden" onchange={onFile} />
       <span class="text-accent">Choose a CSV</span>
     </label>
 
     <section class="mt-8">
-      <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">
+      <h2 class="section-label mb-2">
         Or a page as a project note
       </h2>
-      <p class="mb-2 text-xs text-ink-400">
+      <p class="footnote mb-2">
         Markdown, appended to that project's notes. Never overwrites what's there.
       </p>
       <select
         bind:value={noteProjectId}
-        class="tap mb-2 w-full rounded-xl border border-ink-700 bg-ink-800 px-3 text-sm"
+        class="field press mb-2 w-full "
       >
         <option value="">Choose a project…</option>
         {#each $projectsQ ?? [] as p (p.id)}
@@ -163,7 +163,7 @@
         {/each}
       </select>
       {#if noteProjectId}
-        <label class="tap block rounded-xl border border-dashed border-ink-700 p-4 text-center">
+        <label class="card-flat press tap block border border-dashed border-white/12 p-5 text-center">
           <input type="file" accept=".md,.markdown,.txt" class="hidden" onchange={onMarkdown} />
           <span class="text-sm text-accent">Choose a .md file</span>
         </label>
@@ -172,18 +172,18 @@
     </section>
   {:else if step === 'map'}
     <p class="mb-1 text-sm">{fileName}</p>
-    <p class="mb-4 text-xs text-ink-400">
+    <p class="footnote mb-4">
       {rows.length} rows · {candidates.length} with a title
     </p>
 
     <section class="mb-6">
-      <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">Import as</h2>
+      <h2 class="section-label mb-2">Import as</h2>
       <div class="flex flex-wrap gap-2">
         {#each [['todo', 'To-dos'], ['buy', 'Buy'], ['idea', 'Ideas'], ['list_item', 'List items']] as const as [value, label]}
           <button
-            class="tap rounded-xl border px-4 text-sm {target === value
-              ? 'border-accent text-ink-50'
-              : 'border-ink-700 text-ink-400'}"
+            class="press tap rounded-xl border px-4 text-sm {target === value
+              ? 'border-accent/60 bg-accent/[0.08] text-ink-50'
+              : 'border-white/10 text-ink-400'}"
             onclick={() => {
               target = value;
               remap();
@@ -194,21 +194,21 @@
     </section>
 
     <section class="mb-6">
-      <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">Columns</h2>
-      <p class="mb-2 text-xs text-ink-400">
+      <h2 class="section-label mb-2">Columns</h2>
+      <p class="footnote mb-2">
         Guessed from the headers and the values. Change anything that looks wrong.
       </p>
       <div class="space-y-2">
         {#each FIELDS.filter((f) => f.forTargets.includes(target)) as field (field.key)}
           <label class="flex items-center gap-2">
-            <span class="w-28 shrink-0 text-sm text-ink-400">{field.label}</span>
+            <span class="footnote w-28 shrink-0">{field.label}</span>
             <select
               value={mapping[field.key] ?? ''}
               onchange={(e) => {
                 mapping = { ...mapping, [field.key]: e.currentTarget.value || undefined };
                 void refresh();
               }}
-              class="tap min-w-0 flex-1 rounded-lg border border-ink-700 bg-ink-800 px-2 text-sm"
+              class="field min-w-0 flex-1"
             >
               <option value="">— none —</option>
               {#each headers as h (h)}
@@ -222,7 +222,7 @@
       {#if yearlessDates > 0}
         <!-- A real and easily-missed problem in this export, so it is stated
              plainly rather than left as a silent drop. -->
-        <p class="mt-3 rounded-xl bg-ink-800 p-3 text-xs text-ink-200">
+        <p class="card-flat mt-3 p-3 text-xs text-ink-200">
           {yearlessDates} of these dates have no year — Notion writes “Feb 3”, not
           “Feb 3 2026”. They're being left off rather than guessed, because a wrong date
           becomes a real obligation here. Those to-dos come in undated, which just means
@@ -233,21 +233,21 @@
 
     {#if Object.keys(decisions).length}
       <section class="mb-6">
-        <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">
+        <h2 class="section-label mb-2">
           Project names found
         </h2>
-        <p class="mb-2 text-xs text-ink-400">
+        <p class="footnote mb-2">
           Old workstreams become real projects only if you say so. Anything dropped just
           means the item comes in unassigned — which is fine.
         </p>
         <div class="space-y-2">
           {#each Object.keys(decisions) as name (name)}
             <label class="flex items-center gap-2">
-              <span class="w-28 shrink-0 truncate text-sm">{name}</span>
+              <span class="w-28 shrink-0 truncate text-[15px]">{name}</span>
               <select
                 value={decisionValue(name)}
                 onchange={(e) => setDecision(name, e.currentTarget.value)}
-                class="tap min-w-0 flex-1 rounded-lg border border-ink-700 bg-ink-800 px-2 text-sm"
+                class="field min-w-0 flex-1"
               >
                 <option value="drop">Leave unassigned</option>
                 <option value="create">Create project “{name}”</option>
@@ -263,38 +263,38 @@
 
     <div class="flex gap-2">
       <button
-        class="tap flex-1 rounded-2xl bg-ink-800 py-4 text-ink-200"
+        class="btn btn-secondary press flex-1 py-4"
         onclick={startTriage}
         disabled={!candidates.length}>Go through them</button
       >
       <button
-        class="flex-1 rounded-2xl bg-accent py-4 font-medium text-ink-950 disabled:opacity-30"
+        class="btn btn-primary press flex-1 py-4"
         onclick={importAll}
         disabled={!candidates.length}>Import all {candidates.length}</button
       >
     </div>
-    <p class="mt-2 text-center text-xs text-ink-400">
+    <p class="footnote mt-3 text-center">
       Going through them one at a time is slower, and it's how the stale half gets left
       behind.
     </p>
   {:else if step === 'triage'}
     {@const c = candidates[index]}
-    <p class="mb-3 text-xs text-ink-400">{index + 1} of {candidates.length} · kept {kept.length}</p>
+    <p class="footnote mb-3">{index + 1} of {candidates.length} · kept {kept.length}</p>
     {#if c}
-      <div class="mb-4 rounded-2xl border border-ink-700 bg-ink-900 p-4">
-        <p class="text-lg leading-snug">{c.title}</p>
+      <div class="card rise mb-4 p-5">
+        <p class="body">{c.title}</p>
         {#if c.projectName || c.energy || c.done}
-          <p class="mt-2 text-xs text-ink-400">
+          <p class="footnote mt-2">
             {[c.projectName, c.energy, c.done ? 'already done' : null].filter(Boolean).join(' · ')}
           </p>
         {/if}
       </div>
       <div class="flex gap-2">
-        <button class="tap flex-1 rounded-2xl bg-ink-800 py-4 text-ink-400" onclick={() => decide(false)}>
+        <button class="btn btn-secondary press flex-1 py-4 text-ink-400" onclick={() => decide(false)}>
           Drop
         </button>
         <button
-          class="flex-1 rounded-2xl bg-accent py-4 font-medium text-ink-950"
+          class="btn btn-primary press flex-1 py-4"
           onclick={() => decide(true)}>Keep</button
         >
       </div>
@@ -305,14 +305,14 @@
     {/if}
   {:else}
     <div class="py-10 text-center">
-      <p class="text-2xl font-semibold">{result.written} imported.</p>
+      <p class="large-title">{result.written} imported.</p>
       {#if result.projectsCreated.length}
         <p class="mt-2 text-sm text-ink-400">
           New projects: {result.projectsCreated.join(', ')}
         </p>
       {/if}
       <button
-        class="tap mt-6 rounded-xl bg-ink-800 px-5 py-3 text-ink-200"
+        class="btn btn-secondary press mt-6"
         onclick={() => {
           step = 'pick';
           fileName = '';

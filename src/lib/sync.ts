@@ -27,7 +27,9 @@ const FILES: { table: keyof typeof db & string; file: string }[] = [
   { table: 'habits', file: 'habits.json' },
   { table: 'habitLogs', file: 'habit-logs.json' },
   { table: 'days', file: 'days.json' },
-  { table: 'captures', file: 'captures.json' }
+  { table: 'captures', file: 'captures.json' },
+  { table: 'habitStateChanges', file: 'habit-state-changes.json' },
+  { table: 'widgets', file: 'widgets.json' }
 ];
 
 export type SyncState =

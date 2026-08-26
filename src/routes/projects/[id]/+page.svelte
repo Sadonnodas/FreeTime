@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import { db } from '$lib/db';
   import { base } from '$app/paths';
+  import WidgetBoard from '$lib/components/WidgetBoard.svelte';
   import type { Todo, BuyItem } from '$lib/types';
   import { createTodo, completeTodo, createBuyItem, markPurchased, saveNote, getNote } from '$lib/store';
 
@@ -11,6 +12,7 @@
   let tab = $state<Tab>('todos');
 
   const id = $derived(page.params.id!);
+  const projectId = $derived(id);
 
   const projectQ = $derived(liveQuery(() => db.projects.get(id)));
   const todosQ = $derived(
@@ -60,18 +62,16 @@
 
 <div class="px-4 pt-safe pb-8">
   <header class="py-4">
-    <a href="{base}/projects" class="text-sm text-ink-400">← Projects</a>
-    <h1 class="mt-1 text-2xl font-semibold tracking-tight">{$projectQ?.name ?? ''}</h1>
+    <a href="{base}/projects" class="press footnote inline-block">‹ Projects</a>
+    <h1 class="large-title mt-1">{$projectQ?.name ?? ''}</h1>
   </header>
 
-  <div class="mb-4 flex gap-1 rounded-xl bg-ink-900 p-1">
+  <!-- Blocks live above the tabs, not as a fourth one. -->
+  <WidgetBoard {projectId} />
+
+  <div class="segmented mb-4">
     {#each [['notes', 'Notes'], ['todos', 'To-dos'], ['buy', 'Buy']] as const as [key, label]}
-      <button
-        class="tap flex-1 rounded-lg text-sm {tab === key
-          ? 'bg-ink-700 text-ink-50'
-          : 'text-ink-400'}"
-        onclick={() => (tab = key)}
-      >
+      <button class="press segment {tab === key ? 'segment-on' : ''}" onclick={() => (tab = key)}>
         {label}
       </button>
     {/each}
@@ -84,8 +84,7 @@
       bind:value={markdown}
       oninput={onNoteInput}
       placeholder="Markdown. Autosaves."
-      class="min-h-[60vh] w-full rounded-2xl border border-ink-700 bg-ink-900 p-4
-             font-mono text-sm leading-relaxed outline-none focus:border-accent"
+      class="field min-h-[60vh] w-full py-4 font-mono text-sm leading-relaxed"
     ></textarea>
   {:else if tab === 'todos'}
     <form
@@ -100,17 +99,16 @@
       <input
         bind:value={newTodo}
         placeholder="Add a to-do"
-        class="tap flex-1 rounded-xl border border-ink-700 bg-ink-800 px-4 outline-none
-               focus:border-accent"
+        class="field min-w-0 flex-1"
       />
-      <button class="tap rounded-xl bg-accent px-5 font-medium text-ink-950">Add</button>
+      <button class="btn btn-primary press">Add</button>
     </form>
 
     <ul class="space-y-1">
       {#each open as todo (todo.id)}
-        <li class="flex items-center gap-3 rounded-xl bg-ink-900 px-3">
+        <li class="card-flat flex items-center gap-3 px-3">
           <button
-            class="tap shrink-0 text-ink-400"
+            class="press tap shrink-0 text-ink-400"
             onclick={() => completeTodo(todo.id)}
             aria-label="Complete">○</button
           >
@@ -120,12 +118,12 @@
     </ul>
 
     {#if closed.length}
-      <h2 class="mb-2 mt-6 text-xs font-medium uppercase tracking-wide text-ink-400">
+      <h2 class="section-label mb-2 mt-6">
         Closed — {closed.length}
       </h2>
       <ul class="space-y-1">
         {#each closed as todo (todo.id)}
-          <li class="flex items-center gap-3 rounded-xl bg-ink-900/50 px-3 text-ink-400">
+          <li class="flex items-center gap-3 rounded-2xl bg-white/[0.025] px-3 text-ink-400">
             <span class="shrink-0 text-good">✓</span>
             <span class="flex-1 py-3">{todo.title}</span>
           </li>
@@ -145,15 +143,14 @@
       <input
         bind:value={newBuy}
         placeholder="Something to buy"
-        class="tap flex-1 rounded-xl border border-ink-700 bg-ink-800 px-4 outline-none
-               focus:border-accent"
+        class="field min-w-0 flex-1"
       />
-      <button class="tap rounded-xl bg-accent px-5 font-medium text-ink-950">Add</button>
+      <button class="btn btn-primary press">Add</button>
     </form>
 
     <ul class="space-y-1">
       {#each ($buyQ as BuyItem[] | undefined) ?? [] as item (item.id)}
-        <li class="flex items-center gap-3 rounded-xl bg-ink-900 px-3">
+        <li class="card-flat flex items-center gap-3 px-3">
           <button
             class="tap shrink-0 {item.purchasedAt ? 'text-good' : 'text-ink-400'}"
             onclick={() => markPurchased(item.id, !item.purchasedAt)}

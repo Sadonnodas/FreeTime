@@ -1,0 +1,164 @@
+import { db } from './db';
+import type { Widget, WidgetKind, WidgetLink, Todo } from './types';
+import { uid, now, today } from './store';
+
+/**
+ * Project widgets — the configurable blocks above a project's three tabs.
+ */
+
+export const WIDGET_KINDS: { kind: WidgetKind; label: string; hint: string }[] = [
+  { kind: 'countdown', label: 'Countdown', hint: 'Days until a date that matters' },
+  { kind: 'note', label: 'Pinned note', hint: 'A few lines kept in view' },
+  { kind: 'activity', label: 'Activity', hint: 'What you closed, week by week' },
+  { kind: 'counts', label: 'Counts', hint: 'Open, and closed this month' },
+  { kind: 'links', label: 'Links', hint: 'Things you keep opening' },
+  { kind: 'image', label: 'Photo', hint: 'A picture of the thing' }
+];
+
+export async function widgetsFor(projectId: string): Promise<Widget[]> {
+  const all = await db.widgets.where('projectId').equals(projectId).toArray();
+  return all.filter((w) => !w.deletedAt).sort((a, b) => a.order - b.order);
+}
+
+export async function addWidget(projectId: string, kind: WidgetKind): Promise<string> {
+  const existing = await widgetsFor(projectId);
+  const t = now();
+  const w: Widget = {
+    id: uid(),
+    projectId,
+    kind,
+    // Wide by default for the kinds that need the room; the rest pair up.
+    size: kind === 'note' || kind === 'links' || kind === 'image' ? 'wide' : 'small',
+    order: existing.length,
+    createdAt: t,
+    updatedAt: t
+  };
+  await db.widgets.add(w);
+  return w.id;
+}
+
+export async function updateWidget(id: string, patch: Partial<Widget>): Promise<void> {
+  await db.widgets.update(id, { ...patch, updatedAt: now() });
+}
+
+export async function removeWidget(id: string): Promise<void> {
+  await db.widgets.update(id, { deletedAt: now(), updatedAt: now() });
+}
+
+/** Swaps a widget with its neighbour and renumbers, so order stays dense. */
+export async function moveWidget(id: string, direction: -1 | 1): Promise<void> {
+  const widget = await db.widgets.get(id);
+  if (!widget) return;
+
+  const siblings = await widgetsFor(widget.projectId);
+  const index = siblings.findIndex((w) => w.id === id);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= siblings.length) return;
+
+  const reordered = [...siblings];
+  [reordered[index], reordered[target]] = [reordered[target]!, reordered[index]!];
+
+  const t = now();
+  await Promise.all(
+    reordered.map((w, i) => db.widgets.update(w.id, { order: i, updatedAt: t }))
+  );
+}
+
+// ------------------------------------------------------------ derived data
+
+/** Whole days from today until `date`. Negative once it has passed. */
+export function daysUntil(date: string): number {
+  const [y, m, d] = date.split('-').map(Number);
+  const target = new Date(y!, m! - 1, d!);
+  target.setHours(0, 0, 0, 0);
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - start.getTime()) / 86_400_000);
+}
+
+/**
+ * Countdown copy.
+ *
+ * A past date says "12 days ago", never "12 days overdue" — nothing in this
+ * app is ever late, and a widget is exactly where that language would creep
+ * back in.
+ */
+export function countdownLabel(date: string): { value: string; caption: string } {
+  const days = daysUntil(date);
+  if (days === 0) return { value: 'Today', caption: '' };
+  if (days === 1) return { value: 'Tomorrow', caption: '' };
+  if (days === -1) return { value: 'Yesterday', caption: '' };
+  if (days > 0) return { value: String(days), caption: days === 1 ? 'day' : 'days' };
+  return { value: String(-days), caption: 'days ago' };
+}
+
+/** Completions per week for the last `weeks` weeks, oldest first. */
+export async function activityByWeek(projectId: string, weeks = 12): Promise<number[]> {
+  const todos = await db.todos.where('projectId').equals(projectId).toArray();
+  const done = todos
+    .filter((t): t is Todo & { completedAt: string } => !t.deletedAt && !!t.completedAt)
+    .map((t) => new Date(t.completedAt).getTime());
+
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  // Back to the most recent Monday, then back `weeks - 1` further.
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7) - (weeks - 1) * 7);
+
+  const buckets = new Array<number>(weeks).fill(0);
+  for (const at of done) {
+    const week = Math.floor((at - start.getTime()) / (7 * 86_400_000));
+    if (week >= 0 && week < weeks) buckets[week]! += 1;
+  }
+  return buckets;
+}
+
+export interface ProjectCounts {
+  open: number;
+  closedThisMonth: number;
+}
+
+export async function projectCounts(projectId: string): Promise<ProjectCounts> {
+  const todos = (await db.todos.where('projectId').equals(projectId).toArray()).filter(
+    (t) => !t.deletedAt
+  );
+  const monthStart = today().slice(0, 7);
+  return {
+    open: todos.filter((t) => !t.completedAt).length,
+    closedThisMonth: todos.filter((t) => t.completedAt?.slice(0, 7) === monthStart).length
+  };
+}
+
+/** The next dated, still-open to-do in this project — the countdown's default. */
+export async function nextDated(projectId: string): Promise<Todo | undefined> {
+  const todos = (await db.todos.where('projectId').equals(projectId).toArray()).filter(
+    (t) => !t.deletedAt && !t.completedAt && !!t.date
+  );
+  return todos.sort((a, b) => a.date!.localeCompare(b.date!))[0];
+}
+
+// ----------------------------------------------------------------- images
+
+/** Widget images sync inside widgets.json as data URLs, so they are resized
+ *  hard first. A phone photo is 3–5 MB; left alone, two of them would make
+ *  every sync upload more than the entire rest of the database. */
+const MAX_IMAGE_EDGE = 1000;
+const IMAGE_QUALITY = 0.72;
+
+export async function resizeImage(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Cannot process images in this browser.');
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close();
+
+  return canvas.toDataURL('image/jpeg', IMAGE_QUALITY);
+}
+
+export type { WidgetLink };

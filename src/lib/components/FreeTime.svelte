@@ -125,44 +125,44 @@
   };
 </script>
 
-<div class="fixed inset-0 z-50 flex flex-col bg-ink-950">
+<div class="glass-strong rise fixed inset-0 z-50 flex flex-col">
   <div class="flex items-center justify-between px-4 pt-safe">
-    <span class="py-3 text-xs uppercase tracking-wide text-ink-400">Free Time</span>
-    <button class="tap px-2 text-ink-400" onclick={onDone} aria-label="Close">×</button>
+    <span class="section-label py-3">Free Time</span>
+    <button class="press tap px-2 text-[22px] leading-none text-ink-400" onclick={onDone} aria-label="Close">×</button>
   </div>
 
   <div class="flex-1 overflow-y-auto px-6">
     {#if step === 'time'}
-      <h2 class="py-6 text-2xl font-semibold">How long have you got?</h2>
+      <h2 class="large-title py-6">How long have you got?</h2>
       <div class="space-y-3">
         {#each TIMES as t (t.value)}
           <button
-            class="tap w-full rounded-2xl border border-ink-700 bg-ink-900 px-5 py-5 text-left text-lg"
+            class="card press tap w-full px-5 py-5 text-left text-[17px]"
             onclick={() => chooseTime(t.value)}>{t.label}</button
           >
         {/each}
       </div>
     {:else if step === 'brain'}
-      <h2 class="py-6 text-2xl font-semibold">What's your head like?</h2>
+      <h2 class="large-title py-6">What's your head like?</h2>
       <div class="space-y-3">
         {#each BRAINS as b (b.value)}
           <button
-            class="tap w-full rounded-2xl border border-ink-700 bg-ink-900 px-5 py-4 text-left"
+            class="card press tap w-full px-5 py-4 text-left"
             onclick={() => chooseBrain(b.value)}
           >
-            <span class="block text-lg">{b.label}</span>
-            <span class="block text-sm text-ink-400">{b.hint}</span>
+            <span class="block text-[17px]">{b.label}</span>
+            <span class="footnote block">{b.hint}</span>
           </button>
         {/each}
       </div>
     {:else if step === 'rotating'}
       {@const q = rotating[rotatingIndex]}
       {#if q}
-        <h2 class="py-6 text-2xl font-semibold leading-snug">{q.text}</h2>
+        <h2 class="large-title py-6">{q.text}</h2>
         <div class="space-y-3">
           {#each q.options as option, i (option)}
             <button
-              class="tap w-full rounded-2xl border border-ink-700 bg-ink-900 px-5 py-4 text-left text-lg"
+              class="card press tap w-full px-5 py-4 text-left text-[17px]"
               onclick={() => answerRotating(q, i)}>{option}</button
             >
           {/each}
@@ -171,24 +171,24 @@
     {:else if building}
       <p class="py-10 text-center text-ink-400">Working it out…</p>
     {:else if slots.length}
-      <h2 class="py-6 text-2xl font-semibold">
+      <h2 class="large-title py-6">
         {slots.length === 3 ? 'Here are three.' : `Here ${slots.length === 1 ? 'is one' : 'are two'}.`}
       </h2>
       <div class="space-y-3">
         {#each slots as slot (slot.todo.id)}
-          <div class="rounded-2xl border border-ink-700 bg-ink-900 p-4">
-            <p class="text-xs uppercase tracking-wide text-ink-400">{KIND_LABEL[slot.kind]}</p>
-            <p class="mt-1 text-lg leading-snug">{slot.todo.title}</p>
-            <p class="mt-1 text-sm text-ink-400">{slot.reason}</p>
+          <div class="card rise p-4">
+            <p class="section-label">{KIND_LABEL[slot.kind]}</p>
+            <p class="body mt-1">{slot.todo.title}</p>
+            <p class="footnote mt-1">{slot.reason}</p>
             <div class="mt-3 flex gap-2">
               {#if canReshuffle(slot.kind)}
                 <button
-                  class="tap rounded-lg bg-ink-800 px-3 text-sm text-ink-200"
+                  class="press tap rounded-xl bg-white/8 px-4 text-sm text-ink-200"
                   onclick={() => reshuffle(slot.kind, slot.todo.id)}>Something else</button
                 >
               {/if}
               <button
-                class="tap rounded-lg px-3 text-sm text-ink-400"
+                class="press tap rounded-xl px-4 text-sm text-ink-400"
                 onclick={() => skip(slot.todo.id)}>Not today</button
               >
             </div>
@@ -198,7 +198,7 @@
       {#if slots.length < 3}
         <!-- Two is a complete day. Said plainly so a short list doesn't read
              as the app having failed to find enough. -->
-        <p class="mt-4 text-center text-xs text-ink-400">
+        <p class="footnote mt-4 text-center">
           {slots.length === 2 ? 'Two is a complete day.' : 'One real thing is enough.'}
         </p>
       {/if}
@@ -215,7 +215,7 @@
   <div class="p-6 pb-safe">
     {#if step === 'plan' && !building}
       <button
-        class="w-full rounded-2xl bg-accent py-4 text-lg font-medium text-ink-950 disabled:opacity-30"
+        class="btn btn-primary press w-full py-4 text-[17px]"
         disabled={!slots.length}
         onclick={accept}
       >

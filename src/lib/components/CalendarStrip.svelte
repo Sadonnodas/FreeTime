@@ -17,12 +17,12 @@
 </script>
 
 {#if events.length}
-  <section class="mb-4 flex gap-2 overflow-x-auto pb-1">
+  <section class="rise mb-5 flex gap-2 overflow-x-auto pb-1">
     {#each events as event (event.id)}
       <!-- Not a button, not a link. There is nothing to do with these. -->
-      <div class="shrink-0 rounded-xl bg-ink-900 px-3 py-2">
-        <p class="text-xs text-ink-400">{event.allDay ? 'All day' : event.time}</p>
-        <p class="max-w-[12rem] truncate text-sm">{event.summary}</p>
+      <div class="card-flat shrink-0 px-3.5 py-2.5">
+        <p class="text-[11px] font-medium text-accent">{event.allDay ? 'All day' : event.time}</p>
+        <p class="mt-0.5 max-w-[12rem] truncate text-[15px]">{event.summary}</p>
       </div>
     {/each}
   </section>

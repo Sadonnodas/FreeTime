@@ -88,9 +88,9 @@
 
 <div class="flex h-full flex-col">
   <div class="flex-1 overflow-y-auto px-4 pt-safe">
-    <header class="py-4">
-      <h1 class="text-2xl font-semibold tracking-tight">Today</h1>
-      <p class="text-sm text-ink-400">
+    <header class="pt-3 pb-5">
+      <h1 class="large-title">Today</h1>
+      <p class="footnote mt-1">
         {#if day?.closedAt}
           Day closed. {doneCount} done.
         {:else if slotTodos.length}
@@ -108,12 +108,12 @@
     <section class="space-y-3">
       {#each slotTodos as todo (todo.id)}
         <div
-          class="rounded-2xl border p-4 transition-colors
-                 {todo.completedAt ? 'border-good/40 bg-good/5' : 'border-ink-700 bg-ink-900'}"
+          class="card rise p-4 transition-colors
+                 {todo.completedAt ? 'border-good/30 bg-good/[0.06]' : ''}"
         >
           <div class="flex items-start gap-3">
             <button
-              class="tap flex items-center justify-center rounded-full border-2 shrink-0
+              class="press tap flex shrink-0 items-center justify-center rounded-full border-2
                      {todo.completedAt ? 'border-good bg-good text-ink-950' : 'border-ink-600'}"
               style="width:44px;height:44px"
               onclick={() => onComplete(todo)}
@@ -123,14 +123,14 @@
               {#if todo.completedAt}✓{/if}
             </button>
             <div class="min-w-0 flex-1 pt-2">
-              <p class="text-lg leading-snug {todo.completedAt ? 'text-ink-400 line-through' : ''}">
+              <p class="body {todo.completedAt ? 'text-ink-400 line-through' : ''}">
                 {todo.title}
               </p>
             </div>
             {#if !todo.completedAt}
               <!-- Skippable without ceremony: no confirm, no guilt copy. -->
               <button
-                class="tap px-2 text-ink-400"
+                class="press tap px-2 text-ink-400"
                 onclick={() => removeFromDay(todo.id)}
                 aria-label="Remove from today"
               >
@@ -147,20 +147,20 @@
            opens the full flow; the smaller picker below is only for adding one
            more to a day that already exists. -->
       <button
-        class="mt-6 w-full rounded-2xl bg-accent px-6 py-8 text-xl font-semibold text-ink-950"
+        class="btn-hero press mt-7 w-full px-6 py-9 text-[1.375rem] font-semibold"
         onclick={() => (freeTime = true)}
       >
         Free Time
       </button>
       <button
-        class="mt-3 w-full text-center text-xs text-ink-400 underline decoration-ink-700"
+        class="press mt-4 w-full text-center text-[13px] text-ink-400"
         onclick={() => (picking = true)}
       >
-        or just pick something
+        or just pick something yourself
       </button>
     {:else if roomLeft > 0 && !picking}
       <button
-        class="mt-4 w-full rounded-2xl border border-dashed border-ink-700 py-4 text-ink-400"
+        class="press mt-4 w-full rounded-2xl border border-dashed border-white/12 py-4 text-ink-400"
         onclick={() => (picking = true)}
       >
         {#if day?.closedAt}One more?{:else}Add ({roomLeft} left){/if}
@@ -169,7 +169,7 @@
       <!-- Only reachable on an already-closed day, one at a time, never
            visible in advance. -->
       <button
-        class="mt-4 w-full rounded-2xl border border-good/50 py-4 text-good"
+        class="press mt-4 w-full rounded-2xl border border-good/40 py-4 text-good"
         onclick={() => unlockOneMore()}
       >
         One more?
@@ -177,17 +177,17 @@
     {/if}
 
     {#if picking}
-      <section class="mt-4 rounded-2xl border border-ink-700 bg-ink-900 p-3">
+      <section class="card mt-4 p-3">
         <div class="mb-2 flex items-center justify-between">
-          <h2 class="text-sm font-medium text-ink-200">Pick something</h2>
-          <button class="tap px-2 text-ink-400" onclick={() => (picking = false)}>Done</button>
+          <h2 class="section-label">Pick something</h2>
+          <button class="press tap px-2 text-sm text-accent" onclick={() => (picking = false)}>Done</button>
         </div>
         {#if candidates.length}
           <ul class="max-h-72 space-y-1 overflow-y-auto">
             {#each candidates.slice(0, 50) as todo (todo.id)}
               <li>
                 <button
-                  class="tap w-full rounded-xl px-3 py-2 text-left text-ink-50 hover:bg-ink-800"
+                  class="press tap w-full rounded-xl px-3 py-2 text-left text-ink-50"
                   onclick={() => pick(todo)}
                 >
                   {todo.title}
@@ -207,17 +207,17 @@
          No streaks, no counts, no percentage. -->
     {#if ($habitsQ as Habit[] | undefined)?.length}
       <section class="mt-8">
-        <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">Habits</h2>
+        <h2 class="section-label mb-2">Habits</h2>
         <div class="flex flex-wrap gap-2">
           {#each $habitsQ as Habit[] as habit (habit.id)}
             {@const done = (($logsTodayQ as { habitId: string }[] | undefined) ?? []).some(
               (l) => l.habitId === habit.id
             )}
             <button
-              class="tap rounded-2xl border px-4 py-3 text-sm transition-colors
+              class="press tap rounded-2xl border px-4 py-3 text-[15px] font-medium transition-colors
                      {done
-                ? 'border-good bg-good/15 text-good'
-                : 'border-ink-700 bg-ink-900 text-ink-200'}"
+                ? 'border-good/50 bg-good/[0.14] text-good'
+                : 'border-white/8 bg-white/[0.05] text-ink-200'}"
               onclick={() => toggleHabitLog(habit.id)}
             >
               {done ? '✓ ' : ''}{habit.name}

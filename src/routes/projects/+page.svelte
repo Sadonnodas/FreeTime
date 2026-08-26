@@ -32,13 +32,10 @@
 </script>
 
 <div class="px-4 pt-safe pb-8">
-  <header class="flex items-center justify-between py-4">
-    <h1 class="text-2xl font-semibold tracking-tight">Projects</h1>
-    <button
-      class="tap rounded-xl bg-ink-800 px-4 text-ink-200"
-      onclick={() => (adding = !adding)}
-    >
-      {adding ? 'Cancel' : '+ New'}
+  <header class="flex items-end justify-between pt-3 pb-5">
+    <h1 class="large-title">Projects</h1>
+    <button class="press tap rounded-xl px-3 text-[15px] text-accent" onclick={() => (adding = !adding)}>
+      {adding ? 'Cancel' : 'New'}
     </button>
   </header>
 
@@ -49,10 +46,9 @@
         bind:value={name}
         autofocus
         placeholder="Project name"
-        class="tap flex-1 rounded-xl border border-ink-700 bg-ink-800 px-4 outline-none
-               focus:border-accent"
+        class="field min-w-0 flex-1"
       />
-      <button class="tap rounded-xl bg-accent px-5 font-medium text-ink-950">Add</button>
+      <button class="btn btn-primary press">Add</button>
     </form>
   {/if}
 
@@ -62,10 +58,10 @@
     {#each ($pulsesQ as ProjectPulse[] | undefined) ?? [] as p (p.project.id)}
       <a
         href="{base}/projects/{p.project.id}"
-        class="rounded-2xl border border-ink-700 bg-ink-900 p-4"
+        class="card press rise p-4"
       >
-        <h2 class="truncate font-medium">{p.project.name}</h2>
-        <dl class="mt-3 space-y-0.5 text-xs text-ink-400">
+        <h2 class="title-2 truncate">{p.project.name}</h2>
+        <dl class="mt-3 space-y-1 text-[12px] text-ink-400">
           <div class="flex justify-between"><dt>Touched</dt><dd>{ago(p.lastTouchedAt)}</dd></div>
           <div class="flex justify-between"><dt>Closed 30d</dt><dd>{p.closedLast30}</dd></div>
           <div class="flex justify-between"><dt>Open</dt><dd>{p.openCount}</dd></div>

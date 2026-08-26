@@ -1,26 +1,61 @@
 @import 'tailwindcss';
 
 /*
- * Tailwind v4 configures itself from CSS — this @theme block replaces the old
- * tailwind.config.js. Each entry becomes both a CSS variable and a utility
- * class (--color-ink-500 gives you bg-ink-500, text-ink-500, and so on).
+ * DESIGN NOTES
  *
- * Dark by default: this is a phone app opened in the evening and in a car.
+ * The brief was "sleek, high quality, like an Apple product" and away from
+ * "boring, office job". Four things do most of that work, and none of them is
+ * colour:
+ *
+ *  1. TYPOGRAPHY. Big tight headlines with negative tracking, a real size
+ *     hierarchy, and body text at 17px rather than 16. Office software uses one
+ *     size for everything; good software uses four and means each one.
+ *  2. MATERIAL. Bars and overlays are frosted glass over content, not opaque
+ *     slabs. Depth reads as quality far more than borders do.
+ *  3. RESTRAINT. One accent, used rarely. A screen with three accent colours
+ *     looks like a dashboard, which is exactly the thing being escaped.
+ *  4. RESPONSE. Everything tappable shrinks under the finger. It costs four
+ *     lines and it is most of why a native app feels different.
+ *
+ * The palette is deliberately warm — near-black with a hint of warmth rather
+ * than blue-grey, and an amber accent instead of corporate blue.
  */
+
 @theme {
-  --color-ink-950: #0f0f11;
-  --color-ink-900: #16161a;
-  --color-ink-800: #1e1e24;
-  --color-ink-700: #2a2a33;
-  --color-ink-600: #3a3a46;
-  --color-ink-400: #6f6f80;
-  --color-ink-200: #b8b8c4;
-  --color-ink-50: #f2f2f5;
+  /* Near-black, very slightly warm. Not pure #000: on an LCD that goes
+     flat and harsh, and the layered surfaces above need somewhere to sit. */
+  --color-ink-950: #08080a;
+  --color-ink-900: #101013;
+  --color-ink-800: #18181d;
+  --color-ink-700: #24242b;
+  --color-ink-600: #34343d;
+  --color-ink-400: #8a8a95;
+  --color-ink-200: #c8c8d0;
+  --color-ink-50: #f5f5f7;
 
-  --color-accent: #7c9cff;
-  --color-good: #6ee7a8;
+  --color-accent: #ff9f0a;
+  --color-accent-2: #ff6482;
+  --color-good: #30d158;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* -apple-system resolves to SF Pro on Apple devices, which is most of the
+     Apple feel for free. The rest is a sensible fallback chain. */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable',
+    'Segoe UI', Roboto, system-ui, sans-serif;
+
+  --radius-card: 20px;
+}
+
+/*
+ * On a phone this does nothing. On a laptop it stops the whole app stretching
+ * to 1600px, which is the single fastest way for a mobile-first layout to look
+ * like an unstyled web page. Constraining the shell — bars included — keeps it
+ * reading as one designed object rather than a page that gave up.
+ */
+.shell {
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
 }
 
 html,
@@ -28,26 +63,269 @@ body {
   background: var(--color-ink-950);
   color: var(--color-ink-50);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   /* The app is a fixed shell with scrolling regions inside it, not a scrolling
      page — this stops iOS rubber-banding the whole thing behind the tab bar. */
   overscroll-behavior: none;
 }
 
+/* Stops the grey flash iOS paints over anything tapped, which instantly
+   makes a web app feel like a web app. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /*
- * env(safe-area-inset-*) is how you avoid the iPhone home indicator and notch
- * once the PWA is installed and running without browser chrome. Paired with
- * viewport-fit=cover in app.html; without both, content sits under the bar.
+ * env(safe-area-inset-*) avoids the iPhone home indicator and notch once the
+ * PWA is installed. Paired with viewport-fit=cover in app.html; without both,
+ * content sits underneath the bar.
  */
 .pb-safe {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 .pt-safe {
-  padding-top: max(0.5rem, env(safe-area-inset-top));
+  padding-top: max(0.75rem, env(safe-area-inset-top));
 }
 
-/* Large tap targets everywhere — spec 1, mobile-first. 44px is the minimum
-   Apple recommends for a reliable thumb tap. */
+/* 44px is the smallest reliably tappable target. */
 .tap {
   min-height: 44px;
   min-width: 44px;
+}
+
+@layer components {
+  /* ---------------------------------------------------------- typography */
+
+  /* iOS "Large Title". The negative tracking is what stops a big font looking
+     like a word processor heading. */
+  .large-title {
+    font-size: 2rem;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.026em;
+  }
+
+  .title-2 {
+    font-size: 1.3125rem;
+    line-height: 1.2;
+    font-weight: 650;
+    letter-spacing: -0.018em;
+  }
+
+  .body {
+    font-size: 1.0625rem;
+    line-height: 1.45;
+    letter-spacing: -0.01em;
+  }
+
+  .footnote {
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: var(--color-ink-400);
+  }
+
+  /* Section headers. Uppercase with wide tracking reads as a label rather
+     than a heading, so it recedes instead of competing. */
+  .section-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-ink-400);
+  }
+
+  /* ------------------------------------------------------------ surfaces */
+
+  /*
+   * Surfaces are white at low alpha rather than a fixed grey, so they lighten
+   * consistently wherever they sit and never band against the background.
+   * The inset top highlight is the trick that makes a flat rectangle read as
+   * a physical raised edge.
+   */
+  .card {
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: var(--radius-card);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+      0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+
+  .card-flat {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 16px;
+  }
+
+  /* Frosted bars. saturate() is what keeps colour alive behind the blur —
+     without it, glass looks like dirty grey plastic. */
+  .glass {
+    background: rgba(16, 16, 19, 0.72);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+  }
+
+  .glass-strong {
+    background: rgba(8, 8, 10, 0.86);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+  }
+
+  .hairline-t {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* -------------------------------------------------------------- motion */
+
+  /* The single highest-value detail in the whole file. */
+  .press {
+    transition:
+      transform 160ms cubic-bezier(0.2, 0.8, 0.3, 1),
+      opacity 160ms ease,
+      background-color 160ms ease;
+  }
+  .press:active {
+    transform: scale(0.968);
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .rise {
+    animation: rise 320ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rise {
+      animation: none;
+    }
+    .press:active {
+      transform: none;
+    }
+  }
+
+  /* ------------------------------------------------------------- buttons */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 14px;
+    font-weight: 590;
+    letter-spacing: -0.01em;
+    min-height: 44px;
+    padding: 0 1.25rem;
+  }
+
+  .btn-primary {
+    background: var(--color-accent);
+    color: #1a1206;
+  }
+
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--color-ink-50);
+  }
+
+  .btn-plain {
+    color: var(--color-ink-400);
+  }
+
+  .btn:disabled {
+    opacity: 0.32;
+  }
+
+  /* The one place a gradient earns its keep: the single hero action on an
+     otherwise empty screen. */
+  .btn-hero {
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-2));
+    color: #1a0d06;
+    border-radius: 22px;
+    box-shadow: 0 10px 34px -12px rgba(255, 122, 60, 0.7);
+  }
+
+  /* ---------------------------------------------------- segmented control */
+
+  .segmented {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+  }
+
+  .segment {
+    flex: 1 1 0;
+    min-height: 34px;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 550;
+    color: var(--color-ink-400);
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+
+  .segment-on {
+    background: rgba(255, 255, 255, 0.13);
+    color: var(--color-ink-50);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+
+  /* ------------------------------------------------------- grouped lists */
+
+  /* iOS inset grouped table style: one rounded container, hairlines between
+     rows rather than gaps. Reads as a single object instead of a stack. */
+  .list-group {
+    background: rgba(255, 255, 255, 0.055);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .list-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    min-height: 52px;
+  }
+
+  .list-row + .list-row {
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
+  }
+
+  /* -------------------------------------------------------------- inputs */
+
+  .field {
+    min-height: 44px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid transparent;
+    padding: 0 1rem;
+    color: var(--color-ink-50);
+    font-size: 1.0625rem;
+    transition: border-color 160ms ease, background-color 160ms ease;
+  }
+
+  .field::placeholder {
+    color: var(--color-ink-400);
+  }
+
+  .field:focus {
+    outline: none;
+    border-color: rgba(255, 159, 10, 0.55);
+    background: rgba(255, 255, 255, 0.09);
+  }
+
+  select.field {
+    padding-right: 0.5rem;
+    font-size: 0.9375rem;
+  }
 }

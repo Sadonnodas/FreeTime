@@ -33,12 +33,12 @@
 </script>
 
 <div class="px-4 pt-safe pb-8">
-  <header class="py-4">
-    <h1 class="text-2xl font-semibold tracking-tight">Me</h1>
+  <header class="pt-3 pb-5">
+    <h1 class="large-title">Me</h1>
   </header>
 
   <section class="mb-8">
-    <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">Habits</h2>
+    <h2 class="section-label mb-2">Habits</h2>
 
     <form
       onsubmit={async (e) => {
@@ -52,21 +52,20 @@
       <input
         bind:value={newHabit}
         placeholder="New habit"
-        class="tap flex-1 rounded-xl border border-ink-700 bg-ink-800 px-4 outline-none
-               focus:border-accent"
+        class="field min-w-0 flex-1"
       />
-      <button class="tap rounded-xl bg-accent px-5 font-medium text-ink-950">Add</button>
+      <button class="btn btn-primary press">Add</button>
     </form>
 
     {#each ['active', 'dormant', 'retired'] as const as state}
       {#if byState(state).length}
-        <h3 class="mb-1 mt-4 text-xs capitalize text-ink-400">{state}</h3>
+        <h3 class="footnote mb-1 mt-4 capitalize">{state}</h3>
         <ul class="space-y-1">
           {#each byState(state) as h (h.id)}
             <li>
               <a
                 href="{base}/me/habits/{h.id}"
-                class="flex items-center gap-2 rounded-xl bg-ink-900 px-4 py-3"
+                class="card-flat press flex items-center gap-2 px-4 py-3"
               >
                 <div class="flex-1">
                   <p>{h.name}</p>
@@ -83,12 +82,12 @@
   </section>
 
   <section class="mb-8">
-    <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">
+    <h2 class="section-label mb-2">
       Wins — last 90 days
     </h2>
     <ul class="space-y-1">
       {#each ($winsQ ?? []) as w (w.id)}
-        <li class="flex gap-3 rounded-xl bg-ink-900 px-4 py-3">
+        <li class="card-flat flex gap-3 px-4 py-3">
           <span class="flex-1">{w.text}</span>
           <span class="shrink-0 text-xs text-ink-400">
             {new Date(w.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
@@ -103,10 +102,10 @@
   </section>
 
   <section>
-    <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">Settings</h2>
+    <h2 class="section-label mb-2">Settings</h2>
     <a
       href="{base}/me/settings"
-      class="flex items-center justify-between rounded-xl bg-ink-900 px-4 py-4"
+      class="list-group list-row press"
     >
       <span>Sync, Google, Gemini</span>
       <span class="text-ink-400">›</span>
@@ -114,7 +113,7 @@
 
     <a
       href="{base}/me/import"
-      class="mt-2 flex items-center justify-between rounded-xl bg-ink-900 px-4 py-4"
+      class="list-group list-row press mt-2"
     >
       <span>Import from Notion</span>
       <span class="text-ink-400">›</span>

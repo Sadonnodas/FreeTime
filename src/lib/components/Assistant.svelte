@@ -63,15 +63,15 @@
   const discard = (i: number) => (pending = pending.filter((_, n) => n !== i));
 </script>
 
-<div class="fixed inset-0 z-50 flex flex-col bg-ink-950">
+<div class="glass-strong rise fixed inset-0 z-50 flex flex-col">
   <div class="flex items-center justify-between px-4 pt-safe">
-    <span class="py-3 text-xs uppercase tracking-wide text-ink-400">Assistant</span>
-    <button class="tap px-2 text-ink-400" onclick={onDone} aria-label="Close">×</button>
+    <span class="section-label py-3">Assistant</span>
+    <button class="press tap px-2 text-[22px] leading-none text-ink-400" onclick={onDone} aria-label="Close">×</button>
   </div>
 
   <div class="flex-1 space-y-3 overflow-y-auto px-4 py-2">
     {#if !bubbles.length}
-      <p class="py-10 text-center text-sm text-ink-400">
+      <p class="footnote py-10 text-center">
         Ask what's open, or just say what you need to remember.
       </p>
     {/if}
@@ -79,8 +79,8 @@
     {#each bubbles as b, i (i)}
       <div class="flex {b.role === 'you' ? 'justify-end' : 'justify-start'}">
         <p
-          class="max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2
-                 {b.role === 'you' ? 'bg-accent text-ink-950' : 'bg-ink-900 text-ink-50'}"
+          class="max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2.5
+                 {b.role === 'you' ? 'bg-accent text-[#1a1206]' : 'bg-white/[0.07] text-ink-50'}"
         >
           {b.text}
         </p>
@@ -91,7 +91,7 @@
       <p class="text-sm text-ink-400">…</p>
     {/if}
     {#if error}
-      <p class="rounded-xl bg-ink-900 p-3 text-sm text-ink-400">{error}</p>
+      <p class="card-flat p-3 text-sm text-ink-400">{error}</p>
     {/if}
   </div>
 
@@ -99,12 +99,12 @@
     <!-- Nothing here has been written yet. Confirm before writing (spec 7.1):
          silent AI writes would erode trust in the store, and the store's
          trustworthiness is the whole product. -->
-    <div class="border-t border-ink-800 bg-ink-900 p-3">
-      <p class="mb-2 text-xs uppercase tracking-wide text-ink-400">Not saved yet</p>
+    <div class="glass hairline-t p-3">
+      <p class="section-label mb-2">Not saved yet</p>
       <div class="mb-3 space-y-1">
         {#each pending as p, i (i)}
-          <div class="flex items-center gap-2 rounded-xl bg-ink-800 px-3 py-2">
-            <span class="min-w-0 flex-1 truncate text-sm">{p.label}</span>
+          <div class="card-flat flex items-center gap-2 px-3 py-2">
+            <span class="min-w-0 flex-1 truncate text-[15px]">{p.label}</span>
             <button class="tap px-1 text-ink-400" onclick={() => discard(i)} aria-label="Discard">
               ×
             </button>
@@ -113,28 +113,27 @@
       </div>
       <div class="flex gap-2">
         <button
-          class="tap flex-1 rounded-xl px-4 text-sm text-ink-400"
+          class="press tap flex-1 rounded-xl px-4 text-sm text-ink-400"
           onclick={() => (pending = [])}>Discard all</button
         >
         <button
-          class="tap flex-1 rounded-xl bg-accent px-4 text-sm font-medium text-ink-950"
+          class="btn btn-primary press flex-1 text-sm"
           onclick={commit}>Add {pending.length}</button
         >
       </div>
     </div>
   {/if}
 
-  <form onsubmit={send} class="flex gap-2 border-t border-ink-800 bg-ink-900 p-3 pb-safe">
+  <form onsubmit={send} class="glass hairline-t flex gap-2 p-3 pb-safe">
     <input
       bind:value={input}
       placeholder="Say anything…"
       enterkeyhint="send"
       autocomplete="off"
-      class="tap min-w-0 flex-1 rounded-xl border border-ink-700 bg-ink-800 px-4 text-base
-             outline-none focus:border-accent"
+      class="field min-w-0 flex-1"
     />
     <button
-      class="tap rounded-xl bg-accent px-5 font-medium text-ink-950 disabled:opacity-30"
+      class="btn btn-primary press"
       disabled={!input.trim() || busy}>Send</button
     >
   </form>
