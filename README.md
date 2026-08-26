@@ -9,8 +9,7 @@ the source of truth. This file covers how the code is put together and how to ru
 
 ## What exists today
 
-Phases 1 through 4 of the eight-phase plan in spec §10, plus the data foundations for
-the rest.
+Phases 1 through 7 of the eight-phase plan in spec §10.
 
 | Working | Where |
 | --- | --- |
@@ -29,9 +28,13 @@ the rest.
 | Voice capture — record, transcribe, review | [VoiceCapture.svelte](src/lib/components/VoiceCapture.svelte), [audio.ts](src/lib/audio.ts) |
 | Assistant with confirm-before-write | [Assistant.svelte](src/lib/components/Assistant.svelte), [gemini/tools.ts](src/lib/gemini/tools.ts) |
 | AI questions + slot ranking, with fallback | [gemini/plan.ts](src/lib/gemini/plan.ts) |
+| Habit detail — heatmap + cycle history | [habits.ts](src/lib/habits.ts), [me/habits/[id]](src/routes/me/habits/%5Bid%5D/+page.svelte) |
+| Monthly summary, once a month | [monthly.ts](src/lib/monthly.ts) |
+| List detail — want / doing / done | [brain/lists/[id]](src/routes/brain/lists/%5Bid%5D/+page.svelte) |
 
-Not built yet, in the spec's order: habit cycle history and heatmap (5), monthly summary
-(6), list detail screens (7), Calendar (8), and the Notion importer.
+Not built yet: Google Calendar on Today (8), and the Notion importer (§9). Calendar is
+deliberately last — it is the fiddliest integration and the least essential, since the
+user's calendar already works fine in Google.
 
 Sync is written but dormant until you add an OAuth client ID — see **Google setup**
 below. Without one, sign-in is hidden and everything else works exactly as before.
@@ -110,6 +113,21 @@ be one refactor away from being lost, so they live in the model:
   is no wins table. The feed is computed from `completedAt` on to-dos and `state: 'done'`
   on list items — work the user did for other reasons. Asking them to log wins is exactly
   what left the old habit tracker with 216 rows and 4 check-ins.
+
+### Cycles, not streaks
+
+[habits.ts](src/lib/habits.ts) contains no streak counting and must never contain any. A
+streak can only ever tell you that you broke it. The detail screen shows a heatmap of
+what actually happened and a cycle history —
+`active Jan – Mar · dormant Mar – Aug · active Aug –` — which turns "I abandoned guitar
+again" into "this is the fourth cycle, and they always come back". Same data, opposite
+message.
+
+That needed a schema addition. `Habit.stateChangedAt` records only when the *current*
+cycle began, which is enough for "dormant since March" but not for counting returns, so
+every explicit state change is now logged. Nothing is ever inferred from a gap in
+logging — dormancy is always the user's own call (spec §3.6). Habits created before this
+existed have their first cycle synthesised from `createdAt`, so nothing looks broken.
 
 ### Things deliberately absent
 

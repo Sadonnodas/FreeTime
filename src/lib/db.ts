@@ -1,7 +1,8 @@
 import Dexie, { type Table } from 'dexie';
 import type {
   Project, Todo, Idea, BuyItem, List, ListItem,
-  Habit, HabitLog, Day, Capture, Note, ConflictLog, Settings, QueuedAudio
+  Habit, HabitLog, Day, Capture, Note, ConflictLog, Settings, QueuedAudio,
+  HabitStateChange
 } from './types';
 
 /**
@@ -30,6 +31,7 @@ export class FreeTimeDB extends Dexie {
   conflicts!: Table<ConflictLog, string>;
   settings!: Table<Settings, string>;
   audioQueue!: Table<QueuedAudio, string>;
+  habitStateChanges!: Table<HabitStateChange, string>;
 
   constructor() {
     super('freetime');
@@ -58,6 +60,13 @@ export class FreeTimeDB extends Dexie {
     // existing database in place; adding a store needs no data migration.
     this.version(2).stores({
       audioQueue: 'id, processedAt, createdAt'
+    });
+
+    // Version 3 records habit state changes so cycle history is real rather
+    // than reconstructed. Existing habits have no rows here; the cycle builder
+    // synthesises their first cycle from createdAt, so nothing looks broken.
+    this.version(3).stores({
+      habitStateChanges: 'id, habitId, at, updatedAt, deletedAt'
     });
   }
 }

@@ -1,7 +1,8 @@
 import { db } from './db';
 import type {
   Base, Project, Todo, Idea, BuyItem, List, ListItem,
-  Habit, HabitLog, Capture, Note, Energy, ListItemState, HabitState
+  Habit, HabitLog, Capture, Note, Energy, ListItemState, HabitState,
+  HabitStateChange
 } from './types';
 
 /**
@@ -141,10 +142,17 @@ export async function setListItemState(id: string, state: ListItemState): Promis
 
 // ------------------------------------------------------------------ habits
 
+async function recordStateChange(habitId: string, state: HabitState, at: string): Promise<void> {
+  const change: HabitStateChange = stamp({ habitId, state, at });
+  await db.habitStateChanges.add(change);
+}
+
 export async function createHabit(name: string): Promise<string> {
   const state: HabitState = 'active';
-  const h: Habit = stamp({ name: name.trim(), state, stateChangedAt: now() });
+  const at = now();
+  const h: Habit = stamp({ name: name.trim(), state, stateChangedAt: at });
   await db.habits.add(h);
+  await recordStateChange(h.id, state, at);
   return h.id;
 }
 
@@ -153,8 +161,15 @@ export async function createHabit(name: string): Promise<string> {
  * that is exactly the judgement the old habit tracker made and lost trust over.
  */
 export async function setHabitState(id: string, state: HabitState): Promise<void> {
+  const existing = await db.habits.get(id);
+  // Re-selecting the current state is a no-op, not a new cycle. Otherwise
+  // fiddling with the dropdown would manufacture a history of changes that
+  // never happened.
+  if (!existing || existing.state === state) return;
+
   const t = now();
   await db.habits.update(id, { state, stateChangedAt: t, updatedAt: t });
+  await recordStateChange(id, state, t);
 }
 
 /** Idempotent: tapping twice in a day toggles, it never double-logs. */

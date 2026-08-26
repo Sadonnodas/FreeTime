@@ -4,6 +4,7 @@
   import type { Capture, Todo, Idea, List, BuyItem, Project, Energy } from '$lib/types';
   import { sortCaptureToTodo, sortCaptureToIdea, promoteIdea, createList, completeTodo } from '$lib/store';
   import { activeProjects } from '$lib/queries';
+  import { base } from '$app/paths';
 
   /**
    * The memory bank. It should feel well-stocked, never overdue — so there are
@@ -24,6 +25,9 @@
     (await db.ideas.toArray()).filter((i) => !i.deletedAt)
   );
   const listsQ = liveQuery(async () => (await db.lists.toArray()).filter((l) => !l.deletedAt));
+  const listItemsQ = liveQuery(async () =>
+    (await db.listItems.toArray()).filter((i) => !i.deletedAt)
+  );
   const buyQ = liveQuery(async () => (await db.buyItems.toArray()).filter((b) => !b.deletedAt));
   const projectsQ = liveQuery(() => activeProjects());
 
@@ -169,7 +173,17 @@
     </button>
     <ul class="space-y-1">
       {#each ($listsQ as List[] | undefined) ?? [] as l (l.id)}
-        <li class="rounded-xl bg-ink-900 px-4 py-3">{l.icon ?? '•'} {l.name}</li>
+        {@const items = (($listItemsQ as { listId: string; state: string }[] | undefined) ?? [])
+          .filter((i) => i.listId === l.id)}
+        <li>
+          <a href="{base}/brain/lists/{l.id}" class="flex items-center gap-3 rounded-xl bg-ink-900 px-4 py-3">
+            <span class="flex-1">{l.icon ?? '•'} {l.name}</span>
+            <span class="text-xs text-ink-400">
+              {items.filter((i) => i.state !== 'done').length} open
+            </span>
+            <span class="text-ink-400">›</span>
+          </a>
+        </li>
       {/each}
     </ul>
   {:else}

@@ -90,6 +90,22 @@ export interface HabitLog extends Base {
 }
 
 /**
+ * One entry per explicit state change, so the detail view can show a real cycle
+ * history rather than just the current state.
+ *
+ * `Habit.stateChangedAt` only records when the CURRENT cycle began, which is
+ * enough to say "dormant since March" but not "this is the fourth time you have
+ * come back to it" — and that second framing is the entire point of showing
+ * cycles instead of streaks. Only the app's own state changes are recorded;
+ * nothing is ever inferred from a gap in logging (spec 3.6).
+ */
+export interface HabitStateChange extends Base {
+  habitId: string;
+  state: HabitState;
+  at: string; // ISO
+}
+
+/**
  * The unlock mechanic (spec 5.3) lives here. `slots.length` may never exceed
  * `unlockedCount`, which starts at 3 and only ever grows one at a time, after
  * the day has already been marked closed.

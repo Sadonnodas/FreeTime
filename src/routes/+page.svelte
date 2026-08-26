@@ -10,6 +10,9 @@
   } from '$lib/day';
   import CaptureBox from '$lib/components/CaptureBox.svelte';
   import DayClose from '$lib/components/DayClose.svelte';
+  import MonthlySummary from '$lib/components/MonthlySummary.svelte';
+  import { pendingMonthlySummary, type MonthlySummary as Summary } from '$lib/monthly';
+  import { onMount } from 'svelte';
   import FreeTime from '$lib/components/FreeTime.svelte';
 
   /**
@@ -32,6 +35,12 @@
   let unlockAvailable = $state(false);
   let picking = $state(false);
   let freeTime = $state(false);
+
+  // Arrives on the first open on or after the 1st, then never again that month.
+  let monthly = $state<Summary | null>(null);
+  onMount(async () => {
+    monthly = await pendingMonthlySummary();
+  });
 
   // Resolve the day's slot ids into actual todos, in slot order.
   $effect(() => {
@@ -229,4 +238,8 @@
 
 {#if freeTime}
   <FreeTime onDone={() => (freeTime = false)} />
+{/if}
+
+{#if monthly}
+  <MonthlySummary summary={monthly} onDismiss={() => (monthly = null)} />
 {/if}

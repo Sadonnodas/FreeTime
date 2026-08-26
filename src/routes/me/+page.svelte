@@ -2,7 +2,7 @@
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
   import type { Habit, HabitState } from '$lib/types';
-  import { createHabit, setHabitState } from '$lib/store';
+  import { createHabit } from '$lib/store';
   import { winsSince } from '$lib/queries';
   import { base } from '$app/paths';
 
@@ -63,21 +63,18 @@
         <h3 class="mb-1 mt-4 text-xs capitalize text-ink-400">{state}</h3>
         <ul class="space-y-1">
           {#each byState(state) as h (h.id)}
-            <li class="flex items-center gap-2 rounded-xl bg-ink-900 px-4 py-3">
-              <div class="flex-1">
-                <p>{h.name}</p>
-                <!-- No streak. No percentage. Just which cycle you're in. -->
-                <p class="text-xs text-ink-400">{state} since {since(h.stateChangedAt)}</p>
-              </div>
-              <select
-                value={h.state}
-                onchange={(e) => setHabitState(h.id, e.currentTarget.value as HabitState)}
-                class="tap rounded-lg border border-ink-700 bg-ink-800 px-2 text-sm text-ink-200"
+            <li>
+              <a
+                href="{base}/me/habits/{h.id}"
+                class="flex items-center gap-2 rounded-xl bg-ink-900 px-4 py-3"
               >
-                <option value="active">Active</option>
-                <option value="dormant">Dormant</option>
-                <option value="retired">Retired</option>
-              </select>
+                <div class="flex-1">
+                  <p>{h.name}</p>
+                  <!-- No streak. No percentage. Just which cycle you're in. -->
+                  <p class="text-xs text-ink-400">{state} since {since(h.stateChangedAt)}</p>
+                </div>
+                <span class="text-ink-400">›</span>
+              </a>
             </li>
           {/each}
         </ul>

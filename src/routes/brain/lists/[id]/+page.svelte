@@ -1,0 +1,142 @@
+<script lang="ts">
+  import { page } from '$app/state';
+  import { base } from '$app/paths';
+  import { liveQuery } from 'dexie';
+  import { db } from '$lib/db';
+  import type { ListItem, ListItemState } from '$lib/types';
+  import { addListItem, setListItemState, softDelete } from '$lib/store';
+
+  /**
+   * A list — books, albums, disc golf courses (spec 3.5).
+   *
+   * Structurally separate from to-dos, and nothing here ever appears on Today.
+   * A book you want to read is a want, not a task; surfacing it as a task turns
+   * it into a small debt. Reaching 'done' does still emit a win, because
+   * finishing a book is genuinely finishing something.
+   */
+  const id = $derived(page.params.id!);
+
+  const listQ = $derived(liveQuery(() => db.lists.get(id)));
+  const itemsQ = $derived(
+    liveQuery(async () =>
+      (await db.listItems.where('listId').equals(id).toArray()).filter((i) => !i.deletedAt)
+    )
+  );
+
+  let text = $state('');
+  let url = $state('');
+  let showUrl = $state(false);
+
+  const STATES: { value: ListItemState; label: string }[] = [
+    { value: 'want', label: 'Want' },
+    { value: 'doing', label: 'Doing' },
+    { value: 'done', label: 'Done' }
+  ];
+
+  const inState = (s: ListItemState) =>
+    (($itemsQ as ListItem[] | undefined) ?? [])
+      .filter((i) => i.state === s)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  async function add(e: SubmitEvent) {
+    e.preventDefault();
+    if (!text.trim()) return;
+    await addListItem(id, text, url.trim() || undefined);
+    text = '';
+    url = '';
+    showUrl = false;
+  }
+
+  /** Cycles want → doing → done → want. One tap, no menu. */
+  function nextState(s: ListItemState): ListItemState {
+    return s === 'want' ? 'doing' : s === 'doing' ? 'done' : 'want';
+  }
+</script>
+
+<div class="px-4 pt-safe pb-8">
+  <header class="py-4">
+    <a href="{base}/brain" class="text-sm text-ink-400">← Brain</a>
+    <h1 class="mt-1 text-2xl font-semibold tracking-tight">
+      {$listQ?.icon ?? ''}
+      {$listQ?.name ?? ''}
+    </h1>
+  </header>
+
+  <form onsubmit={add} class="mb-4">
+    <div class="flex gap-2">
+      <input
+        bind:value={text}
+        placeholder="Add something"
+        class="tap min-w-0 flex-1 rounded-xl border border-ink-700 bg-ink-800 px-4 outline-none
+               focus:border-accent"
+      />
+      <button
+        type="button"
+        class="tap rounded-xl bg-ink-800 px-3 text-sm text-ink-400"
+        onclick={() => (showUrl = !showUrl)}
+        aria-label="Add a link">🔗</button
+      >
+      <button class="tap rounded-xl bg-accent px-5 font-medium text-ink-950">Add</button>
+    </div>
+    {#if showUrl}
+      <input
+        bind:value={url}
+        placeholder="https://…"
+        inputmode="url"
+        class="tap mt-2 w-full rounded-xl border border-ink-700 bg-ink-800 px-4 text-sm
+               outline-none focus:border-accent"
+      />
+    {/if}
+  </form>
+
+  {#each STATES as group (group.value)}
+    {@const items = inState(group.value)}
+    {#if items.length}
+      <section class="mb-6">
+        <h2 class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">
+          {group.label} — {items.length}
+        </h2>
+        <ul class="space-y-1">
+          {#each items as item (item.id)}
+            <li class="flex items-center gap-2 rounded-xl bg-ink-900 px-3">
+              <button
+                class="tap shrink-0 text-xs {item.state === 'done'
+                  ? 'text-good'
+                  : 'text-ink-400'}"
+                onclick={() => setListItemState(item.id, nextState(item.state))}
+                aria-label="Change state"
+              >
+                {item.state === 'done' ? '✓' : item.state === 'doing' ? '◐' : '○'}
+              </button>
+              <div class="min-w-0 flex-1 py-3">
+                {#if item.url}
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    class="block truncate text-accent underline decoration-ink-700"
+                  >
+                    {item.text}
+                  </a>
+                {:else}
+                  <p class="truncate {item.state === 'done' ? 'text-ink-400' : ''}">
+                    {item.text}
+                  </p>
+                {/if}
+              </div>
+              <button
+                class="tap shrink-0 px-1 text-ink-400"
+                onclick={() => softDelete('listItems', item.id)}
+                aria-label="Remove">×</button
+              >
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
+  {/each}
+
+  {#if !(($itemsQ as ListItem[] | undefined) ?? []).length}
+    <p class="py-10 text-center text-sm text-ink-400">Nothing on this list yet.</p>
+  {/if}
+</div>
