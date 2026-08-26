@@ -1,0 +1,4 @@
+# Normalize to LF in the repository. CI runs on Linux; without this, files
+# checked out on Windows come back with CRLF and every diff looks rewritten.
+* text=auto eol=lf
+*.png binary

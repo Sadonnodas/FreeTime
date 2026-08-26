@@ -1,0 +1,53 @@
+@import 'tailwindcss';
+
+/*
+ * Tailwind v4 configures itself from CSS — this @theme block replaces the old
+ * tailwind.config.js. Each entry becomes both a CSS variable and a utility
+ * class (--color-ink-500 gives you bg-ink-500, text-ink-500, and so on).
+ *
+ * Dark by default: this is a phone app opened in the evening and in a car.
+ */
+@theme {
+  --color-ink-950: #0f0f11;
+  --color-ink-900: #16161a;
+  --color-ink-800: #1e1e24;
+  --color-ink-700: #2a2a33;
+  --color-ink-600: #3a3a46;
+  --color-ink-400: #6f6f80;
+  --color-ink-200: #b8b8c4;
+  --color-ink-50: #f2f2f5;
+
+  --color-accent: #7c9cff;
+  --color-good: #6ee7a8;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html,
+body {
+  background: var(--color-ink-950);
+  color: var(--color-ink-50);
+  font-family: var(--font-sans);
+  /* The app is a fixed shell with scrolling regions inside it, not a scrolling
+     page — this stops iOS rubber-banding the whole thing behind the tab bar. */
+  overscroll-behavior: none;
+}
+
+/*
+ * env(safe-area-inset-*) is how you avoid the iPhone home indicator and notch
+ * once the PWA is installed and running without browser chrome. Paired with
+ * viewport-fit=cover in app.html; without both, content sits under the bar.
+ */
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+.pt-safe {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+/* Large tap targets everywhere — spec 1, mobile-first. 44px is the minimum
+   Apple recommends for a reliable thumb tap. */
+.tap {
+  min-height: 44px;
+  min-width: 44px;
+}
