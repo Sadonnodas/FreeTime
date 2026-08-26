@@ -2,6 +2,7 @@
   import { liveQuery } from 'dexie';
   import { projectPulses, type ProjectPulse } from '$lib/queries';
   import { createProject } from '$lib/store';
+  import { base } from '$app/paths';
 
   const pulsesQ = liveQuery(() => projectPulses());
 
@@ -60,7 +61,7 @@
   <div class="grid grid-cols-2 gap-3">
     {#each ($pulsesQ as ProjectPulse[] | undefined) ?? [] as p (p.project.id)}
       <a
-        href="/projects/{p.project.id}"
+        href="{base}/projects/{p.project.id}"
         class="rounded-2xl border border-ink-700 bg-ink-900 p-4"
       >
         <h2 class="truncate font-medium">{p.project.name}</h2>

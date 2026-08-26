@@ -2,6 +2,7 @@
   import { liveQuery } from 'dexie';
   import { page } from '$app/state';
   import { db } from '$lib/db';
+  import { base } from '$app/paths';
   import type { Todo, BuyItem } from '$lib/types';
   import { createTodo, completeTodo, createBuyItem, markPurchased, saveNote, getNote } from '$lib/store';
 
@@ -59,7 +60,7 @@
 
 <div class="px-4 pt-safe pb-8">
   <header class="py-4">
-    <a href="/projects" class="text-sm text-ink-400">← Projects</a>
+    <a href="{base}/projects" class="text-sm text-ink-400">← Projects</a>
     <h1 class="mt-1 text-2xl font-semibold tracking-tight">{$projectQ?.name ?? ''}</h1>
   </header>
 

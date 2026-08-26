@@ -38,7 +38,7 @@ writes to is already in place and enforced.
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev      # http://localhost:5173/FreeTime
 npm run build    # static site into build/
 npm run preview  # serve build/ locally
 npm run check    # svelte-check, TypeScript strict
@@ -52,8 +52,9 @@ is an accelerant, never a dependency (spec §7.4).
 ## How it fits together
 
 **SvelteKit with `adapter-static`.** The whole app compiles to plain HTML/JS/CSS. There
-is no server at runtime; GitHub Pages just serves files. `fallback: '200.html'` makes it
-a single-page app, so a hard refresh on `/brain` doesn't 404.
+is no server at runtime; GitHub Pages just serves files. A `fallback` page makes it a
+single-page app, so a hard refresh on `/brain` still boots — see the base-path notes
+under Deployment for why that file is named `404.html`.
 
 **IndexedDB via Dexie is the single source of truth.** Every read and write in the app
 hits [`db`](src/lib/db.ts) and nothing else, so writes return instantly and there is
@@ -101,13 +102,35 @@ these as out of scope — they are not missing features.
 
 ## Deployment
 
+Live at **https://sadonnodas.github.io/FreeTime/**
+
 Pushing to `main` runs [.github/workflows/deploy.yml](.github/workflows/deploy.yml),
 which builds and publishes to GitHub Pages. `configure-pages` has `enablement: true`, so
 Pages switches itself on the first time the workflow runs — no settings toggle needed.
 
-This is a **user repo** (`Sadonnodas.github.io`), served from the domain root. A project
-repo would serve from a subpath and require `paths.base` juggling in every link, plus a
-messier OAuth redirect URI.
+### The base path
+
+This is a **project repo**, so Pages serves it from `/FreeTime/` rather than the domain
+root. The spec (§1) originally called for a user repo (`Sadonnodas.github.io`) precisely
+to avoid this; going the other way costs three pieces of config, all of which are in
+place:
+
+1. `kit.paths.base = '/FreeTime'` in [svelte.config.js](svelte.config.js). Every internal
+   link imports `base` from `$app/paths` and prefixes with it — a bare `href="/projects"`
+   would leave the app and hit GitHub's own 404.
+2. The SPA fallback is named **`404.html`**, not `200.html`. GitHub Pages serves
+   `404.html` for unknown paths and cannot be told to use anything else, so that is the
+   only filename the trick works with. SvelteKit writes absolute asset URLs into it,
+   which matters because Pages serves it at any depth.
+3. The PWA `scope`, `start_url`, and icon paths in [vite.config.ts](vite.config.ts) all
+   carry the prefix. Manifest paths resolve against the origin, not the manifest's own
+   location, so they need it spelled out or the app installs pointing at nothing.
+
+`npm run dev` applies the base too — it serves at `localhost:5173/FreeTime`. That is
+deliberate: dev and prod resolving URLs differently is how a broken link ships unnoticed.
+
+**To move to a user repo later**, set `BASE = ''` in both svelte.config.js and
+vite.config.ts. Everything else follows automatically.
 
 ## Secrets
 
@@ -121,6 +144,10 @@ There are none in this repo, and there must never be any.
   refresh token is stored in IndexedDB.
 
 Both land in phase 3/4. Nothing is read from `.env` at build time.
+
+When wiring OAuth in phase 3, the authorised redirect URI is
+`https://sadonnodas.github.io/FreeTime/` — note the trailing path segment; Google matches
+it exactly.
 
 ## Icons
 

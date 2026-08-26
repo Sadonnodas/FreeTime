@@ -3,16 +3,27 @@
   import { page } from '$app/state';
   import { onMount } from 'svelte';
   import { seedIfEmpty } from '$lib/seed';
+  import { base } from '$app/paths';
 
   let { children } = $props();
 
-  // Four tabs, nothing nested deeper than two levels (spec 4).
+  /**
+   * Four tabs, nothing nested deeper than two levels (spec 4).
+   *
+   * Paths are stored without the base prefix and get it added at render time.
+   * `base` is '/FreeTime' here because Pages serves this from a subpath — a
+   * bare href="/projects" would leave the app entirely and land on GitHub's
+   * 404. Storing the clean path keeps the active-tab comparison readable.
+   */
   const tabs = [
-    { href: '/', label: 'Today', icon: '◉' },
-    { href: '/projects', label: 'Projects', icon: '▦' },
-    { href: '/brain', label: 'Brain', icon: '✦' },
-    { href: '/me', label: 'Me', icon: '○' }
+    { path: '/', label: 'Today', icon: '◉' },
+    { path: '/projects', label: 'Projects', icon: '▦' },
+    { path: '/brain', label: 'Brain', icon: '✦' },
+    { path: '/me', label: 'Me', icon: '○' }
   ];
+
+  // base is '' at the domain root, so fall back to '/' rather than an empty href.
+  const hrefFor = (path: string) => (path === '/' ? base || '/' : base + path);
 
   let ready = $state(false);
 
@@ -29,8 +40,16 @@
     registerSW({ immediate: true });
   });
 
-  const isActive = (href: string) =>
-    href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
+  /**
+   * page.url.pathname includes the base, so compare against the full href.
+   * Today is an exact match; the others match their whole subtree so that a
+   * project detail page still lights up the Projects tab.
+   */
+  function isActive(path: string): boolean {
+    const here = page.url.pathname.replace(/\/$/, '');
+    const root = base.replace(/\/$/, '');
+    return path === '/' ? here === root : here.startsWith(root + path);
+  }
 </script>
 
 <div class="flex h-dvh flex-col bg-ink-950">
@@ -41,12 +60,12 @@
   </main>
 
   <nav class="flex shrink-0 border-t border-ink-800 bg-ink-900 pb-safe">
-    {#each tabs as tab (tab.href)}
+    {#each tabs as tab (tab.path)}
       <a
-        href={tab.href}
+        href={hrefFor(tab.path)}
         class="tap flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs
-               {isActive(tab.href) ? 'text-accent' : 'text-ink-400'}"
-        aria-current={isActive(tab.href) ? 'page' : undefined}
+               {isActive(tab.path) ? 'text-accent' : 'text-ink-400'}"
+        aria-current={isActive(tab.path) ? 'page' : undefined}
       >
         <span class="text-lg leading-none" aria-hidden="true">{tab.icon}</span>
         {tab.label}
