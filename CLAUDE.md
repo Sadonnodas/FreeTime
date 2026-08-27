@@ -112,6 +112,30 @@ Do not "fix" these without talking to Toon first.
 
 ## Traps, found the hard way
 
+- **The model name is a single point of failure.** One constant,
+  [client.ts](src/lib/gemini/client.ts) `MODEL`. Google retires models for *new* keys
+  without warning: `gemini-2.5-flash` started returning `404 NOT_FOUND` — "no longer
+  available to new users" — and every AI feature died at once while the rest of the app
+  looked perfectly healthy. Now on `gemini-3.6-flash`. If all AI stops working on a fresh
+  key, check this first, and read the 404 body — it names the replacement.
+- **`Error 403: access_denied` at sign-in is a missing test user, not verification.**
+  The screen says the app "has not completed the Google verification process", which sends
+  you to the wrong place, and it has **no Advanced link** — it is a refusal, not the
+  click-through warning. Fix: *Google Auth Platform → Audience → Test users → Add* (the
+  setting moved out of *OAuth consent screen*), and check the project selector, because
+  adding the tester to the wrong project fails silently. The "unverified app" warning with
+  **Advanced → Go to FreeTime (unsafe)** only appears *after* this check passes.
+- **A Gemini API key cannot take an HTTP referrer restriction.** Google now requires
+  Gemini keys to be bound to a service account, and website restrictions are unavailable
+  on bound keys — the Console says so outright. This makes the mitigation named in
+  [client.ts](src/lib/gemini/client.ts)'s header comment and in the README impossible.
+  What is achievable is an **API restriction** to *Generative Language API* alone. The
+  residual exposure is small: the key is typed into Settings, lives only in IndexedDB, and
+  is never in the repo, the bundle, or Drive. Do not spend another afternoon on this.
+- **AI Studio keys live in their own Cloud project** and cannot be moved or linked into
+  another. Enabling *Generative Language API* in the `FreeTime` project does not make an
+  AI Studio key appear there — enabling an API grants permission, it does not create or
+  import keys. To restrict a key you must be in the project it was born in.
 - **Google gives a static site no refresh token.** Its discovery document lists no
   `none` token-endpoint auth method, so a secretless client cannot use the token
   endpoint at all. Spec §2.1's PKCE-plus-refresh-token plan is not buildable. Sign-in

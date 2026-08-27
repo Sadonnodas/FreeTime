@@ -19,6 +19,15 @@
   type Phase = 'idle' | 'recording' | 'working' | 'review' | 'queued' | 'error';
   let phase = $state<Phase>('idle');
 
+  /**
+   * Why the queued phase carries a reason: both no-signal and a failed call
+   * queue the audio, and for a long time both said "no connection". A dead
+   * model name then looked exactly like a tunnel, which cost an afternoon of
+   * looking at the wrong thing. The recording is kept either way — only the
+   * explanation differs.
+   */
+  let queuedReason = $state<'offline' | 'failed'>('offline');
+
   let recorder: Recorder | null = null;
   let startedAt = 0;
   let elapsed = $state(0);
@@ -74,6 +83,7 @@
       // the worst failure this app has.
       if (!navigator.onLine) {
         await queueAudio(wav, elapsed);
+        queuedReason = 'offline';
         phase = 'queued';
         return;
       }
@@ -87,6 +97,11 @@
       try {
         const wav = await toGeminiWav(raw);
         await queueAudio(wav, elapsed);
+        // Keep the reason. Queuing rescues the audio; it does not make the
+        // failure go away, and swallowing it here is what made a 404 on the
+        // model name unfindable from inside the app.
+        message = (err as Error).message;
+        queuedReason = 'failed';
         phase = 'queued';
       } catch {
         message = (err as Error).message;
@@ -156,10 +171,17 @@
       <p class="footnote">Listening back…</p>
     {:else if phase === 'queued'}
       <p class="title-2 text-center">Saved for later.</p>
-      <p class="footnote mt-2 text-center">
-        No connection right now. The recording is stored and will be turned into items
-        the next time you're online.
-      </p>
+      {#if queuedReason === 'offline'}
+        <p class="footnote mt-2 text-center">
+          No connection right now. The recording is stored and will be turned into items
+          the next time you're online.
+        </p>
+      {:else}
+        <p class="footnote mt-2 text-center">
+          The recording is stored and will be retried. Turning it into items failed:
+        </p>
+        <p class="footnote mt-2 text-center opacity-70">{message}</p>
+      {/if}
       <button
         class="btn btn-secondary press mt-6"
         onclick={onDone}>Done</button

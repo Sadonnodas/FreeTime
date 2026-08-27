@@ -6,8 +6,14 @@ import { now } from '../store';
  *
  * Called directly from the browser with the user's own key. That means the key
  * is visible in their own network tab, which the spec accepts for a
- * single-user personal app on their own device — the mitigation is an HTTP
- * referrer restriction on the key in Google Cloud Console, not secrecy.
+ * single-user personal app on their own device. The spec called for an HTTP
+ * referrer restriction as the mitigation; that is no longer possible, because
+ * Google now binds Gemini keys to a service account and bound keys cannot take
+ * website restrictions. An API restriction to Generative Language API is what
+ * is achievable. The key is never in the repo, the bundle, or Drive.
+ *
+ * MODEL below is a single point of failure: Google retires models for new keys
+ * without notice, which reads as every AI feature dying at once. See CLAUDE.md.
  *
  * Every function here is allowed to fail. The rule from spec 7.4 is absolute:
  * the AI is an accelerant, never a dependency. Nothing in this file may throw

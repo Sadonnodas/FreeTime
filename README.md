@@ -233,19 +233,29 @@ filled in. One-time, about ten minutes:
 2. **Enable two APIs.** *APIs & Services → Library*, then enable **Google Drive API** and
    **Google Calendar API**.
 3. **Configure the consent screen.** *APIs & Services → OAuth consent screen* → **External**.
-   Fill in the app name and your email. **Leave it in Testing** — do not publish. Under
-   *Test users*, add your own Google account.
+   Fill in the app name and your email. **Leave it in Testing** — do not publish.
    Testing mode is deliberate (spec §2.1): `calendar.readonly` is a sensitive scope, and
    staying in Testing skips Google's verification review entirely. The price is a one-time
    "Google hasn't verified this app" warning, which you click through via *Advanced*.
-4. **Create the client.** *Credentials → Create credentials → OAuth client ID →*
+4. **Add yourself as a test user — this is its own step, and skipping it looks like
+   something else entirely.** Go to
+   [console.cloud.google.com/auth/audience](https://console.cloud.google.com/auth/audience)
+   (the setting moved here from *OAuth consent screen*), check the **project selector is
+   `FreeTime`**, then *Test users* → **+ Add users** → your Google account → **Save**.
+   Confirm it appears in the list afterwards.
+
+   Miss this and sign-in dies with **`Error 403: access_denied`** and the text *"has not
+   completed the Google verification process"* — which sounds like a verification problem
+   and is not, and which offers **no Advanced link** because it is a refusal rather than a
+   warning. Adding the tester to the wrong project fails the same way, silently.
+5. **Create the client.** *Credentials → Create credentials → OAuth client ID →*
    **Web application**.
    - *Authorised JavaScript origins*: `https://sadonnodas.github.io` and
      `http://localhost:5173`
    - *Authorised redirect URIs*: `https://sadonnodas.github.io/FreeTime/` and
      `http://localhost:5173/FreeTime/`
    The trailing slash matters. Google matches redirect URIs character for character.
-5. **Paste the client ID** into `GOOGLE_CLIENT_ID` in
+6. **Paste the client ID** into `GOOGLE_CLIENT_ID` in
    [src/lib/config.ts](src/lib/config.ts), commit, push. It is public by design — it
    travels in the URL on every sign-in, and the flow's safety rests on the registered
    redirect URI, not on hiding this string. Ignore the client *secret*; nothing here uses it.
@@ -296,8 +306,18 @@ There are none in this repo, and there must never be any.
 
 - The **Gemini API key** is pasted into Settings by the user and stored in IndexedDB. It
   is visible in their own browser's network tab, which is acceptable for a single-user
-  app on their own device. Restrict it by HTTP referrer to the Pages origin in Google
-  Cloud Console.
+  app on their own device. It is never in the repo, the built bundle, or Drive — the
+  `settings` table is deliberately not synced, so the key must be entered once per device.
+
+  **An HTTP referrer restriction is not available**, though earlier notes here said to
+  add one. Google now requires Gemini keys to be bound to a service account, and website
+  restrictions cannot be applied to bound keys. Restrict it by **API** instead: Cloud
+  Console → the key → *API restrictions* → *Generative Language API* only. That caps what
+  a leaked key could reach, which is the part that matters.
+
+- A **downloaded `client_secret_*.json`** is gitignored and unused. Google offers it when
+  you create the OAuth client; nothing here can use it, because a secretless static site
+  has no token endpoint to present it to. Safe to delete.
 - **Google OAuth** uses no secret at all — see *Google setup* above. The access token it
   does hold is short-lived and lives only in IndexedDB.
 - The **OAuth client ID** in `config.ts` is public by design and is not a secret.
