@@ -15,7 +15,7 @@ import { now } from '../store';
  */
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
-const MODEL = 'gemini-2.5-flash';
+const MODEL = 'gemini-3.6-flash';
 
 export async function getApiKey(): Promise<string | null> {
   const s = await db.settings.get('settings');
