@@ -11,3 +11,8 @@ dev-dist/
 
 # Personal Notion export — private data, never published.
 notion/
+
+# Google OAuth client secret — downloaded from the Cloud Console.
+# Nothing in this app uses it (a static site has no token endpoint to use it
+# with). Never commit it.
+client_secret*.json
