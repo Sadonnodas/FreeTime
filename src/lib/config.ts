@@ -18,7 +18,7 @@ import { base } from '$app/paths';
  * Empty means Google sign-in is simply hidden — the app is fully usable
  * without it.
  */
-export const GOOGLE_CLIENT_ID = '';
+export const GOOGLE_CLIENT_ID = '496272789427-0lq9nkvi967inpgrff51a7pa2o79gls1.apps.googleusercontent.com';
 
 /**
  * drive.file grants access only to files this app itself created, which keeps
