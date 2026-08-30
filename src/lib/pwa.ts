@@ -30,6 +30,17 @@ import { base } from '$app/paths';
 /** Baked in at build time; see `define` in vite.config.ts. */
 export const BUILD_TIME: string = __APP_VERSION__;
 
+/**
+ * Survives the reload that installing an update performs, so the app can say
+ * "that just happened" on the other side of it.
+ *
+ * localStorage rather than sessionStorage: a service worker takeover can
+ * replace the page in ways that do not always preserve a session, and a missed
+ * confirmation is a worse failure here than a stale flag. It is read once and
+ * cleared immediately.
+ */
+const UPDATED_KEY = 'freetime.justUpdated';
+
 /** How often to ask, while the app is actually in front. */
 const CHECK_EVERY_MS = 30 * 60 * 1000;
 
@@ -149,6 +160,14 @@ const atLaunch = () => Date.now() - startedAt < LAUNCH_GRACE_MS;
 async function apply(): Promise<void> {
   if (status !== 'ready') return;
   setStatus('updating');
+
+  // Written before the reload, read after it. Everything below this line
+  // replaces the page.
+  try {
+    localStorage.setItem(UPDATED_KEY, String(Date.now()));
+  } catch {
+    /* blocked site data: the update still happens, it just goes unannounced */
+  }
 
   if (workerWaiting && applyUpdate) {
     // The good path: the new build is already downloaded and sitting in the
@@ -310,6 +329,25 @@ export function startUpdateWatch(): () => void {
     navigator.serviceWorker?.removeEventListener('controllerchange', onControllerChange);
     clearInterval(timer);
   };
+}
+
+/**
+ * Did this page load because an update was just installed?
+ *
+ * Reads once and clears, so the confirmation appears on the launch it belongs
+ * to and never again. The window is deliberately short: a flag older than a
+ * couple of minutes is a leftover from a reload that never completed, not
+ * something worth telling anyone about.
+ */
+export function consumeJustUpdated(): boolean {
+  try {
+    const raw = localStorage.getItem(UPDATED_KEY);
+    if (!raw) return false;
+    localStorage.removeItem(UPDATED_KEY);
+    return Date.now() - Number(raw) < 120_000;
+  } catch {
+    return false;
+  }
 }
 
 /** "30 Aug 2026, 14:52" — what the Settings screen shows. */

@@ -324,6 +324,10 @@ body {
     border-right: 1px solid var(--color-line-1);
   }
 
+  .hairline-b {
+    border-bottom: 1px solid var(--color-line-1);
+  }
+
   /* A row in the desktop rail. Wider hit area than the phone tab, because a
      cursor is precise and a thumb is not — the target can be a shape rather
      than a minimum. */

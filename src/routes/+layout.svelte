@@ -10,6 +10,7 @@
   import { startSync } from '$lib/sync';
   import { processQueue } from '$lib/gemini/commit';
   import { startThemeWatch } from '$lib/theme';
+  import UpdateNotice from '$lib/components/UpdateNotice.svelte';
 
   let { children } = $props();
 
@@ -182,6 +183,10 @@
   </nav>
 
   <div class="flex min-w-0 flex-1 flex-col">
+  <!-- Above the scrolling area, so it is seen without being fixed over the
+       content or eating into a page's own safe-area padding. -->
+  <UpdateNotice />
+
   <main class="min-h-0 flex-1 overflow-y-auto">
     <div class="page h-full">
     {#if storageError}

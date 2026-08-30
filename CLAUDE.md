@@ -164,6 +164,17 @@ Do not "fix" these without talking to Toon first.
   settles, and the registration has vanished by the next evaluation. So an update check
   there can look like it succeeded when nothing happened. Recording, offline boot and
   the update cycle all have to be tested on a real device.
+- **The app now says when it updated, reversing an earlier call.** Silent updating was
+  chosen on no-nag grounds, and silence has its own failure: you cannot tell a working
+  app from one quietly running last month's code, and worrying that you might be is worse
+  than a line of text. [UpdateNotice.svelte](src/lib/components/UpdateNotice.svelte) shows
+  two states, both statements rather than requests — *"Updated — built X"*, transient,
+  after a build installed at launch; and *"A newer version is ready"* with an Update
+  button when one is found MID-SESSION, where reloading unasked would throw away whatever
+  is half-typed. The second stays until acted on: a staleness warning that dismisses
+  itself is no use. `consumeJustUpdated()` carries the fact across the reload in
+  localStorage and clears it, so the confirmation appears once, on the launch it belongs
+  to.
 - **`registerType` is `'prompt'`, and that does NOT mean the user gets prompted.** It
   means the reload is ours to time ([pwa.ts](src/lib/pwa.ts)). Under `'autoUpdate'` the
   page reloads the instant a new worker takes control, which was fine when updates were
