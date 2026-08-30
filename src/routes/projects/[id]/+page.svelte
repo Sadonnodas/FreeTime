@@ -14,6 +14,8 @@
   } from '$lib/store';
   import { goto } from '$app/navigation';
   import { resizeImage, COVER_EDGE } from '$lib/images';
+  import ProjectCover from '$lib/components/ProjectCover.svelte';
+  import StickerPicker from '$lib/components/StickerPicker.svelte';
 
   // Exactly three tabs, and no fourth ever. Depth is what killed the last one.
   type Tab = 'notes' | 'todos' | 'buy';
@@ -40,6 +42,8 @@
    * front is exactly the kind of demand that makes people stop creating them.
    */
   let coverError = $state('');
+
+  let pickingSticker = $state(false);
 
   async function onCover(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -183,9 +187,18 @@
     <div class="flex items-center justify-between">
       <a href="{base}/projects" class="press footnote py-1">‹ Projects</a>
       <div class="flex items-center gap-1">
+        <!-- Two ways in, side by side rather than behind a menu. A dinosaur is
+             one tap and always available; a photo needs one from the camera
+             roll and is the slower path, so it goes second. -->
+        <button
+          class="press tap-h footnote px-2 text-accent"
+          onclick={() => (pickingSticker = true)}
+        >
+          Dinosaur
+        </button>
         <label class="press tap-h footnote inline-flex cursor-pointer items-center px-2 text-accent">
           <input type="file" accept="image/*" class="hidden" onchange={onCover} />
-          {$projectQ?.image ? 'Change cover' : 'Add a cover'}
+          Photo
         </label>
         {#if $projectQ?.image}
           <button class="press tap-h footnote px-2" onclick={() => setProjectImage(id, undefined)}>
@@ -196,17 +209,28 @@
     </div>
 
     {#if $projectQ?.image}
-      <div class="relative mt-2 overflow-hidden rounded-[20px] border border-line-1">
-        <img src={$projectQ.image} alt="" class="h-40 w-full object-cover" />
+      <div class="relative mt-2 h-40 overflow-hidden rounded-[20px] border border-line-1">
+        <ProjectCover name={$projectQ.name} image={$projectQ.image} />
         <div
           class="absolute inset-x-0 bottom-0 px-4 pt-12 pb-3"
-          style="background: linear-gradient(to top, rgba(0,0,0,.85), rgba(0,0,0,.4) 50%, transparent)"
+          style="background: linear-gradient(to top, rgba(0,0,0,.72), rgba(0,0,0,.3) 55%, transparent)"
         >
           <h1 class="large-title text-white">{$projectQ.name}</h1>
         </div>
       </div>
     {:else}
       <h1 class="large-title mt-1">{$projectQ?.name ?? ''}</h1>
+    {/if}
+
+    {#if pickingSticker}
+      <StickerPicker
+        current={$projectQ?.image}
+        onpick={(image) => {
+          setProjectImage(id, image);
+          pickingSticker = false;
+        }}
+        onclose={() => (pickingSticker = false)}
+      />
     {/if}
 
     {#if coverError}

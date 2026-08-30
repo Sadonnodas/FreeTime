@@ -5,6 +5,7 @@
   import { createProject, archiveProject } from '$lib/store';
   import type { Project } from '$lib/types';
   import { base } from '$app/paths';
+  import ProjectCover from '$lib/components/ProjectCover.svelte';
   import Dino from '$lib/components/Dino.svelte';
 
   const pulsesQ = liveQuery(() => projectPulses());
@@ -78,17 +79,6 @@
     if (days < 7) return `${days}d ago`;
     if (days < 60) return `${Math.floor(days / 7)}w ago`;
     return `${Math.floor(days / 30)}mo ago`;
-  }
-
-  /**
-   * A project with no cover still gets a real tile rather than an empty box:
-   * a colour derived from its own name, so it is stable forever and every
-   * project looks different without anyone picking anything.
-   */
-  function hue(text: string): number {
-    let h = 0;
-    for (const ch of text) h = (h * 31 + ch.charCodeAt(0)) % 360;
-    return h;
   }
 
   const initials = (text: string) =>
@@ -168,25 +158,11 @@
         class="press rise relative block aspect-square overflow-hidden rounded-[20px]
                border border-line-1 bg-ink-800"
       >
-        {#if p.project.image}
-          <img
-            src={p.project.image}
-            alt=""
-            class="absolute inset-0 h-full w-full object-cover"
-          />
-        {:else}
-          <div
-            class="absolute inset-0 flex items-center justify-center"
-            style="background:
-              linear-gradient(150deg,
-                hsl({hue(p.project.name)} 42% 26%),
-                hsl({(hue(p.project.name) + 40) % 360} 38% 14%))"
-          >
-            <span class="text-[2.5rem] font-bold tracking-[-0.03em] text-white/22">
-              {initials(p.project.name)}
-            </span>
-          </div>
-        {/if}
+        <ProjectCover
+          name={p.project.name}
+          image={p.project.image}
+          initials={initials(p.project.name)}
+        />
 
         <!-- A scrim rather than a solid bar, so the photo still reads as a
              photo but the name is legible over anything. -->
