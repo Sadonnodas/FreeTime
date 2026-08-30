@@ -5,6 +5,7 @@
   import { createHabit } from '$lib/store';
   import { winsSince } from '$lib/queries';
   import { base } from '$app/paths';
+  import { buildLabel } from '$lib/pwa';
 
   const habitsQ = liveQuery(async () =>
     (await db.habits.toArray()).filter((h) => !h.deletedAt)
@@ -119,4 +120,16 @@
       <span class="text-ink-400">›</span>
     </a>
   </section>
+
+  <!--
+    The build stamp, where every app puts it: quietly at the foot of the profile
+    screen. It lived only in Settings, below Google Drive and Gemini, which on a
+    phone puts it under the fold — so "which version am I running?" required
+    knowing to scroll, and looked exactly like the app failing to update. The
+    whole point of showing a version is to be able to answer that at a glance.
+    Tapping goes to Settings, where the check button is.
+  -->
+  <a href="{base}/me/settings" class="press mt-8 block text-center">
+    <span class="footnote">Built {buildLabel()}</span>
+  </a>
 </div>
