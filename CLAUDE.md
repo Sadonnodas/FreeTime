@@ -381,6 +381,16 @@ one came close to a hard rule, the reasoning is recorded here.
   personal tab. `/settings` and `/settings/import` are top-level routes now; Me is
   habits and wins only. Five is the ceiling: six starts to crowd the bar on a phone,
   where each tab gets 75px.
+- **The Free Time button rotates through scenes** ([freeTimeScenes.ts](src/lib/freeTimeScenes.ts)).
+  A different gradient and a different little scene each open — the dinosaur with a ball,
+  in a river, under stars, with a guitar. **The division of labour is the lesson from the
+  icon**: the dinosaur is real artwork because hand-written beziers make terrible animals,
+  and everything around it is geometry, which hand-written beziers do fine. Nothing here
+  tries to draw a creature.
+  The caption is the layout constraint — the first pass ran the river through the words
+  and put a ball on top of them. Ground-level props go below y 70 in the 100x100 space,
+  anything beside the dinosaur beyond x 76. The previous scene id is remembered so the
+  next open is never the same one, since a repeat reads as "nothing happened".
 - **The dinosaur is a character, not just an icon** ([Dino.svelte](src/lib/components/Dino.svelte)).
   Same Twemoji artwork as the icon, so the animal on the home screen is the animal inside
   the app rather than two drawings that merely resemble each other. `tone="mono"` is a

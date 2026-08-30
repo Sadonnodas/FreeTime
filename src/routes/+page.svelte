@@ -16,6 +16,7 @@
   import { onMount } from 'svelte';
   import FreeTime from '$lib/components/FreeTime.svelte';
   import Dino from '$lib/components/Dino.svelte';
+  import { pickScene } from '$lib/freeTimeScenes';
 
   /**
    * Dexie's liveQuery re-runs its callback whenever any table it touched
@@ -49,6 +50,13 @@
       .map((id) => rows.find((r) => r?.id === id))
       .filter((t): t is Todo => !!t && !t.deletedAt);
   });
+
+  /**
+   * A different little scene each time the app opens. Chosen once, here, rather
+   * than in the markup — re-rolling on every render would make the button
+   * change identity while being looked at.
+   */
+  const scene = pickScene();
 
   let showClose = $state(false);
   let unlockAvailable = $state(false);
@@ -163,14 +171,38 @@
       -->
       <div class="mt-8 flex justify-center">
         <button
-          class="btn-hero press flex aspect-square w-[64%] max-w-[264px] min-w-[200px]
-                 flex-col items-center justify-center gap-1 rounded-full"
+          class="press relative flex aspect-square w-[64%] max-w-[264px] min-w-[200px]
+                 items-center justify-center overflow-hidden rounded-full"
+          style="background: linear-gradient(135deg, {scene.from}, {scene.to});
+                 color: {scene.ink};
+                 box-shadow: 0 10px 34px -12px {scene.to}"
           onclick={() => (freeTime = true)}
         >
-          <span class="text-[#1a0d06] opacity-80">
-            <Dino size={76} tone="mono" />
+          <!--
+            Scenery: behind the dinosaur, then in front of it, both drawn in a
+            100x100 space over the button.
+
+            {@html} is safe here and only here: the markup is a constant in
+            freeTimeScenes.ts, written by us and never touched by user input or
+            anything off the network. If a scene ever becomes something a person
+            can define, this has to stop being @html.
+          -->
+          {#if scene.behind}
+            <svg viewBox="0 0 100 100" class="pointer-events-none absolute inset-0 h-full w-full"
+              aria-hidden="true">{@html scene.behind}</svg>
+          {/if}
+
+          <!-- Nudged up, so the bottom of the circle is free for scenery at
+               ground level without it running through the words. -->
+          <span class="relative z-10 flex -translate-y-[6%] flex-col items-center gap-1">
+            <span class="opacity-85"><Dino size={76} tone="mono" /></span>
+            <span class="text-[1.375rem] font-semibold">Free time?</span>
           </span>
-          <span class="text-[1.375rem] font-semibold">Free time?</span>
+
+          {#if scene.front}
+            <svg viewBox="0 0 100 100" class="pointer-events-none absolute inset-0 z-20 h-full w-full"
+              aria-hidden="true">{@html scene.front}</svg>
+          {/if}
         </button>
       </div>
       <button
