@@ -141,13 +141,16 @@ Do not "fix" these without talking to Toon first.
 - **The built-in `<audio controls>` is a white pill on every platform.** It reads as a
   form element dropped into the page and undoes the whole dark treatment in one
   element. MemoList drives a hidden `<audio>` by hand instead; it is about forty lines.
-- **The in-app preview browser blocks the microphone AND service workers.** The mic
-  throws `NotAllowedError`; SW registration fails with *"An unknown error occurred when
-  fetching the script"* even though the script is served with a 200 and the right MIME
-  type. A three-line no-op worker fails identically, so it is the browser, not the code
-  — do not go looking for a scope or base-path bug. Recording, offline boot, and the
-  update flow all have to be tested on a real device. Same class of problem as the
-  headless-Chrome note below.
+- **The in-app preview browser cripples the microphone and service workers, and it
+  does it differently per origin.** The mic throws `NotAllowedError` everywhere. On
+  **localhost**, SW registration fails outright with *"An unknown error occurred when
+  fetching the script"* even though the script returns 200 with the right MIME type — a
+  three-line no-op worker fails identically, so it is the browser, not a scope or
+  base-path bug. On the **live HTTPS origin** `register()` resolves and the registration
+  appears, but the worker never activates: `navigator.serviceWorker.ready` never
+  settles, and the registration has vanished by the next evaluation. So an update check
+  there can look like it succeeded when nothing happened. Recording, offline boot and
+  the update cycle all have to be tested on a real device.
 - **`registerType` is `'prompt'`, and that does NOT mean the user gets prompted.** It
   means the reload is ours to time ([pwa.ts](src/lib/pwa.ts)). Under `'autoUpdate'` the
   page reloads the instant a new worker takes control, which was fine when updates were

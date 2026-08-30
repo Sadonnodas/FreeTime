@@ -38,6 +38,7 @@ export type UpdateStatus =
   | 'current'
   | 'ready'
   | 'updating'
+  | 'failed'
   | 'unsupported';
 
 let status: UpdateStatus = 'idle';
@@ -116,7 +117,17 @@ export async function checkForUpdates(): Promise<void> {
     await registration.update();
     await settle(registration);
   } catch {
-    /* offline, or Pages briefly unreachable. Not worth reporting as a fault. */
+    /*
+     * A check that could not run is NOT a check that found nothing.
+     *
+     * Swallowing this and saying "this is the latest version" would be a
+     * confident lie in the case most likely to happen: tapping the button on a
+     * train with no signal. The whole reason this button exists is that an
+     * installed app gives you no other way to tell, so it has to be honest
+     * about not knowing.
+     */
+    if (status === 'checking') setStatus('failed');
+    return;
   }
   // onNeedRefresh flips this to 'ready' if there was something. Nothing
   // arriving means this really is the current build.

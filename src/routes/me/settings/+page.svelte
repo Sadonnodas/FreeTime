@@ -51,6 +51,8 @@
         return 'A newer version is ready.';
       case 'updating':
         return 'Updating…';
+      case 'failed':
+        return "Couldn't check just now — you may be offline.";
       case 'unsupported':
         // The dev server has no service worker, and neither does a browser with
         // site data blocked. Saying so beats a button that does nothing.
