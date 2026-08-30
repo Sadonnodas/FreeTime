@@ -154,6 +154,10 @@ export async function createBuyItem(
   return b.id;
 }
 
+export async function updateBuyItem(id: string, patch: Partial<BuyItem>): Promise<void> {
+  await db.buyItems.update(id, { ...patch, updatedAt: now() });
+}
+
 export async function markPurchased(id: string, purchased = true): Promise<void> {
   await db.buyItems.update(id, {
     purchasedAt: purchased ? now() : undefined,

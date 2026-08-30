@@ -4,6 +4,8 @@
   import { db } from '$lib/db';
   import { base } from '$app/paths';
   import WidgetBoard from '$lib/components/WidgetBoard.svelte';
+  import BuyList from '$lib/components/BuyList.svelte';
+  import { money } from '$lib/format';
   import type { Todo, BuyItem } from '$lib/types';
   import {
     createTodo, completeTodo, createBuyItem, markPurchased, saveNote, getNote,
@@ -132,6 +134,28 @@
     const text = markdown;
     saveTimer = setTimeout(() => void saveNote(pid, text), 500);
   }
+
+  const buyItems = $derived(
+    (($buyQ as BuyItem[] | undefined) ?? []).sort(
+      (a, b) =>
+        (a.purchasedAt ? 1 : 0) - (b.purchasedAt ? 1 : 0) ||
+        b.createdAt.localeCompare(a.createdAt)
+    )
+  );
+
+  /**
+   * What the rest of this project would cost, for the items that have a price.
+   *
+   * A plain sum, not a budget: there is no target to be over or under, which is
+   * the same reason there are no progress bars anywhere. "The campervan needs
+   * another 340 euros of parts" is a useful thing to know; "you are 40% through
+   * your allowance" is the thing this app exists to avoid.
+   */
+  const outstanding = $derived(
+    buyItems
+      .filter((b) => !b.purchasedAt && b.priceCents != null)
+      .reduce((sum, b) => sum + b.priceCents!, 0)
+  );
 
   const inSection = (t: Todo) => (activeTag ? t.tag === activeTag : true);
 
@@ -342,26 +366,15 @@
       <button class="btn btn-primary press">Add</button>
     </form>
 
-    <ul class="space-y-1">
-      {#each ($buyQ as BuyItem[] | undefined) ?? [] as item (item.id)}
-        <li class="card-flat flex items-center gap-3 px-3">
-          <button
-            class="tap shrink-0 {item.purchasedAt ? 'text-good' : 'text-ink-400'}"
-            onclick={() => markPurchased(item.id, !item.purchasedAt)}
-            aria-label="Toggle purchased">{item.purchasedAt ? '✓' : '○'}</button
-          >
-          <span class="flex-1 py-3 {item.purchasedAt ? 'text-ink-400 line-through' : ''}">
-            {item.name}
-          </span>
-          {#if item.priceCents != null}
-            <span class="text-sm text-ink-400">
-              {(item.priceCents / 100).toFixed(2)}
-              {item.currency ?? 'EUR'}
-            </span>
-          {/if}
-        </li>
-      {/each}
-    </ul>
+    <!-- No project chips here: everything on this tab already belongs to this
+         project, so showing them would only be a way to file it away. -->
+    <BuyList items={buyItems} showProject={false} />
+
+    {#if outstanding > 0}
+      <p class="footnote mt-3 text-right">
+        {money(outstanding)} still to buy
+      </p>
+    {/if}
   {/if}
 
   <!-- Right at the bottom, where a destructive-looking action belongs. -->

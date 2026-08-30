@@ -11,6 +11,7 @@
   import MemoList from '$lib/components/MemoList.svelte';
   import MemoRecorder from '$lib/components/MemoRecorder.svelte';
   import MemoMap from '$lib/components/MemoMap.svelte';
+  import BuyList from '$lib/components/BuyList.svelte';
   import { canRecord } from '$lib/audio';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
@@ -126,13 +127,27 @@
     await createIdea(text);
   }
 
+  /** Same rule as the to-do filter above: whatever project you are looking at
+   *  is where a new one lands, so filing is a side effect of where you are. */
+  let fBuyProject = $state('');
+
   async function addBuy(e: SubmitEvent) {
     e.preventDefault();
     const name = newBuyText.trim();
     if (!name) return;
     newBuyText = '';
-    await createBuyItem(name);
+    await createBuyItem(name, { projectId: fBuyProject || undefined });
   }
+
+  const filteredBuy = $derived(
+    (($buyQ as BuyItem[] | undefined) ?? [])
+      .filter((b) => (fBuyProject ? b.projectId === fBuyProject : true))
+      // Bought things stay, but they sink: the list is for what you still need.
+      .sort((a, b) =>
+        (a.purchasedAt ? 1 : 0) - (b.purchasedAt ? 1 : 0) ||
+        b.createdAt.localeCompare(a.createdAt)
+      )
+  );
 </script>
 
 <div class="px-4 pt-safe pb-8">
@@ -327,18 +342,26 @@
     </ul>
   {:else}
     <form onsubmit={addBuy} class="mb-3 flex gap-2">
-      <input bind:value={newBuyText} placeholder="Something to buy" class="field min-w-0 flex-1" />
+      <input
+        bind:value={newBuyText}
+        placeholder={fBuyProject
+          ? `Buy for ${projectName(fBuyProject)}`
+          : 'Something to buy'}
+        class="field min-w-0 flex-1"
+      />
       <button class="btn btn-primary press" disabled={!newBuyText.trim()}>Add</button>
     </form>
 
-    <ul class="space-y-1">
-      {#each ($buyQ as BuyItem[] | undefined) ?? [] as b (b.id)}
-        <li class="card-flat flex items-center gap-3 px-4 py-3">
-          <span class="flex-1 {b.purchasedAt ? 'text-ink-400 line-through' : ''}">{b.name}</span>
-          <span class="text-xs text-ink-400">{projectName(b.projectId) ?? ''}</span>
-        </li>
-      {/each}
-    </ul>
+    <div class="mb-3">
+      <select bind:value={fBuyProject} class="field press">
+        <option value="">All projects</option>
+        {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
+          <option value={p.id}>{p.name}</option>
+        {/each}
+      </select>
+    </div>
+
+    <BuyList items={filteredBuy} projects={($projectsQ as Project[] | undefined) ?? []} />
   {/if}
 </div>
 

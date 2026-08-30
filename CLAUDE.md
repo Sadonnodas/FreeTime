@@ -288,6 +288,13 @@ one came close to a hard rule, the reasoning is recorded here.
   ink-950 exactly or the app opens with a flash of the wrong black. **iOS bakes the icon
   in at install time** — changing it does nothing for an already-installed home-screen app
   until it is removed and re-added.
+- **Buy items carry a price, a shop and a project** ([BuyList.svelte](src/lib/components/BuyList.svelte)).
+  All three fields existed in `BuyItem` from the start and nothing could enter them. One
+  component now serves both Brain and a project's Buy tab so they cannot drift.
+  **Add with one field, enrich behind a tap** — the same shape as a voice memo, because
+  three fields in the add form would make writing down "gaffer tape" a chore, and a list
+  that is a chore to add to stops being added to. A project's Buy tab sums what is left
+  to buy: a plain total, never a budget, for the same reason there are no progress bars.
 - **Five tabs, and Settings is one of them.** The spec said four and put settings inside
   Me, which conflated two unrelated things: habits and wins are about Toon, while sync,
   keys, appearance and the build are about the app. Reported as confusing, and it was

@@ -20,3 +20,9 @@ export function shortDate(ymd: string): string {
     month: 'short'
   });
 }
+
+/** A price, in the reader's own locale. Buy items are stored in cents so the
+ *  arithmetic for a project total is integer and cannot drift. */
+export function money(cents: number, currency = 'EUR'): string {
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(cents / 100);
+}
