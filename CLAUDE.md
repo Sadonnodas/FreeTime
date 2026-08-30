@@ -233,6 +233,16 @@ one came close to a hard rule, the reasoning is recorded here.
   asked for, and location is never awaited, because a recorder that waits on a
   permission sheet misses the idea. They live in Brain → Memos and, per project, in a
   `memos` widget above the three tabs.
+- **Update checking does not trust the service worker alone** ([pwa.ts](src/lib/pwa.ts)).
+  A registration can vanish underneath the app — Safari evicts workers for sites left
+  alone about a week — and the stale handle goes on answering `update()` without
+  complaint, so the app reports "this is the latest version" from a page with no way
+  left to get a new one. Observed exactly that way. So the primary check fetches
+  `index.html` with `cache: 'no-store'` and compares the hashed entry-chunk filename
+  against the one the page actually loaded; it needs no version endpoint, cannot be
+  fooled by a cached response, and works with no worker at all. The worker is then the
+  fast path (swap an already-downloaded build) rather than the only path. A check that
+  could not reach the server reports *failed*, never *current*.
 - **Update checking** ([pwa.ts](src/lib/pwa.ts)). An installed PWA on iOS is suspended,
   not closed, so without this it can run a build from weeks ago while the fix sits live
   on Pages. Checks every 30 minutes and on every foreground; installs silently at a safe
