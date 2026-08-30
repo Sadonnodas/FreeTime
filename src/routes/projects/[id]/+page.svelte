@@ -210,7 +210,7 @@
 
     {#if $projectQ?.image}
       <div class="relative mt-2 h-40 overflow-hidden rounded-[20px] border border-line-1">
-        <ProjectCover name={$projectQ.name} image={$projectQ.image} />
+        <ProjectCover name={$projectQ.name} image={$projectQ.image} pad="p-3 pb-12" />
         <div
           class="absolute inset-x-0 bottom-0 px-4 pt-12 pb-3"
           style="background: linear-gradient(to top, rgba(0,0,0,.72), rgba(0,0,0,.3) 55%, transparent)"

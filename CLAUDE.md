@@ -280,6 +280,18 @@ Do not "fix" these without talking to Toon first.
 - **Headless Chrome hangs IndexedDB**, so the app cannot be screenshotted that way. It
   also clamps windows to ~500px minimum, which looks like a horizontal-overflow bug and
   is not. Verify layout at 500px or wider.
+- **iOS zooms in on any form control smaller than 16px, and never zooms back.**
+  Reported as "the app zooms in a bit while typing and I have to pinch to get back".
+  Ten fields sat at Tailwind's `text-sm` (14px), the notes textarea among them, so
+  writing lyrics on a phone did it every time. The fix is a floor on the size in a
+  `@media (pointer: coarse)` block in [app.css](src/app.css), placed OUTSIDE any
+  `@layer` — unlayered rules beat layered ones regardless of specificity, which is
+  what lets it override a Tailwind utility on the same element — and written against
+  the elements rather than `.field`, so a field added later cannot forget to opt in.
+  **Do not "fix" this with `maximum-scale=1` in the viewport tag**: it works by
+  disabling pinch-zoom altogether, which trades a real accessibility loss for a
+  layout annoyance.
+
 - **Careful with `\b` in Python-driven edits.** A `\b` in a non-raw Python string
   becomes a literal backspace byte and silently corrupts a regex. Caught once by a test;
   scan with a control-character check if edits go through Python.

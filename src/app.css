@@ -557,6 +557,31 @@ body {
 }
 
 /*
+ * iOS zooms the page whenever you focus a form control whose text is smaller
+ * than 16px, and it does NOT zoom back out afterwards — you are left pinching
+ * to undo it. Reported as "the app zooms in a bit while typing and I have to
+ * pinch to get back". Ten fields were at Tailwind's text-sm (14px), the notes
+ * textarea among them, so writing lyrics on a phone did it every time.
+ *
+ * The alternative fix is maximum-scale=1 in the viewport tag, which stops the
+ * zoom by disabling pinch entirely. That is a real accessibility loss for one
+ * layout annoyance, so: a floor on the size instead.
+ *
+ * Deliberately OUTSIDE @layer, and deliberately on the elements rather than on
+ * .field. Unlayered rules beat layered ones regardless of specificity, which is
+ * what lets this override a Tailwind utility sitting on the same element — and
+ * targeting the element means a field added later cannot forget to opt in.
+ * Only on touch pointers, so the desktop keeps its smaller, denser controls.
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    font-size: 1rem;
+  }
+}
+
+/*
  * The map.
  *
  * Lives here rather than scoped inside MemoMap.svelte because it has to react

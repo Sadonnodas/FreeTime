@@ -24,8 +24,15 @@
   let {
     name,
     image,
-    initials = ''
-  }: { name: string; image?: string; initials?: string } = $props();
+    initials = '',
+    pad = 'p-3'
+  }: {
+    name: string;
+    image?: string;
+    initials?: string;
+    /** Extra room where a caller draws its own name over the picture. */
+    pad?: string;
+  } = $props();
 
   const sticker = $derived(stickerFrom(image));
 
@@ -40,7 +47,7 @@
 
 {#if sticker}
   <div
-    class="absolute inset-0 flex items-center justify-center p-3"
+    class="absolute inset-0 flex items-center justify-center {pad}"
     style="background: linear-gradient(150deg, hsl({h} 58% 82%), hsl({(h + 40) % 360} 50% 66%))"
   >
     <img
