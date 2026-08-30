@@ -61,7 +61,8 @@ machine; a fresh clone will not have it, and the importer works fine without it
 
 ## Architecture in ten lines
 
-- SvelteKit + `adapter-static`, Svelte 5 runes, TypeScript strict, Tailwind v4.
+- SvelteKit + `adapter-static`, Svelte 5 runes, TypeScript strict, Tailwind v4. Two
+  runtime dependencies: Dexie, and Leaflet (lazy, map only).
 - **IndexedDB via Dexie is the only runtime source of truth.** Every read and write
   hits it and nothing else, so writes return instantly.
 - [store.ts](src/lib/store.ts) is the *only* place that mutates.
@@ -248,6 +249,24 @@ one came close to a hard rule, the reasoning is recorded here.
   on Pages. Checks every 30 minutes and on every foreground; installs silently at a safe
   moment; *Me → Settings → Version* shows the build timestamp (`__APP_VERSION__`, stamped
   by `define` in vite.config.ts) and offers a manual check.
+- **A map of recordings** ([geo.ts](src/lib/geo.ts),
+  [MemoMap.svelte](src/lib/components/MemoMap.svelte)). Brain → Memos toggles List/Map.
+  Leaflet is the app's second runtime dependency and is **lazily imported** — opening
+  the app must not pay for a map that may never be opened. The real problem a map has
+  to solve here is not drawing pins but that most recordings happen in the same few
+  places: two hundred made at home would bury the three made on a trip, which are the
+  only ones anyone wants to find. So nearby memos collapse into one counted marker on a
+  grid whose cell size follows the zoom. Filters by project and by calendar period —
+  *this month* means August, not the last 30 days, because the question being asked is
+  "where was I in August?".
+  **Privacy:** map tiles come from OpenStreetMap, so drawing a map tells their tile
+  server roughly which area is being viewed. That is unavoidable for real cartography
+  and is the only thing in the app that leaves the device without Google involved. The
+  coordinates themselves are never sent anywhere — there is no reverse geocoding, which
+  is also why `Memo.place` is still never filled in.
+  OSM serves only light tiles; a white map in this app looks like a browser window left
+  open on top of it, so the tile pane is inverted and hue-rotated in CSS. Markers sit
+  outside that layer and keep their real colour.
 - **Assistant tools** added: `create_habit`, `append_note` (appends — never replaces,
   because a misheard sentence overwriting a page of notes is unrecoverable), and
   `navigate`. Navigation is a third category (`SAFE_TOOLS`): it writes nothing, but it
@@ -260,9 +279,19 @@ client ID is in [config.ts](src/lib/config.ts). It needs signing in to Google on
 device; there is nothing to build. Memos are the exception, below.
 
 **Still not built:** memos do not sync to Drive yet (the audio must go as real Drive
-files, never inside the JSON), there is no map view (coordinates are captured, and
-`place` is never filled in), and lyrics-per-song would need `notes` to stop being
-one-per-project — it has a `&projectId` unique index today.
+files, never inside the JSON); `Memo.place` is never filled in, deliberately — see the
+privacy note above; and lyrics-per-song would need `notes` to stop being one-per-project,
+since it has a `&projectId` unique index today.
+
+**One-time migration hazard, Aug 2026.** Switching `registerType` from `autoUpdate` to
+`'prompt'` leaves an ALREADY-INSTALLED home-screen app stuck. The old worker
+self-skip-waited; the new one only skips when messaged, and the old client code still
+running on that device never sends the message — so the new worker installs and sits in
+*waiting* indefinitely. It activates once the last controlled client goes away, i.e.
+when the app is force-quit from the iOS App Switcher. Every update after that one is
+handled by the new client and needs no ceremony. Do NOT tell anyone to delete and re-add
+the home-screen app to fix it: on iOS a home-screen web app has its own storage, so that
+wipes IndexedDB and everything not yet synced to Drive is gone.
 
 ## Working style Toon has asked for
 

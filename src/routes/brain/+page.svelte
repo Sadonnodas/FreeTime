@@ -10,6 +10,7 @@
   import { allMemos, storageUse, mb, type StorageUse } from '$lib/memos';
   import MemoList from '$lib/components/MemoList.svelte';
   import MemoRecorder from '$lib/components/MemoRecorder.svelte';
+  import MemoMap from '$lib/components/MemoMap.svelte';
   import { canRecord } from '$lib/audio';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
@@ -53,6 +54,12 @@
 
   let recording = $state(false);
   const recordable = canRecord();
+
+  // List or map. Kept local rather than in the URL: which way you were last
+  // looking at your recordings is not worth a navigation entry.
+  let memoView = $state<'list' | 'map'>('list');
+  /** The pin that was tapped, shown as a sheet over the map. */
+  let pinned = $state<Memo[] | null>(null);
 
   // Recordings are the only thing here big enough to be worth a number, and
   // only because the browser can evict them. Shown as plain information, never
@@ -264,10 +271,29 @@
     {/if}
 
     {#if (($memosQ as Memo[] | undefined) ?? []).length}
-      <MemoList
-        memos={($memosQ as Memo[] | undefined) ?? []}
-        projects={($projectsQ as Project[] | undefined) ?? []}
-      />
+      <div class="segmented mb-4">
+        <button
+          class="press segment {memoView === 'list' ? 'segment-on' : ''}"
+          onclick={() => (memoView = 'list')}>List</button
+        >
+        <button
+          class="press segment {memoView === 'map' ? 'segment-on' : ''}"
+          onclick={() => (memoView = 'map')}>Map</button
+        >
+      </div>
+
+      {#if memoView === 'map'}
+        <MemoMap
+          memos={($memosQ as Memo[] | undefined) ?? []}
+          projects={($projectsQ as Project[] | undefined) ?? []}
+          onPick={(picked) => (pinned = picked)}
+        />
+      {:else}
+        <MemoList
+          memos={($memosQ as Memo[] | undefined) ?? []}
+          projects={($projectsQ as Project[] | undefined) ?? []}
+        />
+      {/if}
       {#if storage}
         <p class="footnote mt-6">
           {mb(storage.usedBytes)} used on this device{storage.persisted
@@ -318,4 +344,25 @@
 
 {#if recording}
   <MemoRecorder onDone={() => (recording = false)} />
+{/if}
+
+{#if pinned}
+  <!-- What was recorded at one place. The same list rows as everywhere else, so
+       playing, sharing and renaming all work without a second implementation. -->
+  <div class="glass-strong rise fixed inset-0 z-50 flex flex-col">
+    <div class="flex items-center justify-between px-4 pt-safe">
+      <span class="section-label py-3">
+        {pinned.length} recording{pinned.length === 1 ? '' : 's'} here
+      </span>
+      <button
+        class="press tap px-2 text-[22px] leading-none text-ink-400"
+        onclick={() => (pinned = null)}
+        aria-label="Close">×</button
+      >
+    </div>
+    <div class="flex-1 overflow-y-auto px-4 pb-safe">
+      <MemoList memos={pinned} projects={($projectsQ as Project[] | undefined) ?? []} />
+      <div class="h-6"></div>
+    </div>
+  </div>
 {/if}
