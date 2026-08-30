@@ -19,6 +19,26 @@ export interface Project extends Base {
   name: string;
   color?: string;
   archived: boolean;
+  /** Cover photo, as a hard-resized data URL. See images.ts for the cap.
+   *  Recognising a logo or a photo of the actual campervan is faster than
+   *  reading a word, which is the whole point of the picture grid. */
+  image?: string;
+  /**
+   * Named sections within the project — Creating / Mixing / Mastering for
+   * Music, one per song or side-project for Coding.
+   *
+   * This is NOT a second level of hierarchy, and the difference matters. Tags
+   * are a filter over one flat list, so the project still has exactly three
+   * tabs and nothing is ever more than two taps deep. The old system's fatal
+   * move was making each of these a page you had to navigate into; here the
+   * whole set is visible as a row of chips and switching is one tap with no
+   * navigation at all.
+   *
+   * Ordered, because the order is the user's, and stored on the project rather
+   * than derived from the to-dos so a section can exist before it has anything
+   * in it and does not vanish when it is emptied.
+   */
+  tags?: string[];
 }
 
 /**
@@ -32,6 +52,10 @@ export interface Todo extends Base {
   title: string;
   notes?: string;
   projectId?: string;
+  /** One of the parent project's `tags`. One at a time, deliberately: a to-do
+   *  that is in three sections at once is how a filter row stops being a
+   *  glance and becomes a query builder. Nothing requires it. */
+  tag?: string;
   energy?: Energy;
   date?: string; // YYYY-MM-DD
   completedAt?: string;
@@ -155,6 +179,55 @@ export interface QueuedAudio extends Base {
 }
 
 /**
+ * A kept audio recording (a song idea, a riff, a melody hummed at a bus stop).
+ *
+ * Structurally separate from QueuedAudio, and the difference is the point:
+ * QueuedAudio is a brain-dump on its way to becoming to-dos, and its bytes are
+ * thrown away once it has been transcribed. A Memo IS the artifact. Nothing
+ * consumes it, nothing converts it, and it is never deleted for being old.
+ *
+ * WHY THE METADATA. The voice-memo app this replaces records perfectly well
+ * and then loses the recording, because an untitled file among two hundred
+ * untitled files is not findable. Time, date and place are captured
+ * automatically precisely so that nothing has to be typed at the moment of
+ * recording — you can name it later, or never, and still find it by "August,
+ * somewhere near Marseille".
+ */
+export interface Memo extends Base {
+  /**
+   * As the browser recorded it — opus in webm on Chrome and Android, aac in
+   * mp4 on Safari. Deliberately NOT re-encoded the way Gemini audio is: this
+   * is the master, and every re-encode is a generation of quality gone.
+   *
+   * Optional only because deleting a memo clears the bytes while keeping the
+   * row. A tombstone has to survive to propagate, but keeping tens of
+   * megabytes of audio the user explicitly deleted would be a strange reading
+   * of "nothing is ever hard-deleted".
+   */
+  blob?: Blob;
+  mime: string;
+  durationMs: number;
+  /** Local ISO time. The single most useful thing about a recording. */
+  recordedAt: string;
+  /** Optional, always. An untitled memo is findable by when and where. */
+  title?: string;
+  projectId?: string;
+  /** A section of that project — in practice, which song it belongs to. */
+  tag?: string;
+
+  /**
+   * Where it was recorded, if the device offered it in time. Never waited for:
+   * the permission sheet can sit there for ten seconds and the recording has
+   * to start immediately, so location is attached if it arrives and silently
+   * skipped if it does not.
+   */
+  lat?: number;
+  lng?: number;
+  /** Human-readable, filled in later when there is a connection. */
+  place?: string;
+}
+
+/**
  * A block on a project page.
  *
  * These sit ABOVE the project's three tabs rather than becoming a fourth one.
@@ -166,7 +239,8 @@ export interface QueuedAudio extends Base {
  * No percentage, no bar, no target. `counts` shows two plain numbers and
  * `activity` is a heatmap of what happened, neither measured against a goal.
  */
-export type WidgetKind = 'countdown' | 'note' | 'activity' | 'counts' | 'links' | 'image';
+export type WidgetKind =
+  | 'countdown' | 'note' | 'activity' | 'counts' | 'links' | 'image' | 'memos';
 
 export interface WidgetLink {
   label: string;

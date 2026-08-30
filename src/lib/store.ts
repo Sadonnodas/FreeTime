@@ -50,6 +50,49 @@ export async function archiveProject(id: string, archived = true): Promise<void>
   await db.projects.update(id, { archived, updatedAt: now() });
 }
 
+/** Pass undefined to clear it and fall back to the generated tile. */
+export async function setProjectImage(id: string, image?: string): Promise<void> {
+  await db.projects.update(id, { image, updatedAt: now() });
+}
+
+/** The project's section chips, in the order they are shown. */
+export async function setProjectTags(id: string, tags: string[]): Promise<void> {
+  await db.projects.update(id, { tags, updatedAt: now() });
+}
+
+/**
+ * Removing a section unfiles its to-dos rather than deleting them. Losing work
+ * because a label was tidied away is exactly the kind of thing that makes a
+ * store untrustworthy, and trustworthiness is the whole product.
+ */
+export async function removeProjectTag(projectId: string, tag: string): Promise<void> {
+  const project = await db.projects.get(projectId);
+  if (!project) return;
+  await setProjectTags(projectId, (project.tags ?? []).filter((t) => t !== tag));
+
+  const affected = (await db.todos.where('projectId').equals(projectId).toArray())
+    .filter((t) => !t.deletedAt && t.tag === tag);
+  const at = now();
+  await Promise.all(affected.map((t) => db.todos.update(t.id, { tag: undefined, updatedAt: at })));
+}
+
+/** Renaming carries the to-dos with it, so a typo fix is not a data loss. */
+export async function renameProjectTag(
+  projectId: string,
+  from: string,
+  to: string
+): Promise<void> {
+  const next = to.trim();
+  const project = await db.projects.get(projectId);
+  if (!project || !next || from === next) return;
+  await setProjectTags(projectId, (project.tags ?? []).map((t) => (t === from ? next : t)));
+
+  const affected = (await db.todos.where('projectId').equals(projectId).toArray())
+    .filter((t) => !t.deletedAt && t.tag === from);
+  const at = now();
+  await Promise.all(affected.map((t) => db.todos.update(t.id, { tag: next, updatedAt: at })));
+}
+
 // ------------------------------------------------------------------- todos
 
 /**
@@ -59,7 +102,9 @@ export async function archiveProject(id: string, archived = true): Promise<void>
  */
 export async function createTodo(
   title: string,
-  opts: { projectId?: string; energy?: Energy; date?: string; notes?: string } = {}
+  opts: {
+    projectId?: string; tag?: string; energy?: Energy; date?: string; notes?: string;
+  } = {}
 ): Promise<string> {
   const t: Todo = stamp({ title: title.trim(), ...opts });
   await db.todos.add(t);

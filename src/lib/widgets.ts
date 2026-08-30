@@ -1,6 +1,7 @@
 import { db } from './db';
 import type { Widget, WidgetKind, WidgetLink, Todo } from './types';
 import { uid, now, today } from './store';
+import { resizeImage } from './images';
 
 /**
  * Project widgets — the configurable blocks above a project's three tabs.
@@ -12,7 +13,8 @@ export const WIDGET_KINDS: { kind: WidgetKind; label: string; hint: string }[] =
   { kind: 'activity', label: 'Activity', hint: 'What you closed, week by week' },
   { kind: 'counts', label: 'Counts', hint: 'Open, and closed this month' },
   { kind: 'links', label: 'Links', hint: 'Things you keep opening' },
-  { kind: 'image', label: 'Photo', hint: 'A picture of the thing' }
+  { kind: 'image', label: 'Photo', hint: 'A picture of the thing' },
+  { kind: 'memos', label: 'Recordings', hint: 'Voice memos filed here' }
 ];
 
 export async function widgetsFor(projectId: string): Promise<Widget[]> {
@@ -28,7 +30,10 @@ export async function addWidget(projectId: string, kind: WidgetKind): Promise<st
     projectId,
     kind,
     // Wide by default for the kinds that need the room; the rest pair up.
-    size: kind === 'note' || kind === 'links' || kind === 'image' ? 'wide' : 'small',
+    size:
+      kind === 'note' || kind === 'links' || kind === 'image' || kind === 'memos'
+        ? 'wide'
+        : 'small',
     order: existing.length,
     createdAt: t,
     updatedAt: t
@@ -138,27 +143,8 @@ export async function nextDated(projectId: string): Promise<Todo | undefined> {
 
 // ----------------------------------------------------------------- images
 
-/** Widget images sync inside widgets.json as data URLs, so they are resized
- *  hard first. A phone photo is 3–5 MB; left alone, two of them would make
- *  every sync upload more than the entire rest of the database. */
-const MAX_IMAGE_EDGE = 1000;
-const IMAGE_QUALITY = 0.72;
-
-export async function resizeImage(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
-  const w = Math.round(bitmap.width * scale);
-  const h = Math.round(bitmap.height * scale);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Cannot process images in this browser.');
-  ctx.drawImage(bitmap, 0, 0, w, h);
-  bitmap.close();
-
-  return canvas.toDataURL('image/jpeg', IMAGE_QUALITY);
-}
+/** Lives in images.ts now, so project covers can use it too. Re-exported here
+ *  because the widget board has always imported it from this module. */
+export { resizeImage };
 
 export type { WidgetLink };

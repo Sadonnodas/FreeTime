@@ -1,12 +1,16 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
-  import type { Widget, WidgetKind } from '$lib/types';
+  import type { Widget, WidgetKind, Memo } from '$lib/types';
   import {
     widgetsFor, addWidget, updateWidget, removeWidget, moveWidget,
     countdownLabel, activityByWeek, projectCounts, nextDated, resizeImage,
     WIDGET_KINDS
   } from '$lib/widgets';
   import { shortDate } from '$lib/format';
+  import { memosForProject } from '$lib/memos';
+  import { canRecord } from '$lib/audio';
+  import MemoList from './MemoList.svelte';
+  import MemoRecorder from './MemoRecorder.svelte';
 
   /**
    * The configurable header of a project page.
@@ -23,6 +27,11 @@
   let adding = $state(false);
 
   // Derived data each block needs, loaded once per project.
+  const memosQ = $derived(liveQuery(() => memosForProject(projectId)));
+  const memos = $derived(($memosQ as Memo[] | undefined) ?? []);
+  let recording = $state(false);
+  const recordable = canRecord();
+
   let weeks = $state<number[]>([]);
   let counts = $state({ open: 0, closedThisMonth: 0 });
   let suggestedDate = $state<{ date: string; title: string } | null>(null);
@@ -81,7 +90,12 @@
   {#if list.length}
     <div class="grid grid-cols-2 gap-3">
       {#each list as widget (widget.id)}
-        <div class="card rise p-4 {widget.size === 'wide' ? 'col-span-2' : ''}">
+        <!-- Editing forces every block full width. A half-width card leaves
+             132px of content, and the control row below needs 188px, so in edit
+             mode the grid used to scroll sideways on a phone. Going full width
+             fixes that and gives the label and text fields room to be typed in.
+             The two-column grid comes back the moment you tap Done. -->
+        <div class="card rise p-4 {widget.size === 'wide' || editing ? 'col-span-2' : ''}">
           {#if widget.title || editing}
             <p class="section-label mb-2 truncate">{widget.title || 'Untitled'}</p>
           {/if}
@@ -137,6 +151,24 @@
                 <p class="footnote">No links yet.</p>
               {/each}
             </div>
+          {:else if widget.kind === 'memos'}
+            <!-- Recordings live above the tabs like every other block, which is
+                 how a project gains a fourth kind of content without gaining a
+                 fourth tab. -->
+            {#if memos.length}
+              <MemoList {memos} grouped={false} showProject={false} />
+            {:else}
+              <p class="footnote">Nothing filed here yet.</p>
+            {/if}
+            {#if recordable}
+              <button
+                class="press tap mt-2 flex w-full items-center justify-center gap-2 rounded-xl
+                       bg-white/8 text-sm text-ink-50"
+                onclick={() => (recording = true)}
+              >
+                <span class="text-red-400">●</span> Record
+              </button>
+            {/if}
           {:else if widget.kind === 'image'}
             {#if widget.image}
               <img
@@ -190,17 +222,17 @@
 
               <div class="flex items-center gap-1">
                 <button
-                  class="press tap flex-1 rounded-lg bg-white/8 text-sm"
+                  class="press tap min-w-0 flex-1 rounded-lg bg-white/8 text-sm"
                   onclick={() =>
                     updateWidget(widget.id, { size: widget.size === 'wide' ? 'small' : 'wide' })}
                 >
                   {widget.size === 'wide' ? 'Narrow' : 'Wide'}
                 </button>
-                <button class="press tap w-11 rounded-lg bg-white/8" onclick={() => moveWidget(widget.id, -1)}
+                <button class="press tap-h w-11 shrink-0 rounded-lg bg-white/8" onclick={() => moveWidget(widget.id, -1)}
                   aria-label="Move up">↑</button>
-                <button class="press tap w-11 rounded-lg bg-white/8" onclick={() => moveWidget(widget.id, 1)}
+                <button class="press tap-h w-11 shrink-0 rounded-lg bg-white/8" onclick={() => moveWidget(widget.id, 1)}
                   aria-label="Move down">↓</button>
-                <button class="press tap w-11 rounded-lg text-ink-400" onclick={() => removeWidget(widget.id)}
+                <button class="press tap-h w-11 shrink-0 rounded-lg text-ink-400" onclick={() => removeWidget(widget.id)}
                   aria-label="Remove">✕</button>
               </div>
             </div>
@@ -244,3 +276,7 @@
     </div>
   {/if}
 </section>
+
+{#if recording}
+  <MemoRecorder {projectId} onDone={() => (recording = false)} />
+{/if}

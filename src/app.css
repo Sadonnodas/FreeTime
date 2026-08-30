@@ -94,6 +94,23 @@ body {
   min-width: 44px;
 }
 
+/* Height only. For a control that already sets its own width and sits inside a
+   narrow container, where .tap's min-width would force a horizontal scroll
+   instead of letting the row fit. */
+.tap-h {
+  min-height: 44px;
+}
+
+/* A row that scrolls sideways on purpose. iOS draws no bar for these; desktop
+   Chrome draws a grey slab that reads as a layout bug, so it is hidden and the
+   partly-visible last chip does the job of saying there is more. */
+.no-bar {
+  scrollbar-width: none;
+}
+.no-bar::-webkit-scrollbar {
+  display: none;
+}
+
 @layer components {
   /* ---------------------------------------------------------- typography */
 
@@ -270,6 +287,9 @@ body {
     font-size: 0.875rem;
     font-weight: 550;
     color: var(--color-ink-400);
+    /* Without this, a five-segment control on a 375px screen breaks "To-dos"
+       across two lines and the whole bar grows a second row. */
+    white-space: nowrap;
     transition: background-color 180ms ease, color 180ms ease;
   }
 
@@ -277,6 +297,33 @@ body {
     background: rgba(255, 255, 255, 0.13);
     color: var(--color-ink-50);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+
+  /* ------------------------------------------------------------ chips */
+
+  /*
+   * A section filter. Pill-shaped rather than square so it reads as a label you
+   * pick, not a button that does something — the row is a view switch, and the
+   * shape is most of what says so.
+   */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 0.875rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-ink-400);
+    font-size: 0.875rem;
+    font-weight: 550;
+    letter-spacing: -0.005em;
+    white-space: nowrap;
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+
+  .chip-on {
+    background: rgba(255, 159, 10, 0.16);
+    color: var(--color-accent);
   }
 
   /* ------------------------------------------------------- grouped lists */

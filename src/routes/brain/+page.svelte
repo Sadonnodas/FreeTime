@@ -1,17 +1,36 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
-  import type { Capture, Todo, Idea, List, BuyItem, Project, Energy } from '$lib/types';
-  import { sortCaptureToTodo, sortCaptureToIdea, promoteIdea, createList, completeTodo } from '$lib/store';
+  import type { Capture, Todo, Idea, List, BuyItem, Project, Energy, Memo } from '$lib/types';
+  import {
+    sortCaptureToTodo, sortCaptureToIdea, promoteIdea, createList, completeTodo,
+    createTodo, createIdea, createBuyItem
+  } from '$lib/store';
   import { activeProjects } from '$lib/queries';
+  import { allMemos, storageUse, mb, type StorageUse } from '$lib/memos';
+  import MemoList from '$lib/components/MemoList.svelte';
+  import MemoRecorder from '$lib/components/MemoRecorder.svelte';
+  import { canRecord } from '$lib/audio';
+  import { onMount } from 'svelte';
+  import { page } from '$app/state';
   import { base } from '$app/paths';
 
   /**
    * The memory bank. It should feel well-stocked, never overdue — so there are
    * no counts styled as warnings, no red badges, and nothing here is late.
    */
-  type Section = 'inbox' | 'todos' | 'ideas' | 'lists' | 'buy';
-  let section = $state<Section>('inbox');
+  type Section = 'inbox' | 'todos' | 'ideas' | 'lists' | 'buy' | 'memos';
+  const SECTIONS: Section[] = ['inbox', 'todos', 'ideas', 'memos', 'lists', 'buy'];
+
+  /**
+   * ?section= lets something else land you on the right tab — the assistant's
+   * "Open the buy list" link, and any bookmark. An unrecognised value falls
+   * back to the inbox rather than showing nothing.
+   */
+  const requested = page.url.searchParams.get('section') as Section | null;
+  let section = $state<Section>(
+    requested && SECTIONS.includes(requested) ? requested : 'inbox'
+  );
 
   const inboxQ = liveQuery(async () =>
     (await db.captures.toArray())
@@ -30,6 +49,18 @@
   );
   const buyQ = liveQuery(async () => (await db.buyItems.toArray()).filter((b) => !b.deletedAt));
   const projectsQ = liveQuery(() => activeProjects());
+  const memosQ = liveQuery(() => allMemos());
+
+  let recording = $state(false);
+  const recordable = canRecord();
+
+  // Recordings are the only thing here big enough to be worth a number, and
+  // only because the browser can evict them. Shown as plain information, never
+  // as a bar or a warning.
+  let storage = $state<StorageUse | null>(null);
+  onMount(async () => {
+    storage = await storageUse();
+  });
 
   // Filters for All to-dos (spec 4.3): project, energy, has-date. No priority
   // filter, because there is no priority field.
@@ -54,6 +85,47 @@
     const name = prompt('List name');
     if (name?.trim()) await createList(name);
   }
+
+  /**
+   * Every section can be added to directly. Only Lists could before, which made
+   * To-dos, Ideas and Buy read-only views of things you had to have captured
+   * somewhere else first.
+   *
+   * One field each, same as the capture box — no project picker, no date, no
+   * confirmation. The one bit of cleverness: if a project filter is active on
+   * the To-dos section, a new to-do joins that project, because that is
+   * unambiguously what you meant while looking at a filtered list.
+   */
+  let newTodoText = $state('');
+  let newIdeaText = $state('');
+  let newBuyText = $state('');
+
+  async function addTodo(e: SubmitEvent) {
+    e.preventDefault();
+    const title = newTodoText.trim();
+    if (!title) return;
+    newTodoText = '';
+    await createTodo(title, {
+      projectId: fProject || undefined,
+      energy: fEnergy || undefined
+    });
+  }
+
+  async function addIdea(e: SubmitEvent) {
+    e.preventDefault();
+    const text = newIdeaText.trim();
+    if (!text) return;
+    newIdeaText = '';
+    await createIdea(text);
+  }
+
+  async function addBuy(e: SubmitEvent) {
+    e.preventDefault();
+    const name = newBuyText.trim();
+    if (!name) return;
+    newBuyText = '';
+    await createBuyItem(name);
+  }
 </script>
 
 <div class="px-4 pt-safe pb-8">
@@ -61,10 +133,10 @@
     <h1 class="large-title">Brain</h1>
   </header>
 
-  <div class="segmented mb-4 overflow-x-auto">
-    {#each [['inbox', 'Inbox'], ['todos', 'To-dos'], ['ideas', 'Ideas'], ['lists', 'Lists'], ['buy', 'Buy']] as const as [key, label]}
+  <div class="segmented no-bar mb-4 overflow-x-auto">
+    {#each [['inbox', 'Inbox'], ['todos', 'To-dos'], ['ideas', 'Ideas'], ['memos', 'Memos'], ['lists', 'Lists'], ['buy', 'Buy']] as const as [key, label]}
       <button
-        class="press segment shrink-0 px-3 {section === key ? 'segment-on' : ''}"
+        class="press segment shrink-0 px-2 {section === key ? 'segment-on' : ''}"
         onclick={() => (section = key)}
       >{label}</button>
     {/each}
@@ -72,7 +144,12 @@
 
   {#if section === 'inbox'}
     <!-- Leaving things unsorted is not a failure state, so this list has no
-         "clear inbox" goal and no count-down. -->
+         "clear inbox" goal and no count-down. It does say what it is, though:
+         "inbox" on its own reads like email, which implies a queue to empty. -->
+    <p class="footnote mb-3">
+      Whatever you typed or said into the box at the bottom of Today lands here,
+      unsorted. Give it a home when you feel like it — or don't.
+    </p>
     {#each ($inboxQ as Capture[] | undefined) ?? [] as c (c.id)}
       <div class="card rise mb-2 p-4">
         <p class="mb-2">{c.text}</p>
@@ -88,9 +165,14 @@
         </div>
       </div>
     {:else}
-      <p class="py-8 text-center text-sm text-ink-400">Inbox is clear.</p>
+      <p class="py-8 text-center text-sm text-ink-400">Nothing waiting.</p>
     {/each}
   {:else if section === 'todos'}
+    <form onsubmit={addTodo} class="mb-3 flex gap-2">
+      <input bind:value={newTodoText} placeholder="Add a to-do" class="field min-w-0 flex-1" />
+      <button class="btn btn-primary press" disabled={!newTodoText.trim()}>Add</button>
+    </form>
+
     <div class="mb-3 flex flex-wrap gap-2 text-sm">
       <select
         bind:value={fProject}
@@ -138,9 +220,9 @@
           >
           <div class="flex-1 py-3">
             <p class={t.completedAt ? 'text-ink-400 line-through' : ''}>{t.title}</p>
-            {#if projectName(t.projectId) || t.energy || t.date}
+            {#if projectName(t.projectId) || t.tag || t.energy || t.date}
               <p class="text-xs text-ink-400">
-                {[projectName(t.projectId), t.energy, t.date].filter(Boolean).join(' · ')}
+                {[projectName(t.projectId), t.tag, t.energy, t.date].filter(Boolean).join(' · ')}
               </p>
             {/if}
           </div>
@@ -148,6 +230,11 @@
       {/each}
     </ul>
   {:else if section === 'ideas'}
+    <form onsubmit={addIdea} class="mb-3 flex gap-2">
+      <input bind:value={newIdeaText} placeholder="A thought, no action attached" class="field min-w-0 flex-1" />
+      <button class="btn btn-primary press" disabled={!newIdeaText.trim()}>Add</button>
+    </form>
+
     <ul class="space-y-1">
       {#each ($ideasQ as Idea[] | undefined) ?? [] as i (i.id)}
         <li class="card-flat flex items-center gap-3 px-3">
@@ -163,6 +250,36 @@
         </li>
       {/each}
     </ul>
+  {:else if section === 'memos'}
+    <!-- The whole library. Grouped by month, because "somewhere in August" is
+         how a recording actually gets remembered. -->
+    {#if recordable}
+      <button
+        class="press tap mb-3 flex w-full items-center justify-center gap-2 rounded-2xl
+               bg-white/8 text-[15px] font-medium text-ink-50"
+        onclick={() => (recording = true)}
+      >
+        <span class="text-red-400">●</span> Record
+      </button>
+    {/if}
+
+    {#if (($memosQ as Memo[] | undefined) ?? []).length}
+      <MemoList
+        memos={($memosQ as Memo[] | undefined) ?? []}
+        projects={($projectsQ as Project[] | undefined) ?? []}
+      />
+      {#if storage}
+        <p class="footnote mt-6">
+          {mb(storage.usedBytes)} used on this device{storage.persisted
+            ? ', kept safe from cleanup'
+            : ''}.
+        </p>
+      {/if}
+    {:else}
+      <p class="py-8 text-center text-sm text-ink-400">
+        Nothing recorded yet. Hum something.
+      </p>
+    {/if}
   {:else if section === 'lists'}
     <button class="press tap mb-3 rounded-xl bg-white/8 px-4 text-[15px] text-ink-200" onclick={newList}>
       + New list
@@ -183,6 +300,11 @@
       {/each}
     </ul>
   {:else}
+    <form onsubmit={addBuy} class="mb-3 flex gap-2">
+      <input bind:value={newBuyText} placeholder="Something to buy" class="field min-w-0 flex-1" />
+      <button class="btn btn-primary press" disabled={!newBuyText.trim()}>Add</button>
+    </form>
+
     <ul class="space-y-1">
       {#each ($buyQ as BuyItem[] | undefined) ?? [] as b (b.id)}
         <li class="card-flat flex items-center gap-3 px-4 py-3">
@@ -193,3 +315,7 @@
     </ul>
   {/if}
 </div>
+
+{#if recording}
+  <MemoRecorder onDone={() => (recording = false)} />
+{/if}

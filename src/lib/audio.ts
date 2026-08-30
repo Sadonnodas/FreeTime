@@ -20,6 +20,11 @@
  *  Ten minutes of 16 kHz mono WAV is ~19 MB base64, so we stop before that. */
 export const MAX_RECORDING_MS = 10 * 60 * 1000;
 
+/** A kept recording never goes to Gemini, so the request-size ceiling does not
+ *  apply. Half an hour of opus is about 15 MB. The cap exists only so a
+ *  recording left running in a pocket cannot fill the device. */
+export const MAX_MEMO_MS = 30 * 60 * 1000;
+
 const TARGET_SAMPLE_RATE = 16_000;
 
 /**
@@ -54,6 +59,21 @@ export interface Recorder {
   readonly mimeType: string;
 }
 
+export interface RecordOptions {
+  /**
+   * Record music rather than speech.
+   *
+   * THIS MATTERS MORE THAN IT LOOKS. getUserMedia turns on echo cancellation,
+   * noise suppression and automatic gain by default, because the browser
+   * assumes it is capturing a voice call. Those three are actively destructive
+   * on a sung melody or an acoustic guitar: noise suppression treats sustained
+   * tones as background hum and gates them, and auto gain pumps the level
+   * between phrases. A brain-dump in a car wants all three ON. A song idea
+   * wants all three OFF, and the difference is audible immediately.
+   */
+  music?: boolean;
+}
+
 /**
  * Starts recording. Throws if the user denies the microphone.
  *
@@ -61,10 +81,24 @@ export interface Recorder {
  * has historically been restricted. If this throws on the home-screen app but
  * works in Safari, that is the cause, and the fallback is text capture.
  */
-export async function startRecording(): Promise<Recorder> {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+export async function startRecording(opts: RecordOptions = {}): Promise<Recorder> {
+  const constraints: MediaTrackConstraints = opts.music
+    ? {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        channelCount: 2
+      }
+    : {};
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
   const mimeType = pickMimeType();
-  const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  const recorder = new MediaRecorder(stream, {
+    ...(mimeType ? { mimeType } : {}),
+    // The default is around 40 kbps, which is fine for speech and audibly
+    // grainy on music. Opus at 128 kbps is transparent enough for a demo and
+    // still only ~1 MB a minute.
+    ...(opts.music ? { audioBitsPerSecond: 128_000 } : {})
+  });
   const chunks: Blob[] = [];
 
   recorder.ondataavailable = (e) => {

@@ -1,7 +1,8 @@
 import { generate, type Content } from './client';
 import { buildDigest } from './digest';
 import {
-  TOOL_DECLARATIONS, isWrite, runQuery, describeWrite, type ProposedWrite
+  TOOL_DECLARATIONS, isWrite, isNavigation, runQuery, describeWrite, navigationTarget,
+  type ProposedWrite
 } from './tools';
 
 /**
@@ -30,10 +31,18 @@ Hard rules, which come from why this app exists:
  *  query_state; three is more than any real question has needed. */
 const MAX_READ_ROUNDS = 3;
 
+/** A place the model offered to take them. Shown as a link, never followed
+ *  automatically — see SAFE_TOOLS in tools.ts for why. */
+export interface Suggestion {
+  label: string;
+  path: string;
+}
+
 export interface AssistantTurn {
   reply: string;
   /** Writes awaiting confirmation. Never applied by this function. */
   proposals: ProposedWrite[];
+  suggestions: Suggestion[];
 }
 
 export async function ask(history: Content[], message: string): Promise<AssistantTurn> {
@@ -46,6 +55,7 @@ export async function ask(history: Content[], message: string): Promise<Assistan
 
   let reply = '';
   const proposals: ProposedWrite[] = [];
+  const suggestions: Suggestion[] = [];
 
   for (let round = 0; round <= MAX_READ_ROUNDS; round++) {
     const result = await generate({
@@ -57,12 +67,24 @@ export async function ask(history: Content[], message: string): Promise<Assistan
 
     if (result.text) reply = result.text;
 
-    const reads = result.functionCalls.filter((c) => !isWrite(c.name));
     const writes = result.functionCalls.filter((c) => isWrite(c.name));
+    const navs = result.functionCalls.filter((c) => isNavigation(c.name));
+    // Only real reads go back to the model. A navigation call has no result to
+    // feed back, and treating it as one would keep the loop spinning.
+    const reads = result.functionCalls.filter((c) => !isWrite(c.name) && !isNavigation(c.name));
 
     for (const w of writes) {
       if (!isWrite(w.name)) continue;
       proposals.push({ name: w.name, args: w.args, label: await describeWrite(w.name, w.args) });
+    }
+
+    for (const n of navs) {
+      const target = navigationTarget(n.args);
+      // A model naming a screen that does not exist, or a project route with no
+      // id, is dropped rather than rendered as a dead link.
+      if (target && !suggestions.some((existing) => existing.path === target.path)) {
+        suggestions.push(target);
+      }
     }
 
     // No reads left to satisfy: the model has said what it is going to say.
@@ -85,9 +107,7 @@ export async function ask(history: Content[], message: string): Promise<Assistan
     });
   }
 
-  if (!reply && proposals.length) {
-    reply = proposals.length === 1 ? "Here's what I'll add." : "Here's what I'll add.";
-  }
+  if (!reply && proposals.length) reply = "Here's what I'll add.";
 
-  return { reply: reply || '…', proposals };
+  return { reply: reply || '…', proposals, suggestions };
 }

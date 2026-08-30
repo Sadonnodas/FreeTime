@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from '../db';
-import { TOOL_DECLARATIONS, isWrite, WRITE_TOOLS, runQuery, applyWrite } from './tools';
-import { createProject, createTodo } from '../store';
+import {
+  TOOL_DECLARATIONS, isWrite, isNavigation, WRITE_TOOLS, SAFE_TOOLS,
+  runQuery, applyWrite, navigationTarget
+} from './tools';
+import { createProject, createTodo, getNote, saveNote } from '../store';
 
 /**
  * The read/write split is the assistant's entire safety model: reads run
@@ -17,20 +20,47 @@ async function reset() {
 describe('tool classification', () => {
   it('classifies every declared tool deliberately', () => {
     const declared = TOOL_DECLARATIONS.map((t) => t.name).sort();
-    const accounted = [...WRITE_TOOLS, 'query_state'].sort();
-    // A new tool must be added to WRITE_TOOLS or explicitly be the read one.
-    // Failing here means someone added a tool without deciding which it is.
+    const accounted = [...WRITE_TOOLS, ...SAFE_TOOLS].sort();
+    // A new tool must be added to WRITE_TOOLS or to SAFE_TOOLS. Failing here
+    // means someone added a tool without deciding which it is — and a write
+    // that landed in neither list would be treated as a read and executed
+    // silently, which is exactly what spec 7.1 forbids.
     expect(declared).toEqual(accounted);
   });
 
-  it('treats only query_state as safe to run unprompted', () => {
+  it('never treats a safe tool as a write, or a write as safe', () => {
     for (const { name } of TOOL_DECLARATIONS) {
-      expect(isWrite(name)).toBe(name !== 'query_state');
+      const safe = (SAFE_TOOLS as readonly string[]).includes(name);
+      expect(isWrite(name)).toBe(!safe);
     }
   });
 
   it('does not classify an unknown name as a write', () => {
     expect(isWrite('drop_everything')).toBe(false);
+  });
+
+  it('keeps navigation out of the write path', () => {
+    // Navigation touches no data, so it must never queue a proposal — but it is
+    // still not auto-followed; see SAFE_TOOLS.
+    expect(isWrite('navigate')).toBe(false);
+    expect(isNavigation('navigate')).toBe(true);
+    expect(isNavigation('create_todo')).toBe(false);
+  });
+});
+
+describe('navigationTarget', () => {
+  it('maps a screen to a path', () => {
+    expect(navigationTarget({ screen: 'buy' })?.path).toBe('/brain?section=buy');
+    expect(navigationTarget({ screen: 'today' })?.path).toBe('/');
+  });
+
+  it('refuses a project link with no project, rather than making a dead one', () => {
+    expect(navigationTarget({ screen: 'project' })).toBeNull();
+    expect(navigationTarget({ screen: 'project', projectId: 'p1' })?.path).toBe('/projects/p1');
+  });
+
+  it('refuses a screen it does not have', () => {
+    expect(navigationTarget({ screen: 'settings' })).toBeNull();
   });
 });
 
@@ -78,5 +108,37 @@ describe('applying a confirmed write', () => {
   it('never sets a date unless one was given', async () => {
     await applyWrite('create_todo', { title: 'undated' });
     expect((await db.todos.toArray())[0]!.date).toBeUndefined();
+  });
+
+  it('starts a habit in the active state with a recorded cycle', async () => {
+    await applyWrite('create_habit', { name: 'Play guitar' });
+    const habits = await db.habits.toArray();
+    expect(habits).toHaveLength(1);
+    expect(habits[0]!.state).toBe('active');
+    // The cycle history is what the habit detail view is built from.
+    expect(await db.habitStateChanges.count()).toBe(1);
+  });
+
+  it('appends to a project note instead of replacing it', async () => {
+    const p = await createProject('Music');
+    await saveNote(p, 'Existing lyrics.');
+
+    await applyWrite('append_note', { projectId: p, text: 'A line I said out loud.' });
+
+    // Losing a page of notes to a misheard sentence is unrecoverable — there is
+    // no undo anywhere in this app.
+    const note = await getNote(p);
+    expect(note!.markdown).toBe('Existing lyrics.\n\nA line I said out loud.');
+  });
+
+  it('writes the first note when there is nothing there yet', async () => {
+    const p = await createProject('Campervan');
+    await applyWrite('append_note', { projectId: p, text: 'Seal the roof seam.' });
+    expect((await getNote(p))!.markdown).toBe('Seal the roof seam.');
+  });
+
+  it('ignores an append with no project rather than writing it nowhere', async () => {
+    await applyWrite('append_note', { text: 'orphan' });
+    expect(await db.notes.count()).toBe(0);
   });
 });

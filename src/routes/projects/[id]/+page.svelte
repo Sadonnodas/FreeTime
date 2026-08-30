@@ -5,7 +5,11 @@
   import { base } from '$app/paths';
   import WidgetBoard from '$lib/components/WidgetBoard.svelte';
   import type { Todo, BuyItem } from '$lib/types';
-  import { createTodo, completeTodo, createBuyItem, markPurchased, saveNote, getNote } from '$lib/store';
+  import {
+    createTodo, completeTodo, createBuyItem, markPurchased, saveNote, getNote,
+    setProjectImage, setProjectTags, removeProjectTag, renameProjectTag
+  } from '$lib/store';
+  import { resizeImage, COVER_EDGE } from '$lib/images';
 
   // Exactly three tabs, and no fourth ever. Depth is what killed the last one.
   type Tab = 'notes' | 'todos' | 'buy';
@@ -25,6 +29,59 @@
       (await db.buyItems.where('projectId').equals(id).toArray()).filter((b) => !b.deletedAt)
     )
   );
+
+  /**
+   * The cover photo. Set here rather than at creation time, because creating a
+   * project has to stay one tap and one field — being asked for a picture up
+   * front is exactly the kind of demand that makes people stop creating them.
+   */
+  let coverError = $state('');
+
+  async function onCover(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    coverError = '';
+    try {
+      await setProjectImage(id, await resizeImage(file, COVER_EDGE));
+    } catch (err) {
+      coverError = (err as Error).message;
+    }
+    // Clearing lets the same file be chosen twice in a row, which otherwise
+    // fires no change event and looks like the app ignored the tap.
+    input.value = '';
+  }
+
+  /**
+   * Sections, as a row of chips over one flat list (see Project.tags).
+   *
+   * `activeTag` is both the filter and the destination: anything added while a
+   * chip is lit joins that section, so filing is a side effect of where you
+   * already are rather than a second decision. null means All, and adding from
+   * All files nothing — undecided stays a valid state here as everywhere else.
+   */
+  let activeTag = $state<string | null>(null);
+  let editingTags = $state(false);
+  let newTagName = $state('');
+
+  // The chips belong to the project, so switching projects has to reset the
+  // selection — otherwise Music's "Mixing" filter silently follows you into
+  // Coding and the list looks mysteriously empty.
+  $effect(() => {
+    void id;
+    activeTag = null;
+    editingTags = false;
+  });
+
+  const tags = $derived($projectQ?.tags ?? []);
+
+  async function addTag(e: SubmitEvent) {
+    e.preventDefault();
+    const name = newTagName.trim();
+    if (!name || tags.includes(name)) return;
+    newTagName = '';
+    await setProjectTags(id, [...tags, name]);
+  }
 
   let newTodo = $state('');
   let newBuy = $state('');
@@ -51,19 +108,54 @@
     saveTimer = setTimeout(() => void saveNote(pid, text), 500);
   }
 
-  const open = $derived((($todosQ as Todo[] | undefined) ?? []).filter((t) => !t.completedAt));
+  const inSection = (t: Todo) => (activeTag ? t.tag === activeTag : true);
+
+  const open = $derived(
+    (($todosQ as Todo[] | undefined) ?? []).filter((t) => !t.completedAt).filter(inSection)
+  );
   // Closed items are shown, always. Never deleted, never hidden (principle 2).
   const closed = $derived(
     (($todosQ as Todo[] | undefined) ?? [])
       .filter((t): t is Todo & { completedAt: string } => !!t.completedAt)
+      .filter(inSection)
       .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
   );
 </script>
 
 <div class="px-4 pt-safe pb-8">
-  <header class="py-4">
-    <a href="{base}/projects" class="press footnote inline-block">‹ Projects</a>
-    <h1 class="large-title mt-1">{$projectQ?.name ?? ''}</h1>
+  <header class="pt-2 pb-4">
+    <div class="flex items-center justify-between">
+      <a href="{base}/projects" class="press footnote py-1">‹ Projects</a>
+      <div class="flex items-center gap-1">
+        <label class="press tap-h footnote inline-flex cursor-pointer items-center px-2 text-accent">
+          <input type="file" accept="image/*" class="hidden" onchange={onCover} />
+          {$projectQ?.image ? 'Change cover' : 'Add a cover'}
+        </label>
+        {#if $projectQ?.image}
+          <button class="press tap-h footnote px-2" onclick={() => setProjectImage(id, undefined)}>
+            Remove
+          </button>
+        {/if}
+      </div>
+    </div>
+
+    {#if $projectQ?.image}
+      <div class="relative mt-2 overflow-hidden rounded-[20px] border border-white/8">
+        <img src={$projectQ.image} alt="" class="h-40 w-full object-cover" />
+        <div
+          class="absolute inset-x-0 bottom-0 px-4 pt-12 pb-3"
+          style="background: linear-gradient(to top, rgba(0,0,0,.85), rgba(0,0,0,.4) 50%, transparent)"
+        >
+          <h1 class="large-title text-white">{$projectQ.name}</h1>
+        </div>
+      </div>
+    {:else}
+      <h1 class="large-title mt-1">{$projectQ?.name ?? ''}</h1>
+    {/if}
+
+    {#if coverError}
+      <p class="footnote mt-2 text-accent-2">{coverError}</p>
+    {/if}
   </header>
 
   <!-- Blocks live above the tabs, not as a fourth one. -->
@@ -87,18 +179,88 @@
       class="field min-h-[60vh] w-full py-4 font-mono text-sm leading-relaxed"
     ></textarea>
   {:else if tab === 'todos'}
+    <!--
+      The section chips. One row, always visible, never a page you go into —
+      that is the whole design. Scrolls sideways only when there are more
+      sections than fit, which is the one place horizontal scroll is honest.
+    -->
+    {#if tags.length || editingTags}
+      <div class="no-bar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1">
+        <button
+          class="chip shrink-0 press {activeTag === null ? 'chip-on' : ''}"
+          onclick={() => (activeTag = null)}
+        >
+          All
+        </button>
+        {#each tags as t (t)}
+          <button
+            class="chip shrink-0 press {activeTag === t ? 'chip-on' : ''}"
+            onclick={() => (activeTag = activeTag === t ? null : t)}
+          >
+            {t}
+          </button>
+        {/each}
+        <button
+          class="chip shrink-0 press {editingTags ? 'chip-on' : ''}"
+          onclick={() => (editingTags = !editingTags)}
+          aria-label="Edit sections"
+        >
+          {editingTags ? 'Done' : '+'}
+        </button>
+      </div>
+    {:else}
+      <button
+        class="press footnote mb-3 rounded-xl border border-dashed border-white/12 px-3 py-2"
+        onclick={() => (editingTags = true)}
+      >
+        + Sections
+      </button>
+    {/if}
+
+    {#if editingTags}
+      <div class="card mb-3 p-3">
+        <p class="footnote mb-2">
+          Sections split this project's to-dos without adding a screen. Removing one
+          keeps its to-dos and just unfiles them.
+        </p>
+        {#each tags as t (t)}
+          <div class="mb-1 flex items-center gap-2">
+            <input
+              value={t}
+              onchange={(e) => renameProjectTag(id, t, e.currentTarget.value)}
+              class="field min-w-0 flex-1 text-sm"
+            />
+            <button
+              class="press tap-h w-11 shrink-0 rounded-lg text-ink-400"
+              onclick={() => removeProjectTag(id, t)}
+              aria-label="Remove {t}">✕</button
+            >
+          </div>
+        {/each}
+        <form onsubmit={addTag} class="mt-2 flex gap-2">
+          <input
+            bind:value={newTagName}
+            placeholder="New section"
+            class="field min-w-0 flex-1 text-sm"
+          />
+          <button class="btn btn-secondary press shrink-0" disabled={!newTagName.trim()}>Add</button>
+        </form>
+      </div>
+    {/if}
+
     <form
       onsubmit={async (e) => {
         e.preventDefault();
         if (!newTodo.trim()) return;
-        await createTodo(newTodo, { projectId: id });
+        // Whatever chip is lit is where this lands. Still one field.
+        await createTodo(newTodo, { projectId: id, tag: activeTag ?? undefined });
         newTodo = '';
       }}
       class="mb-4 flex gap-2"
     >
       <input
         bind:value={newTodo}
-        placeholder="Add a to-do"
+        placeholder={activeTag ? `Add to ${activeTag}` : 'Add a to-do'}
         class="field min-w-0 flex-1"
       />
       <button class="btn btn-primary press">Add</button>
@@ -112,7 +274,14 @@
             onclick={() => completeTodo(todo.id)}
             aria-label="Complete">○</button
           >
-          <span class="flex-1 py-3">{todo.title}</span>
+          <div class="min-w-0 flex-1 py-3">
+            <p>{todo.title}</p>
+            <!-- Only worth showing from All; inside a section it would repeat
+                 the chip on every single row. -->
+            {#if todo.tag && !activeTag}
+              <p class="footnote">{todo.tag}</p>
+            {/if}
+          </div>
         </li>
       {/each}
     </ul>

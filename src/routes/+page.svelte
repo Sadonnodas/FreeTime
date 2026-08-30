@@ -146,12 +146,15 @@
       <!-- The single prominent button when the day is empty (spec 4.1). It
            opens the full flow; the smaller picker below is only for adding one
            more to a day that already exists. -->
-      <button
-        class="btn-hero press mt-7 w-full px-6 py-9 text-[1.375rem] font-semibold"
-        onclick={() => (freeTime = true)}
-      >
-        Free Time
-      </button>
+      <div class="mt-8 flex justify-center">
+        <button
+          class="btn-hero press flex aspect-square w-[64%] max-w-[264px] min-w-[200px]
+                 items-center justify-center rounded-full text-[1.375rem] font-semibold"
+          onclick={() => (freeTime = true)}
+        >
+          Free Time
+        </button>
+      </div>
       <button
         class="press mt-4 w-full text-center text-[13px] text-ink-400"
         onclick={() => (picking = true)}

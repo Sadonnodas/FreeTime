@@ -1,9 +1,11 @@
 import { db } from '../db';
 import {
   createTodo, createIdea, createBuyItem, createList, addListItem,
-  createProject, completeTodo, toggleHabitLog, today
+  createProject, completeTodo, toggleHabitLog, today, createHabit,
+  getNote, saveNote
 } from '../store';
 import { activeProjects, openTodos, closedTodos } from '../queries';
+import { allMemos, displayTitle } from '../memos';
 import type { FunctionDeclaration } from './client';
 import type { Energy } from '../types';
 
@@ -25,13 +27,29 @@ import type { Energy } from '../types';
 
 export const WRITE_TOOLS = [
   'create_todo', 'create_idea', 'create_buy_item', 'add_list_item',
-  'create_list', 'create_project', 'complete_todo', 'log_habit'
+  'create_list', 'create_project', 'complete_todo', 'log_habit',
+  'create_habit', 'append_note'
 ] as const;
 
 export type WriteTool = (typeof WRITE_TOOLS)[number];
 
+/**
+ * Tools that touch nothing and may run the moment the model asks.
+ *
+ * `navigate` is here rather than in WRITE_TOOLS because it changes no data —
+ * but it is still not executed automatically. It comes back as a link the user
+ * taps, because a model that can move the screen mid-sentence would take the
+ * conversation away from under them. Reads answer in place; navigation is
+ * offered.
+ */
+export const SAFE_TOOLS = ['query_state', 'navigate'] as const;
+
+export type SafeTool = (typeof SAFE_TOOLS)[number];
+
 export const isWrite = (name: string): name is WriteTool =>
   (WRITE_TOOLS as readonly string[]).includes(name);
+
+export const isNavigation = (name: string): boolean => name === 'navigate';
 
 const str = (description: string) => ({ type: 'string', description });
 
@@ -119,6 +137,48 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
     }
   },
   {
+    name: 'create_habit',
+    description:
+      'Start tracking a new habit. Habits have no streaks and no targets here — ' +
+      'it is only a thing they want to keep doing.',
+    parameters: {
+      type: 'object',
+      properties: { name: str('What the habit is called.') },
+      required: ['name']
+    }
+  },
+  {
+    name: 'append_note',
+    description:
+      "Add a few lines to the end of a project's notes. Never rewrites or " +
+      'replaces what is already there.',
+    parameters: {
+      type: 'object',
+      properties: {
+        projectId: str('Id of the project. Use query_state to find it.'),
+        text: str('The lines to add, in their words.')
+      },
+      required: ['projectId', 'text']
+    }
+  },
+  {
+    name: 'navigate',
+    description:
+      'Offer to take them to a screen, when seeing the list themselves is more ' +
+      'useful than hearing it read out. Answer the question as well.',
+    parameters: {
+      type: 'object',
+      properties: {
+        screen: {
+          type: 'string',
+          enum: ['today', 'projects', 'project', 'brain', 'memos', 'lists', 'buy', 'habits']
+        },
+        projectId: str("Required when screen is 'project'.")
+      },
+      required: ['screen']
+    }
+  },
+  {
     name: 'query_state',
     description:
       "Read current state. Use this before answering anything about what's open, " +
@@ -128,7 +188,10 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       properties: {
         kind: {
           type: 'string',
-          enum: ['projects', 'open_todos', 'closed_todos', 'lists', 'habits', 'buy']
+          enum: [
+            'projects', 'open_todos', 'closed_todos', 'lists', 'habits', 'buy',
+            'ideas', 'memos'
+          ]
         },
         projectName: str('Optional filter by project name.')
       },
@@ -174,6 +237,25 @@ export async function runQuery(args: Args): Promise<unknown> {
       return (await db.buyItems.toArray())
         .filter((b) => !b.deletedAt && !b.purchasedAt)
         .map((b) => ({ id: b.id, name: b.name, project: nameFor(b.projectId) }));
+    case 'ideas':
+      return (await db.ideas.toArray())
+        .filter((i) => !i.deletedAt && (projectId ? i.projectId === projectId : true))
+        .slice(0, 100)
+        .map((i) => ({ id: i.id, text: i.text, project: nameFor(i.projectId) }));
+    case 'memos':
+      // Metadata only. The audio never goes near the model — it is the
+      // artifact, not something to be summarised.
+      return (await allMemos())
+        .filter((m) => (projectId ? m.projectId === projectId : true))
+        .slice(0, 50)
+        .map((m) => ({
+          id: m.id,
+          title: displayTitle(m),
+          recordedAt: m.recordedAt,
+          project: nameFor(m.projectId),
+          section: m.tag,
+          place: m.place
+        }));
     default:
       return { error: `Unknown kind ${kind}` };
   }
@@ -213,6 +295,13 @@ export async function describeWrite(name: WriteTool, args: Args): Promise<string
       const habit = await db.habits.get(s(args.habitId) ?? '');
       return `Log habit: ${habit?.name ?? s(args.habitId)}`;
     }
+    case 'create_habit':
+      return `New habit: ${s(args.name) ?? '?'}`;
+    case 'append_note': {
+      const text = s(args.text) ?? '';
+      const short = text.length > 60 ? `${text.slice(0, 57)}…` : text;
+      return `Note${inProject(s(args.projectId))}: ${short}`;
+    }
   }
 }
 
@@ -251,5 +340,44 @@ export async function applyWrite(name: WriteTool, args: Args): Promise<void> {
     case 'log_habit':
       await toggleHabitLog(s(args.habitId) ?? '', s(args.date) ?? today());
       break;
+    case 'create_habit':
+      await createHabit(s(args.name) ?? '');
+      break;
+    case 'append_note': {
+      // Append, never replace. A voice command that overwrites a page of notes
+      // is unrecoverable, and there is no undo in this app.
+      const projectId = s(args.projectId);
+      const text = s(args.text);
+      if (!projectId || !text) break;
+      const existing = (await getNote(projectId))?.markdown ?? '';
+      await saveNote(projectId, existing ? `${existing.trimEnd()}\n\n${text}` : text);
+      break;
+    }
+  }
+}
+
+/** Where a `navigate` call wants to go, as a path this app understands. */
+export function navigationTarget(args: Args): { label: string; path: string } | null {
+  const screen = s(args.screen);
+  const projectId = s(args.projectId);
+  switch (screen) {
+    case 'today':
+      return { label: 'Today', path: '/' };
+    case 'projects':
+      return { label: 'Projects', path: '/projects' };
+    case 'project':
+      return projectId ? { label: 'the project', path: `/projects/${projectId}` } : null;
+    case 'brain':
+      return { label: 'Brain', path: '/brain' };
+    case 'memos':
+      return { label: 'Recordings', path: '/brain?section=memos' };
+    case 'lists':
+      return { label: 'Lists', path: '/brain?section=lists' };
+    case 'buy':
+      return { label: 'the buy list', path: '/brain?section=buy' };
+    case 'habits':
+      return { label: 'Habits', path: '/me' };
+    default:
+      return null;
   }
 }

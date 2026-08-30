@@ -123,3 +123,36 @@ export async function extractFromAudio(opts: ExtractOptions): Promise<Extraction
     items: (parsed.items ?? []).filter((i) => i.text?.trim())
   };
 }
+
+/**
+ * Speech to text, and nothing else.
+ *
+ * Used by the assistant's microphone, where the words have to land in the input
+ * box for the user to read before anything is sent. Deliberately NOT
+ * extractFromAudio: that one decides what your sentence meant and returns a
+ * batch of items, which is the right behaviour for a brain-dump and the wrong
+ * one when you are part-way through a conversation.
+ */
+export async function transcribe(wav: Blob, signal?: AbortSignal): Promise<string> {
+  if (!(await hasApiKey())) throw new Error('No Gemini API key.');
+
+  const result = await generate({
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: 'Write out exactly what is said in this recording. Nothing else.' },
+          { inlineData: { mimeType: 'audio/wav', data: await toBase64(wav) } }
+        ]
+      }
+    ],
+    systemInstruction:
+      'You transcribe. Return only the words spoken, with ordinary punctuation. ' +
+      'No preamble, no commentary, no quotation marks around it. If nothing is ' +
+      'audible, return an empty string.',
+    maxOutputTokens: 2048,
+    signal
+  });
+
+  return result.text.trim();
+}

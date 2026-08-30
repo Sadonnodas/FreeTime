@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import type {
   Project, Todo, Idea, BuyItem, List, ListItem,
   Habit, HabitLog, Day, Capture, Note, ConflictLog, Settings, QueuedAudio,
-  HabitStateChange, Widget
+  HabitStateChange, Widget, Memo
 } from './types';
 
 /**
@@ -33,6 +33,7 @@ export class FreeTimeDB extends Dexie {
   audioQueue!: Table<QueuedAudio, string>;
   habitStateChanges!: Table<HabitStateChange, string>;
   widgets!: Table<Widget, string>;
+  memos!: Table<Memo, string>;
 
   constructor() {
     super('freetime');
@@ -73,6 +74,12 @@ export class FreeTimeDB extends Dexie {
     // Version 4 adds project widgets.
     this.version(4).stores({
       widgets: 'id, projectId, order, updatedAt, deletedAt'
+    });
+
+    // Version 5 adds kept audio recordings. IndexedDB stores Blobs natively,
+    // so the bytes sit here as-is with no base64 inflation on disk.
+    this.version(5).stores({
+      memos: 'id, recordedAt, projectId, updatedAt, deletedAt'
     });
   }
 }
