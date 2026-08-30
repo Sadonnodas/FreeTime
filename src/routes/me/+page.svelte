@@ -5,7 +5,8 @@
   import { createHabit } from '$lib/store';
   import { winsSince } from '$lib/queries';
   import { base } from '$app/paths';
-  import { buildLabel } from '$lib/pwa';
+  import { onDestroy } from 'svelte';
+  import { buildLabel, onUpdateStatus, checkAndApply, type UpdateStatus } from '$lib/pwa';
 
   const habitsQ = liveQuery(async () =>
     (await db.habits.toArray()).filter((h) => !h.deletedAt)
@@ -31,6 +32,38 @@
    */
   const since = (iso: string) =>
     new Date(iso).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+
+  /**
+   * Which build is running, and the way to get a newer one.
+   *
+   * This lived inside Settings, under Google Drive and Gemini — so the answer to
+   * "am I on the new version?" sat below the fold on a phone, inside a screen
+   * that is otherwise entirely about connecting accounts. It read as sync
+   * configuration, which it is not, and it got missed twice. It belongs here,
+   * at the foot of the profile screen, which is where every app puts it.
+   */
+  let updateStatus = $state<UpdateStatus>('idle');
+  const stopUpdate = onUpdateStatus((s) => (updateStatus = s));
+  onDestroy(stopUpdate);
+
+  const busyChecking = $derived(updateStatus === 'checking' || updateStatus === 'updating');
+
+  const updateLine = $derived.by(() => {
+    switch (updateStatus) {
+      case 'checking':
+        return 'Looking…';
+      case 'current':
+        return 'This is the latest version.';
+      case 'ready':
+        return 'A newer version is ready.';
+      case 'updating':
+        return 'Updating…';
+      case 'failed':
+        return "Couldn't check just now — you may be offline.";
+      default:
+        return 'Tap to check for updates.';
+    }
+  });
 </script>
 
 <div class="px-4 pt-safe pb-8">
@@ -121,15 +154,17 @@
     </a>
   </section>
 
-  <!--
-    The build stamp, where every app puts it: quietly at the foot of the profile
-    screen. It lived only in Settings, below Google Drive and Gemini, which on a
-    phone puts it under the fold — so "which version am I running?" required
-    knowing to scroll, and looked exactly like the app failing to update. The
-    whole point of showing a version is to be able to answer that at a glance.
-    Tapping goes to Settings, where the check button is.
-  -->
-  <a href="{base}/me/settings" class="press mt-8 block text-center">
-    <span class="footnote">Built {buildLabel()}</span>
-  </a>
+  <section class="mt-6">
+    <h2 class="section-label mb-2">Version</h2>
+    <button
+      class="list-group list-row press w-full text-left"
+      onclick={checkAndApply}
+      disabled={busyChecking}
+    >
+      <span class="min-w-0 flex-1">
+        <span class="block">Built {buildLabel()}</span>
+        <span class="footnote">{updateLine}</span>
+      </span>
+    </button>
+  </section>
 </div>
