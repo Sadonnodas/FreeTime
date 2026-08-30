@@ -46,7 +46,10 @@
    */
   const tabs = [
     { path: '/', label: 'Today' },
-    { path: '/projects', label: 'Projects' },
+    // The route stays /projects. Renaming the tab is a vocabulary change,
+    // not a structural one, and a URL change would break every link Toon
+    // has already saved or shared.
+    { path: '/projects', label: 'Eras' },
     { path: '/brain', label: 'Brain' },
     { path: '/me', label: 'Me' },
     { path: '/settings', label: 'Settings' }

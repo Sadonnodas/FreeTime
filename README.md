@@ -324,6 +324,34 @@ There are none in this repo, and there must never be any.
 
 Nothing is read from `.env` at build time.
 
+## The dinosaur stickers
+
+`static/dino/` holds 55 stickers, cut from Toon's sticker sheets in `art/sheets/`
+by `scripts/slice-stickers.py` and indexed in `src/lib/stickers.ts`.
+
+To redo them from new sheets:
+
+```bash
+python3 scripts/slice-stickers.py art/sheets/*
+```
+
+That writes `static/dino/<sheet>-NN.webp` plus a contact sheet per page in
+`art/`, for naming them. The names in `stickers.ts` are curated by hand
+afterwards; `src/lib/stickers.test.ts` fails if the two ever disagree.
+
+The sheets are phone screenshots, so a sticker arrives about 200px tall while a
+cover on a 3x phone wants roughly 450. They were sharpened with **Real-ESRGAN's
+illustration model** (`RealESRGAN_x4plus_anime_6B`), run through `spandrel` on
+Apple Silicon's MPS backend, 4x and then resampled down to 448px — the downsample
+is what actually cleans the lines. Alpha goes through the network separately;
+LANCZOS on a hard cutout leaves a soft grey rim that reads as a glow against a
+coloured card.
+
+Vectorising was tried first and rejected on size: `vtracer` handles flat cartoon
+art well, but a traced sticker is 450KB-1MB of SVG because it chases every
+gradient in the shading. Worth revisiting if the stickers are ever wanted for
+print, where the size does not matter and the resolution is unbounded.
+
 ## Icons
 
 A sauropod with an idea, on the app's near-black with a warm glow behind it.

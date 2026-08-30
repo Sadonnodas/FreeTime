@@ -152,7 +152,7 @@
         class="field mt-4 w-full"
       />
 
-      <p class="section-label mt-5 mb-2">Project</p>
+      <p class="section-label mt-5 mb-2">Era</p>
       <div class="flex flex-wrap gap-2">
         <button
           class="chip press {saved.projectId ? '' : 'chip-on'}"
@@ -171,7 +171,7 @@
       </div>
 
       {#if sections.length}
-        <p class="section-label mt-5 mb-2">Section</p>
+        <p class="section-label mt-5 mb-2">Project</p>
         <div class="flex flex-wrap gap-2">
           {#each sections as t (t)}
             <button

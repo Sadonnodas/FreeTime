@@ -138,7 +138,7 @@
     class="chip press shrink-0 {projectId === undefined ? 'chip-on' : ''}"
     onclick={() => (projectId = undefined)}
   >
-    Every project
+    Every era
   </button>
   {#each projects as p (p.id)}
     <button

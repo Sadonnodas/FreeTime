@@ -186,7 +186,7 @@
   const BUY_GROUPS = [
     { key: 'none', label: 'Recent' },
     { key: 'shop', label: 'By shop' },
-    { key: 'project', label: 'By project' }
+    { key: 'project', label: 'By era' }
   ] as const;
 
   async function addBuy(e: SubmitEvent) {
@@ -234,7 +234,7 @@
         bind:value={fProject}
         class="field press"
       >
-        <option value="">All projects</option>
+        <option value="">All eras</option>
         {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
           <option value={p.id}>{p.name}</option>
         {/each}
@@ -480,7 +480,7 @@
 
     <div class="mb-3 flex flex-wrap gap-2">
       <select bind:value={fBuyProject} class="field press">
-        <option value="">All projects</option>
+        <option value="">All eras</option>
         {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
           <option value={p.id}>{p.name}</option>
         {/each}

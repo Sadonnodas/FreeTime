@@ -23,7 +23,7 @@
         {summary.wins.length}
         {summary.wins.length === 1 ? 'thing' : 'things'} closed{#if projects > 0}
           across {projects}
-          {projects === 1 ? 'project' : 'projects'}{/if}.
+          {projects === 1 ? 'era' : 'eras'}{/if}.
       </h2>
       <!-- No comparison to the month before, no trend, no target. A number you
            can be down on is a number you can fail at. -->

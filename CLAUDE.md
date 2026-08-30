@@ -84,8 +84,11 @@ From spec §11 and the post-mortem that produced it. These are not preferences.
 - **A new project / habit / list is one tap and one field.**
 - **Every AI feature keeps a working non-AI path.** The app must be fully usable
   offline with no keys.
-- **A project has exactly three tabs** (Notes / To-dos / Buy). Widgets sit *above*
+- **An era has exactly three tabs** (Notes / To-dos / Buy). Widgets sit *above*
   them rather than becoming a fourth. Depth is what killed the previous system.
+  **A project inside an era is a chip, never a page.** That is the whole reason
+  the rename was safe; giving one its own screen is the depth this rule exists
+  to prevent.
 
 If a change seems to need one of these, that is a signal to reread the spec's
 opening section, not to make an exception.
@@ -527,6 +530,22 @@ one came close to a hard rule, the reasoning is recorded here.
   is still offered as a link rather than followed, because a model that can move the
   screen mid-sentence takes the conversation away from under you. The assistant's mic
   transcribes into the input box and does NOT send — you read the words first.
+
+- **The two levels are Eras and Projects, in the UI only.** Toon's own words: Music,
+  Crafting and Family are categories, and the actual projects (Mixing, building an
+  SPD pad, Gardening) live inside them. The app already had that shape — it just
+  called the levels *project* and *section*. So this is a vocabulary change and
+  nothing else: **`Project` and `Project.tags` are unchanged in the code, the
+  database and the route `/projects`**, because renaming those buys nothing and a
+  URL change would break every link already saved. "Era" beat "Category" and
+  "Area" because it fits both ends of the list — Family is an era, and so is
+  Campervan, in a way neither is a category — and *"my campervan era"* is already
+  how people talk. It is also the only dinosaur joke available that is a real
+  taxonomy rather than a pun: geology nests Eras above Periods.
+  **The assistant's prose was updated too** ([gemini/tools.ts](src/lib/gemini/tools.ts),
+  [extract.ts](src/lib/gemini/extract.ts)) — if the UI says era and the model says
+  project, a dictated "add this to Crafting" files against the wrong level. Tool
+  NAMES and argument keys deliberately still say project: they are schema, not copy.
 
 - **The dinosaur stickers** ([stickers.ts](src/lib/stickers.ts),
   [scripts/slice-stickers.py](scripts/slice-stickers.py)). Fifty-five characters cut

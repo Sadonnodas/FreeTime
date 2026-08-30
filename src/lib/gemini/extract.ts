@@ -63,7 +63,8 @@ Rules:
 - One item per distinct thought. Do NOT split a single thought into steps.
 - Do NOT invent items. If the person is just thinking aloud, return fewer items.
 - Never infer a date or deadline. There is no date field; it does not exist here.
-- Assign projectName ONLY if they named it or it is unmistakable from context.
+- projectName is an ERA — a lasting area of life such as Music, Family or
+  Crafting. Assign one ONLY if they named it or it is unmistakable from context.
   Leave it out otherwise. Unassigned is a perfectly good answer.
 - energy is optional: quick (a few minutes), moderate, focus (a long block).
   Leave it out unless the size is obvious.

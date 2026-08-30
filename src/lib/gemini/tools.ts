@@ -61,7 +61,7 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       type: 'object',
       properties: {
         title: str('What to do, in their words.'),
-        projectId: str('Only if they named a project.'),
+        projectId: str('Only if they named an era — Music, Family, Crafting.'),
         energy: { type: 'string', enum: ['quick', 'moderate', 'focus'] },
         date: str('YYYY-MM-DD. ONLY for a real obligation they stated. Never inferred.')
       },
@@ -77,7 +77,7 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       type: 'object',
       properties: {
         text: str('The thought.'),
-        projectId: str('Optional. A project, if one obviously fits. Ideas are ' +
+        projectId: str('Optional. An era, if one obviously fits. Ideas are ' +
           'allowed to belong nowhere — leave it out rather than guessing.')
       },
       required: ['text']
@@ -99,10 +99,13 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: 'create_project',
-    description: 'Create a new project. Flat — there are no sub-projects.',
+    description:
+      'Create a new era — a lasting area of life such as Music, Family or ' +
+      'Crafting. NOT for a single piece of work: "build a trigger pad" is a ' +
+      'project, which lives inside an era and is not created this way.',
     parameters: {
       type: 'object',
-      properties: { name: str('Project name.') },
+      properties: { name: str('Name of the era.') },
       required: ['name']
     }
   },
@@ -138,12 +141,12 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: 'append_note',
     description:
-      "Add a few lines to the end of a project's notes. Never rewrites or " +
+      "Add a few lines to the end of an era's notes. Never rewrites or " +
       'replaces what is already there.',
     parameters: {
       type: 'object',
       properties: {
-        projectId: str('Id of the project. Use query_state to find it.'),
+        projectId: str('Id of the era. Use query_state to find it.'),
         text: str('The lines to add, in their words.')
       },
       required: ['projectId', 'text']
@@ -161,7 +164,7 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
           type: 'string',
           enum: ['today', 'projects', 'project', 'brain', 'memos', 'lists', 'buy', 'habits']
         },
-        projectId: str("Required when screen is 'project'.")
+        projectId: str("Required when screen is 'project' — the id of the era.")
       },
       required: ['screen']
     }
@@ -181,7 +184,7 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
             'ideas', 'memos'
           ]
         },
-        projectName: str('Optional filter by project name.')
+        projectName: str('Optional filter by era name.')
       },
       required: ['kind']
     }
@@ -272,7 +275,7 @@ export async function describeWrite(name: WriteTool, args: Args): Promise<string
     case 'create_buy_item':
       return `Buy: ${s(args.name) ?? '?'}`;
     case 'create_project':
-      return `New project: ${s(args.name) ?? '?'}`;
+      return `New era: ${s(args.name) ?? '?'}`;
     case 'complete_todo': {
       const todo = await db.todos.get(s(args.id) ?? '');
       return `Complete: ${todo?.title ?? s(args.id)}`;

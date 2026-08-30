@@ -154,7 +154,7 @@
       <InfoDot title="Google Drive">
         <p>
           Sync keeps this app the same on your laptop and your phone. Your data lives in
-          a visible <b>{DRIVE_FOLDER}/</b> folder in your Drive, and project notes are
+          a visible <b>{DRIVE_FOLDER}/</b> folder in your Drive, and era notes are
           real .md files — readable and editable without this app, so nothing is trapped
           in here.
         </p>

@@ -99,7 +99,7 @@
     return [...buckets]
       .map(([key, rows]) => ({
         key,
-        label: key || (groupBy === 'shop' ? 'No shop yet' : 'No project'),
+        label: key || (groupBy === 'shop' ? 'No shop yet' : 'No era'),
         items: rows,
         outstanding: outstandingOf(rows)
       }))
@@ -213,7 +213,7 @@
                 class="chip press {item.projectId ? '' : 'chip-on'}"
                 onclick={() => updateBuyItem(item.id, { projectId: undefined })}
               >
-                No project
+                No era
               </button>
               {#each projects as p (p.id)}
                 <button

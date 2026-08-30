@@ -92,7 +92,7 @@
 
 <div class="px-4 pt-safe pb-8">
   <header class="flex items-end justify-between pt-3 pb-4">
-    <h1 class="large-title">Projects</h1>
+    <h1 class="large-title">Eras</h1>
     <button class="press tap rounded-xl px-3 text-[15px] text-accent" onclick={() => (adding = !adding)}>
       {adding ? 'Cancel' : 'New'}
     </button>
@@ -104,7 +104,7 @@
       <input
         bind:value={name}
         autofocus
-        placeholder="Project name"
+        placeholder="Name of the era"
         class="field min-w-0 flex-1"
       />
       <button class="btn btn-primary press">Add</button>
@@ -140,11 +140,11 @@
       <span class="mb-3 inline-block text-ink-600"><Dino size={68} tone="mono" /></span>
       <p class="title-2">Nothing here yet.</p>
       <p class="footnote mt-2">
-        A project is a place things belong — a band, a van, a job. One tap and a name
+        An era is a place things belong — a band, a van, a job. One tap and a name
         is all it takes, and you can add a picture later.
       </p>
       <button class="btn btn-primary press mt-4" onclick={() => (adding = true)}>
-        New project
+        New era
       </button>
       <p class="footnote mt-3 italic opacity-70">Everything starts somewhere. Even the Jurassic.</p>
     </div>

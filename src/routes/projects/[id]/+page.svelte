@@ -185,7 +185,7 @@
 <div class="px-4 pt-safe pb-8">
   <header class="pt-2 pb-4">
     <div class="flex items-center justify-between">
-      <a href="{base}/projects" class="press footnote py-1">‹ Projects</a>
+      <a href="{base}/projects" class="press footnote py-1">‹ Eras</a>
       <div class="flex items-center gap-1">
         <!-- Two ways in, side by side rather than behind a menu. A dinosaur is
              one tap and always available; a photo needs one from the camera
@@ -269,7 +269,7 @@
       <button
         class="chip shrink-0 press {editingTags ? 'chip-on' : ''}"
         onclick={() => (editingTags = !editingTags)}
-        aria-label="Edit sections"
+        aria-label="Edit projects"
       >
         {editingTags ? 'Done' : '+'}
       </button>
@@ -279,15 +279,15 @@
       class="press footnote mb-3 rounded-xl border border-dashed border-line-2 px-3 py-2"
       onclick={() => (editingTags = true)}
     >
-      + Sections
+      + Projects
     </button>
   {/if}
 
   {#if editingTags}
     <div class="card mb-3 p-3">
       <p class="footnote mb-2">
-        Sections split this project's to-dos without adding a screen. Removing one
-        keeps its to-dos and just unfiles them.
+        Projects live inside an era and split its to-dos, notes and recordings
+        without adding a screen. Removing one keeps its to-dos and unfiles them.
       </p>
       {#each tags as t (t)}
         <div class="mb-1 flex items-center gap-2">
@@ -306,7 +306,7 @@
       <form onsubmit={addTag} class="mt-2 flex gap-2">
         <input
           bind:value={newTagName}
-          placeholder="New section"
+          placeholder="New project"
           class="field min-w-0 flex-1 text-sm"
         />
         <button class="btn btn-secondary press shrink-0" disabled={!newTagName.trim()}>Add</button>
@@ -437,7 +437,7 @@
       {confirmArchive ? 'Archive it — tap again' : 'Archive this project'}
     </button>
     <p class="footnote mt-1 text-center">
-      Keeps everything in it. You can bring it back from Projects.
+      Keeps everything in it. You can bring it back from Eras.
     </p>
   </div>
 </div>

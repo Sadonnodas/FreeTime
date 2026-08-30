@@ -148,16 +148,16 @@
 
     <section class="mt-8">
       <h2 class="section-label mb-2">
-        Or a page as a project note
+        Or a page as an era note
       </h2>
       <p class="footnote mb-2">
-        Markdown, appended to that project's notes. Never overwrites what's there.
+        Markdown, appended to that era's notes. Never overwrites what's there.
       </p>
       <select
         bind:value={noteProjectId}
         class="field press mb-2 w-full "
       >
-        <option value="">Choose a project…</option>
+        <option value="">Choose an era…</option>
         {#each $projectsQ ?? [] as p (p.id)}
           <option value={p.id}>{p.name}</option>
         {/each}
@@ -234,10 +234,10 @@
     {#if Object.keys(decisions).length}
       <section class="mb-6">
         <h2 class="section-label mb-2">
-          Project names found
+          Era names found
         </h2>
         <p class="footnote mb-2">
-          Old workstreams become real projects only if you say so. Anything dropped just
+          Old workstreams become real eras only if you say so. Anything dropped just
           means the item comes in unassigned — which is fine.
         </p>
         <div class="space-y-2">
@@ -308,7 +308,7 @@
       <p class="large-title">{result.written} imported.</p>
       {#if result.projectsCreated.length}
         <p class="mt-2 text-sm text-ink-400">
-          New projects: {result.projectsCreated.join(', ')}
+          New eras: {result.projectsCreated.join(', ')}
         </p>
       {/if}
       <button
