@@ -213,12 +213,6 @@
         {quip}
       </p>
 
-      <button
-        class="press mt-4 w-full text-center text-[13px] text-ink-400"
-        onclick={() => (picking = true)}
-      >
-        or just pick something yourself
-      </button>
     {:else if roomLeft > 0 && !picking}
       <button
         class="press mt-4 w-full rounded-2xl border border-dashed border-line-2 py-4 text-ink-400"
