@@ -128,8 +128,35 @@
   }
 </script>
 
-<div class="shell flex h-dvh flex-col bg-ink-950">
+<div class="shell flex h-dvh bg-ink-950">
+  <!--
+    The desktop rail. Same four destinations as the phone's tab bar, laid out
+    the way a pointer expects them: down the left, labelled, with hover. Hidden
+    below 1024px, where the bottom bar takes over.
+  -->
+  <nav class="hairline-r hidden shrink-0 flex-col px-3 py-4 lg:flex lg:w-[216px]">
+    <a href={hrefFor('/')} class="press mb-5 flex items-center gap-2.5 px-2">
+      <img src="{base}/favicon.svg" alt="" class="h-8 w-8 rounded-[9px]" />
+      <span class="text-[15px] font-semibold tracking-[-0.014em]">FREETIME</span>
+    </a>
+    {#each tabs as tab (tab.path)}
+      {@const on = isActive(tab.path)}
+      <a
+        href={hrefFor(tab.path)}
+        class="press rail-item {on ? 'rail-on' : ''}"
+        aria-current={on ? 'page' : undefined}
+      >
+        <svg viewBox="0 0 24 24" class="h-[20px] w-[20px] shrink-0" aria-hidden="true">
+          <path d={ICONS[tab.path]} fill="currentColor" />
+        </svg>
+        {tab.label}
+      </a>
+    {/each}
+  </nav>
+
+  <div class="flex min-w-0 flex-1 flex-col">
   <main class="min-h-0 flex-1 overflow-y-auto">
+    <div class="page h-full">
     {#if storageError}
       <!-- Explaining beats a blank screen. The app cannot run without local
            storage, so it says so plainly rather than looking broken. -->
@@ -145,9 +172,11 @@
     {:else if ready}
       {@render children()}
     {/if}
+    </div>
   </main>
 
-  <nav class="glass hairline-t flex shrink-0 pb-safe">
+  <!-- The phone's tab bar. Replaced by the rail from 1024px up. -->
+  <nav class="glass hairline-t flex shrink-0 pb-safe lg:hidden">
     {#each tabs as tab (tab.path)}
       {@const on = isActive(tab.path)}
       <a
@@ -163,4 +192,5 @@
       </a>
     {/each}
   </nav>
+  </div>
 </div>

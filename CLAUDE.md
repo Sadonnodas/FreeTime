@@ -288,6 +288,15 @@ one came close to a hard rule, the reasoning is recorded here.
   ink-950 exactly or the app opens with a flash of the wrong black. **iOS bakes the icon
   in at install time** — changing it does nothing for an already-installed home-screen app
   until it is removed and re-added.
+- **The desktop layout is a rail, not a wider phone** ([+layout.svelte](src/routes/+layout.svelte),
+  `.shell` / `.page` / `.rail-item` in [app.css](src/app.css)). From 1024px the shell
+  widens to 1040, the bottom tab bar is replaced by a labelled rail down the left, and
+  the reading column inside caps at 720 — text stops getting more readable past about 70
+  characters, so the extra width goes to the rail and the margins rather than to longer
+  lines. Grids opt into more columns themselves (`lg:grid-cols-3` on Projects). It stops
+  at 1040 on purpose: filling a 27-inch display would undo the reason the constraint
+  exists, which is that the app should read as one designed object rather than a page
+  that gave up. Below 1024 nothing changes at all — the phone layout is untouched.
 - **A map of recordings** ([geo.ts](src/lib/geo.ts),
   [MemoMap.svelte](src/lib/components/MemoMap.svelte)). Brain → Memos toggles List/Map.
   Leaflet is the app's second runtime dependency and is **lazily imported** — opening

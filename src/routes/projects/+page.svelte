@@ -157,7 +157,8 @@
     </div>
   {/if}
 
-  <div class="grid grid-cols-2 gap-3">
+  <!-- Three across once the rail appears and the column is wider. -->
+  <div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
     {#each sorted as p (p.project.id)}
       <a
         href="{base}/projects/{p.project.id}"

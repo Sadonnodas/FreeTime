@@ -58,6 +58,33 @@
   margin-inline: auto;
 }
 
+/*
+ * On a laptop the phone layout leaves most of the screen empty, and a bottom
+ * tab bar is a phone gesture sitting where no thumb will ever be. So from
+ * 1024px the shell widens and the tabs become a rail down the left, which is
+ * what every desktop app does and what the space is actually for.
+ *
+ * It widens to 1040 and no further. Letting it fill a 27-inch display would
+ * undo the reason the constraint exists — the app should read as one designed
+ * object, not a page that gave up.
+ */
+@media (min-width: 1024px) {
+  .shell {
+    max-width: 1040px;
+  }
+}
+
+/*
+ * The reading column inside that. Text does not get more readable past about
+ * 70 characters, so the extra width goes to the rail and to margins rather
+ * than to longer lines. Grids opt into more columns themselves.
+ */
+.page {
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+}
+
 html,
 body {
   background: var(--color-ink-950);
@@ -190,6 +217,38 @@ body {
 
   .hairline-t {
     border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .hairline-r {
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* A row in the desktop rail. Wider hit area than the phone tab, because a
+     cursor is precise and a thumb is not — the target can be a shape rather
+     than a minimum. */
+  .rail-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 12px;
+    min-height: 40px;
+    font-size: 0.9375rem;
+    font-weight: 550;
+    letter-spacing: -0.01em;
+    color: var(--color-ink-400);
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+
+  .rail-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-ink-200);
+  }
+
+  .rail-on,
+  .rail-on:hover {
+    background: rgba(255, 159, 10, 0.13);
+    color: var(--color-accent);
   }
 
   /* -------------------------------------------------------------- motion */
