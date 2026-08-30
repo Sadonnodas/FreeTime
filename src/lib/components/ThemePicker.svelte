@@ -5,17 +5,14 @@
 
   /**
    * A road with the sun at one end and the moon at the other, and the dinosaur
-   * walking between them.
+   * walking between them. Tap an end, or drag the dinosaur across.
    *
-   * The first attempt made each side a full button with an icon, a label and a
-   * tinted background, and stacked the dinosaur underneath — three rows of
-   * chrome to express one binary choice. This is one row. The sun and the moon
-   * are just the ends of the road, the dinosaur is the position, and tapping
-   * either half sends it walking.
-   *
-   * "Follow my phone" stays a separate checkbox: it answers who decides, not
-   * which, and folding it into the same control would make a two-state thing
-   * pretend to have three.
+   * THE SUN IS ALWAYS GOLD AND THE MOON IS ALWAYS SILVER. They were coloured by
+   * which one was selected — accent for on, grey for off — which meant that in
+   * dark mode the moon glowed gold and the sun sat there silver. Reported as
+   * confusing, and rightly: these two things have colours of their own, and
+   * borrowing them to mean "selected" fights what they are. Selection is shown
+   * by brightness and by where the dinosaur is standing instead.
    */
   let choice = $state<ThemeChoice>(getTheme());
   let showing = $state<'light' | 'dark'>(resolved());
@@ -37,8 +34,6 @@
   }
 
   function toggleAuto() {
-    // Leaving automatic keeps whatever is on screen, so nothing changes colour
-    // at the moment the box is ticked.
     if (auto) pick(resolved('system'));
     else {
       choice = 'system';
@@ -46,19 +41,73 @@
       setTheme('system');
     }
   }
+
+  // --- dragging --------------------------------------------------------------
+  //
+  // The whole road is the control. A press anywhere picks up the dinosaur, a
+  // drag walks it, and letting go drops it at the nearer end — so tapping the
+  // sun and dragging towards it are the same gesture at different speeds, and
+  // neither needs a separate hit target.
+
+  let track = $state<HTMLDivElement | null>(null);
+  let dragAt = $state<number | null>(null);
+
+  /** Ends at 18/82 rather than 34/66, so it really arrives at the sun. */
+  const HOME = { light: 18, dark: 82 };
+  const at = $derived(dragAt ?? HOME[showing]);
+
+  function positionFrom(e: PointerEvent): number {
+    if (!track) return at;
+    const rect = track.getBoundingClientRect();
+    const pct = ((e.clientX - rect.left) / rect.width) * 100;
+    return Math.min(88, Math.max(12, pct));
+  }
+
+  function down(e: PointerEvent) {
+    track?.setPointerCapture(e.pointerId);
+    dragAt = positionFrom(e);
+  }
+
+  function move(e: PointerEvent) {
+    if (dragAt === null) return;
+    dragAt = positionFrom(e);
+  }
+
+  function up() {
+    if (dragAt === null) return;
+    const side = dragAt > 50 ? 'dark' : 'light';
+    dragAt = null;
+    pick(side);
+  }
+
+  function keys(e: KeyboardEvent) {
+    if (e.key === 'ArrowLeft' || e.key === 'Home') pick('light');
+    if (e.key === 'ArrowRight' || e.key === 'End') pick('dark');
+  }
 </script>
 
-<div class="relative flex h-14 items-center overflow-hidden rounded-full"
-     style="background: var(--color-surface-1)">
-  <!-- Two invisible halves. The whole road is the target, which is a far bigger
-       one than two icons would be, and nothing has to be outlined to say so. -->
-  <button
-    class="press h-full flex-1 pl-4 text-left {showing === 'light'
-      ? 'text-accent'
-      : 'text-ink-400'}"
-    onclick={() => pick('light')}
-    aria-label="Light"
-    aria-pressed={showing === 'light'}
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div
+  bind:this={track}
+  class="relative flex h-14 touch-none items-center overflow-hidden rounded-full select-none"
+  style="background: var(--color-surface-1)"
+  role="slider"
+  tabindex="0"
+  aria-label="Light or dark"
+  aria-valuemin={0}
+  aria-valuemax={1}
+  aria-valuenow={showing === 'light' ? 0 : 1}
+  aria-valuetext={showing === 'light' ? 'Light' : 'Dark'}
+  onpointerdown={down}
+  onpointermove={move}
+  onpointerup={up}
+  onpointercancel={up}
+  onkeydown={keys}
+>
+  <!-- Gold and silver, always. Dimmed when the dinosaur is at the other end. -->
+  <span
+    class="pointer-events-none absolute left-4 transition-opacity duration-300"
+    style="color: #ffb020; opacity: {showing === 'light' ? 1 : 0.34}"
   >
     <svg viewBox="0 0 24 24" class="h-[22px] w-[22px]" aria-hidden="true">
       <circle cx="12" cy="12" r="4.6" fill="currentColor" />
@@ -67,33 +116,30 @@
         <path d="M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6" />
       </g>
     </svg>
-  </button>
+  </span>
 
-  <button
-    class="press flex h-full flex-1 justify-end pr-4 {showing === 'dark'
-      ? 'text-accent'
-      : 'text-ink-400'}"
-    onclick={() => pick('dark')}
-    aria-label="Dark"
-    aria-pressed={showing === 'dark'}
+  <span
+    class="pointer-events-none absolute right-4 transition-opacity duration-300"
+    style="color: #cfd8e8; opacity: {showing === 'dark' ? 1 : 0.34}"
   >
     <svg viewBox="0 0 24 24" class="h-[22px] w-[22px]" aria-hidden="true">
       <path d="M20.4 14.8A8.8 8.8 0 0 1 9.2 3.6a8.8 8.8 0 1 0 11.2 11.2" fill="currentColor" />
     </svg>
-  </button>
+  </span>
 
-  <!-- The road itself, and the walker on it. Positioned as a percentage so the
-       transition carries across the middle rather than jumping between halves. -->
   <div
-    class="pointer-events-none absolute right-14 bottom-[9px] left-14 h-px"
+    class="pointer-events-none absolute right-12 bottom-[9px] left-12 h-px"
     style="background: var(--color-line-2)"
   ></div>
+
+  <!-- No transition while dragging, or the dinosaur lags behind the finger. -->
   <div
-    class="pointer-events-none absolute bottom-[9px] translate-x-[-50%] transition-[left]
-           duration-500 ease-out"
-    style="left: {showing === 'light' ? 34 : 66}%"
+    class="pointer-events-none absolute bottom-[9px] translate-x-[-50%] {dragAt === null
+      ? 'transition-[left] duration-500 ease-out'
+      : ''}"
+    style="left: {at}%"
   >
-    <span class="block text-ink-200"><Dino size={34} tone="mono" flip={showing === 'dark'} /></span>
+    <span class="block text-ink-200"><Dino size={34} tone="mono" flip={at > 50} /></span>
   </div>
 </div>
 

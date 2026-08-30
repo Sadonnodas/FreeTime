@@ -398,6 +398,13 @@ one came close to a hard rule, the reasoning is recorded here.
   Free Time circle asking "Free time?" — a question is a friendlier prompt than a label
   when the answer is genuinely yours — and it walks between the sun and the moon in
   Settings. More places to use it: the empty states.
+- **The sun is always gold and the moon always silver.** They were coloured by which
+  was selected — accent for on, grey for off — so in dark mode the moon glowed gold and
+  the sun sat there silver. These two things have colours of their own; borrowing them to
+  mean "selected" fights what they are. Selection shows as brightness and as where the
+  dinosaur is standing. The whole road is one drag surface: press anywhere, walk the
+  dinosaur, let go and it settles at the nearer end, so tapping the sun and dragging to it
+  are the same gesture at different speeds.
 - **Appearance is a sun/moon toggle plus an Automatic checkbox**
   ([ThemePicker.svelte](src/lib/components/ThemePicker.svelte)), not three radio buttons.
   The thing being chosen is day or night; "who decides" is a separate question, which is
