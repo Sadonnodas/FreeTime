@@ -60,6 +60,16 @@ export interface ProjectPulse {
   openCount: number;
 }
 
+/** Set aside, not deleted. Everything inside an archived project is kept, and
+ *  restoring it is one tap from the Projects screen. */
+export async function archivedProjects(): Promise<Project[]> {
+  const all = await db.projects.toArray();
+  return all
+    .filter(notDeleted)
+    .filter((p) => p.archived)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /**
  * Pulse replaces progress bars (spec 4.2). A progress bar on an open-ended
  * personal project is always wrong and always reads as failure; "last touched"

@@ -1,11 +1,16 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
   import { browser } from '$app/environment';
-  import { projectPulses, type ProjectPulse } from '$lib/queries';
-  import { createProject } from '$lib/store';
+  import { projectPulses, archivedProjects, type ProjectPulse } from '$lib/queries';
+  import { createProject, archiveProject } from '$lib/store';
+  import type { Project } from '$lib/types';
   import { base } from '$app/paths';
 
   const pulsesQ = liveQuery(() => projectPulses());
+  const archivedQ = liveQuery(() => archivedProjects());
+  const archived = $derived(($archivedQ as Project[] | undefined) ?? []);
+
+  let showArchived = $state(false);
 
   let adding = $state(false);
   let name = $state('');
@@ -115,16 +120,19 @@
     </form>
   {/if}
 
-  <div class="segmented mb-4">
-    {#each ORDERS as o (o.key)}
-      <button
-        class="press segment {order === o.key ? 'segment-on' : ''}"
-        onclick={() => setOrder(o.key)}
-      >
-        {o.label}
-      </button>
-    {/each}
-  </div>
+  <!-- An order control with nothing to order is just a row of dead buttons. -->
+  {#if sorted.length > 1}
+    <div class="segmented mb-4">
+      {#each ORDERS as o (o.key)}
+        <button
+          class="press segment {order === o.key ? 'segment-on' : ''}"
+          onclick={() => setOrder(o.key)}
+        >
+          {o.label}
+        </button>
+      {/each}
+    </div>
+  {/if}
 
   <!--
     Pictures, not readouts. Recognising the Bearfeet logo or a photo of the
@@ -134,6 +142,21 @@
     One quiet line of pulse survives underneath. Still no progress bars, no
     percentages, no counts styled as warnings — a quiet project looks quiet.
   -->
+  {#if !sorted.length}
+    <!-- A new install starts empty now; it used to arrive with ten projects
+         belonging to somebody else. An empty grid needs to say what to do. -->
+    <div class="card p-6 text-center">
+      <p class="title-2">Nothing here yet.</p>
+      <p class="footnote mt-2">
+        A project is a place things belong — a band, a van, a job. One tap and a name
+        is all it takes, and you can add a picture later.
+      </p>
+      <button class="btn btn-primary press mt-4" onclick={() => (adding = true)}>
+        New project
+      </button>
+    </div>
+  {/if}
+
   <div class="grid grid-cols-2 gap-3">
     {#each sorted as p (p.project.id)}
       <a
@@ -173,4 +196,31 @@
       </a>
     {/each}
   </div>
+
+  {#if archived.length}
+    <button
+      class="press footnote mt-6 w-full text-center"
+      onclick={() => (showArchived = !showArchived)}
+    >
+      {showArchived ? 'Hide' : 'Show'} archived ({archived.length})
+    </button>
+
+    {#if showArchived}
+      <!-- Nothing is lost by archiving, so bringing one back is one tap and
+           needs no ceremony. -->
+      <ul class="mt-2 space-y-1">
+        {#each archived as p (p.id)}
+          <li class="card-flat flex items-center gap-3 px-4 py-3">
+            <span class="min-w-0 flex-1 truncate text-ink-400">{p.name}</span>
+            <button
+              class="press tap-h shrink-0 rounded-lg px-3 text-sm text-accent"
+              onclick={() => archiveProject(p.id, false)}
+            >
+              Restore
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  {/if}
 </div>

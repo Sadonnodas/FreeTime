@@ -7,8 +7,10 @@
   import type { Todo, BuyItem } from '$lib/types';
   import {
     createTodo, completeTodo, createBuyItem, markPurchased, saveNote, getNote,
-    setProjectImage, setProjectTags, removeProjectTag, renameProjectTag
+    setProjectImage, setProjectTags, removeProjectTag, renameProjectTag,
+    archiveProject
   } from '$lib/store';
+  import { goto } from '$app/navigation';
   import { resizeImage, COVER_EDGE } from '$lib/images';
 
   // Exactly three tabs, and no fourth ever. Depth is what killed the last one.
@@ -81,6 +83,29 @@
     if (!name || tags.includes(name)) return;
     newTagName = '';
     await setProjectTags(id, [...tags, name]);
+  }
+
+  /**
+   * Archiving, which until now had no way in from the UI at all — the field
+   * existed and nothing could set it, so a project once made was permanent.
+   * Two taps rather than a dialog: the second tap is the confirmation and
+   * walking away cancels it.
+   *
+   * Archive rather than delete, because a project is a container. Deleting one
+   * would strand its to-dos, notes and recordings with no way back, and nothing
+   * here is worth that. An archived project keeps everything and can be brought
+   * back from the Projects screen.
+   */
+  let confirmArchive = $state(false);
+
+  async function archive() {
+    if (!confirmArchive) {
+      confirmArchive = true;
+      setTimeout(() => (confirmArchive = false), 4000);
+      return;
+    }
+    await archiveProject(id, true);
+    await goto(`${base}/projects`);
   }
 
   let newTodo = $state('');
@@ -338,4 +363,17 @@
       {/each}
     </ul>
   {/if}
+
+  <!-- Right at the bottom, where a destructive-looking action belongs. -->
+  <div class="mt-10 border-t border-white/8 pt-4">
+    <button
+      class="press tap w-full rounded-xl text-sm {confirmArchive ? 'text-accent-2' : 'text-ink-400'}"
+      onclick={archive}
+    >
+      {confirmArchive ? 'Archive it — tap again' : 'Archive this project'}
+    </button>
+    <p class="footnote mt-1 text-center">
+      Keeps everything in it. You can bring it back from Projects.
+    </p>
+  </div>
 </div>

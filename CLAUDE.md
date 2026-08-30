@@ -121,6 +121,18 @@ Do not "fix" these without talking to Toon first.
 
 ## Traps, found the hard way
 
+- **Anything seeded on an empty database duplicates itself across devices.** Seeding
+  runs whenever the store is empty, which is true of every NEW DEVICE, and it runs
+  BEFORE the first sync because sync cannot start until the store is open. So the second
+  device minted its own copies with fresh uuids, pulled down the first device's, and
+  merge — matching on id, correctly — kept both sets. Ten projects became twenty. The
+  second symptom was worse than the first: a cover photo set on the laptop looked like
+  it had failed to sync, when really it was on the *other* copy of the same name, and
+  the phone was showing its own. Seeding is gone ([boot.ts](src/lib/boot.ts)) and a new
+  install starts empty. **If anything is ever seeded again, give it ids derived
+  deterministically from its content** so two devices generate the same ones and merge
+  instead of collide.
+
 - **getUserMedia's defaults destroy music.** `{audio: true}` turns on echo
   cancellation, noise suppression and auto gain, because the browser assumes a voice
   call. On a sung melody or an acoustic guitar this is audible immediately: noise
@@ -249,6 +261,18 @@ one came close to a hard rule, the reasoning is recorded here.
   on Pages. Checks every 30 minutes and on every foreground; installs silently at a safe
   moment; *Me → Settings → Version* shows the build timestamp (`__APP_VERSION__`, stamped
   by `define` in vite.config.ts) and offers a manual check.
+- **No starter projects, and archiving instead of deleting.** A new install used to
+  arrive with ten of Toon's projects. Reversed on his request — an app that opens with
+  ten projects you did not create is strange for anyone but the person the list was
+  written for — and it turned out to be a sync bug as well (see traps). Spec §3.1 and
+  seed.ts's own comment argued for seeding, including Disc Golf as a symptom of the old
+  system; that reasoning was about *his* first run and did not survive contact with a
+  second device.
+  `Project.archived` existed from the start and nothing could set it, so a project once
+  made was permanent. There is now an archive action at the foot of the project page
+  (two taps, no dialog) and a *Show archived* list on the Projects screen to restore
+  from. Archive rather than delete, because a project is a container: deleting one would
+  strand its to-dos, notes and recordings with no way back.
 - **A map of recordings** ([geo.ts](src/lib/geo.ts),
   [MemoMap.svelte](src/lib/components/MemoMap.svelte)). Brain → Memos toggles List/Map.
   Leaflet is the app's second runtime dependency and is **lazily imported** — opening

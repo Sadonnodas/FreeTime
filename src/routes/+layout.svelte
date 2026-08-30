@@ -2,7 +2,7 @@
   import '../app.css';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
-  import { seedIfEmpty } from '$lib/seed';
+  import { openStore as openLocalStore } from '$lib/boot';
   import { base } from '$app/paths';
   import { onDestroy } from 'svelte';
   import { handleRedirect, renewIfSafe } from '$lib/google/auth';
@@ -67,7 +67,7 @@
       timer = setTimeout(() => reject(new Error('Storage did not respond.')), 8000);
     });
     try {
-      await Promise.race([seedIfEmpty(), timeout]);
+      await Promise.race([openLocalStore(), timeout]);
     } finally {
       clearTimeout(timer!);
     }
