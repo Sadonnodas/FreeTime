@@ -354,7 +354,9 @@ illustration model** (`RealESRGAN_x4plus_anime_6B`), run through `spandrel` on
 Apple Silicon's MPS backend, 4x and then resampled down to 448px — the downsample
 is what actually cleans the lines. Alpha goes through the network separately;
 LANCZOS on a hard cutout leaves a soft grey rim that reads as a glow against a
-coloured card.
+coloured card. Transparent pixels are filled by extending the nearest opaque
+colour outwards before the network sees them — filling with a flat colour makes
+the network blend every outline towards it and leaves a pale line round the art.
 
 Vectorising was tried first and rejected on size: `vtracer` handles flat cartoon
 art well, but a traced sticker is 450KB-1MB of SVG because it chases every

@@ -537,12 +537,18 @@ one came close to a hard rule, the reasoning is recorded here.
   outside, so a flood inward from the transparent edge finds it and never reaches a
   drawn white sitting behind its own dark outline. But cutting on a threshold alone
   just swaps a white rim for a pale grey one — the pixels where the outline meets the
-  border are a blend of the two and sit under any threshold you pick. So every pixel
-  left on the new edge has its alpha scaled by how far it is from white: black
-  outline stays solid, near-white leftover vanishes, and the in-between comes out
-  part-transparent, which is what an anti-aliased edge is. Without that step the
-  stickers look haloed on a coloured card, which is exactly what they looked like
-  before.
+  border are a blend of the two and sit under any threshold you pick — going lower
+  only moves the line, because there is always a blend pixel on the far side.
+  **The blend is solved, not thresholded.** The colour behind it is known to have
+  been white, so `observed = white*(1-t) + colour*t` gives coverage `t` from the
+  lightness, and dividing it back out recovers the outline's own colour. The result
+  is a half-covered DARK pixel — which is what the edge always was — instead of an
+  opaque light one, and it composites correctly over any card colour. Measured: the
+  outermost pixel went from lightness ~150 to ~55.
+  **The upscaler was making its own rim, separately.** It filled transparent pixels
+  with the sticker's mean colour before running the network, so every dark outline
+  was blended toward one flat light grey. It extends the nearest opaque colour
+  outwards instead, so sharpening an edge produces more outline rather than a halo.
 
 - **Which leftover white is background CANNOT be decided automatically, and the list
   is curated by hand** (`art/stickers.json` → `holes`,

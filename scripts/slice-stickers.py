@@ -331,14 +331,44 @@ def strip_keyline(art: Image.Image) -> Image.Image:
     alpha = a[:, :, 3].astype(np.float32)
     alpha[keyline] = 0
 
+    # UN-BLEND THE EDGE, do not just threshold it.
+    #
+    # A pixel where the black outline meets the white border is neither: it is
+    # the two averaged by the anti-aliasing, and it measures around 130 on this
+    # art. Cutting at a threshold leaves it fully opaque and light, which is the
+    # thin pale line that survives every attempt to cut "tighter" — going lower
+    # only moves the line, because there is always a blend pixel on the far side.
+    #
+    # Since the colour behind it is known to have been white, the blend can be
+    # solved instead of guessed. observed = white*(1-t) + colour*t, so coverage
+    # t falls out of the lightness, and dividing it back out recovers the
+    # outline's own colour. The result is a half-covered dark pixel, which is
+    # what the edge always was, and it composites correctly over any card colour
+    # instead of glowing.
+    WHITE, DARK = 246.0, 60.0
+
     gone = outside | keyline
-    grew = np.pad(gone, 1, constant_values=True)
-    fringe = (grew[:-2, 1:-1] | grew[2:, 1:-1] |
-              grew[1:-1, :-2] | grew[1:-1, 2:]) & ~gone
-    # 200 is where the outline's own shading stops and the blend into the border
-    # begins; below it a pixel is art and keeps all of its alpha.
-    blend = np.clip((lightness - 200) / 55.0, 0.0, 1.0)
-    alpha[fringe] *= (1.0 - blend[fringe])
+    grew = np.pad(gone, 2, constant_values=True)
+    near = np.zeros_like(gone)
+    for dy in range(-2, 3):
+        for dx in range(-2, 3):
+            near |= grew[2 + dy:grew.shape[0] - 2 + dy, 2 + dx:grew.shape[1] - 2 + dx]
+    band = near & ~gone & (alpha > 0)
+
+    coverage = np.clip((WHITE - lightness) / (WHITE - DARK), 0.0, 1.0)
+    edge = band & (coverage < 1.0)
+
+    rgb = a[:, :, :3].astype(np.float32)
+    t = coverage[edge][:, None]
+    # Below a sliver of coverage the division is noise, so those go entirely.
+    keep_enough = (t >= 0.12).ravel()
+    recovered = np.where(t > 0, (rgb[edge] - WHITE * (1.0 - t)) / np.maximum(t, 1e-6), rgb[edge])
+    rgb[edge] = np.clip(recovered, 0.0, 255.0)
+
+    new_alpha = alpha[edge] * coverage[edge]
+    new_alpha[~keep_enough] = 0.0
+    alpha[edge] = new_alpha
+    a[:, :, :3] = rgb.round().astype(np.uint8)
 
     a[:, :, 3] = alpha.round().astype(np.uint8)
     trimmed = Image.fromarray(a)
