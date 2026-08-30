@@ -4,6 +4,7 @@
   import type { Habit, HabitState } from '$lib/types';
   import { createHabit } from '$lib/store';
   import { winsSince } from '$lib/queries';
+  import ProjectShare from '$lib/components/ProjectShare.svelte';
   import { base } from '$app/paths';
 
   const habitsQ = liveQuery(async () =>
@@ -80,6 +81,8 @@
       {/if}
     {/each}
   </section>
+
+  <ProjectShare />
 
   <section class="mb-8">
     <h2 class="section-label mb-2">

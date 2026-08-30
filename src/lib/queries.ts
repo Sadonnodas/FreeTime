@@ -159,3 +159,82 @@ export function startOfWeekIso(d: Date = new Date()): string {
   copy.setHours(0, 0, 0, 0);
   return copy.toISOString();
 }
+
+export interface ProjectShare {
+  project: Project;
+  /** Discrete things that happened, not minutes. See the caveat below. */
+  events: number;
+  closed: number;
+  bought: number;
+  recorded: number;
+  finished: number;
+}
+
+/**
+ * Where the recorded work went, by project.
+ *
+ * THE HONEST CAVEAT, and it is not a small one: this can only see what was
+ * written down. A project that generates to-dos looks busy; an afternoon with
+ * family that nobody made a task for is invisible. So the projects most likely
+ * to look thin are exactly the ones whose value never took the shape of a task,
+ * which is the opposite of what a chart like this appears to be telling you.
+ * The UI says so out loud, because a number that is quietly wrong is worse than
+ * no number.
+ *
+ * It counts EVENTS rather than percentages of anything: a to-do closed, a thing
+ * bought, a memo recorded, a want finished. There is no target, so there is
+ * nothing to fall short of — the chart answers "where did my attention go",
+ * never "how much of it should have gone here".
+ */
+export async function activityByProject(sinceIso: string): Promise<ProjectShare[]> {
+  const [projects, todos, buys, memos, ideas] = await Promise.all([
+    activeProjects(),
+    db.todos.toArray(),
+    db.buyItems.toArray(),
+    db.memos.toArray(),
+    db.ideas.toArray()
+  ]);
+
+  const within = (at?: string) => !!at && at >= sinceIso;
+
+  return projects
+    .map((project) => {
+      const mine = <T extends { projectId?: string; deletedAt?: string }>(rows: T[]) =>
+        rows.filter(notDeleted).filter((r) => r.projectId === project.id);
+
+      const closed = mine(todos).filter((t) => within(t.completedAt)).length;
+      const bought = mine(buys).filter((b) => within(b.purchasedAt)).length;
+      const recorded = mine(memos).filter((m) => within(m.recordedAt)).length;
+      const finished = mine(ideas).filter((i) => within(i.doneAt)).length;
+
+      return {
+        project,
+        events: closed + bought + recorded + finished,
+        closed,
+        bought,
+        recorded,
+        finished
+      };
+    })
+    .sort((a, b) => b.events - a.events || a.project.name.localeCompare(b.project.name));
+}
+
+/**
+ * Start of the window, N months back.
+ *
+ * The day is clamped to the target month's length, because setMonth alone
+ * overflows: six months back from the 30th of August is the 30th of February,
+ * which JavaScript rolls forward into March — quietly handing back a window
+ * two days shorter than asked for and dropping the end of February from it.
+ * Caught by a test rather than by anyone noticing the chart was wrong.
+ */
+export function monthsAgoIso(months: number, from: Date = new Date()): string {
+  const d = new Date(from);
+  const day = d.getDate();
+  // Move off the end of the month first, so the subtraction cannot overflow.
+  d.setDate(1);
+  d.setMonth(d.getMonth() - months);
+  const lastOfTarget = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastOfTarget));
+  return d.toISOString();
+}

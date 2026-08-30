@@ -288,6 +288,26 @@ one came close to a hard rule, the reasoning is recorded here.
   ink-950 exactly or the app opens with a flash of the wrong black. **iOS bakes the icon
   in at install time** — changing it does nothing for an already-installed home-screen app
   until it is removed and re-added.
+- **One deliberate exception to "no analytics"**
+  ([ProjectShare.svelte](src/lib/components/ProjectShare.svelte), `activityByProject`).
+  Me shows where the recorded work went, by project, over 30 days / 6 months / a year.
+  Asked for and argued through: Toon wants to *see* that Family has been quiet, and says
+  that motivates him. It stays the right side of the rule by describing rather than
+  measuring — it counts events that happened (closed, bought, recorded, finished) against
+  no target, so there is nothing to be behind on. No goal percentages, no red, no "you
+  should". **Projects at zero are shown, not filtered out**: the empty row is the entire
+  reason for looking.
+  **State the caveat wherever this is shown.** It can only see what got written down, so
+  the projects that look thinnest are the ones whose value never took the shape of a
+  to-do — Family most of all. Left unsaid, the chart reads as a fact about the year when
+  it is a fact about the recording.
+  The donut is what was asked for; the ranked bars under it are what make it readable,
+  since ten projects in a pie is a row of unlabelled slivers and the quiet one you came
+  to look at is the least legible of them.
+- **`setMonth` overflows and will silently shorten a window.** Six months back from 30
+  August is "30 February", which rolls forward into March — a chart quietly missing the
+  end of February. `monthsAgoIso` clamps the day to the target month's length. Caught by
+  a test, not by anyone noticing the numbers were wrong.
 - **Brain is four kinds, not six** ([brain/+page.svelte](src/routes/brain/+page.svelte),
   [migrate.ts](src/lib/migrate.ts)). Inbox and Lists both folded into Ideas, because all
   three were the same shape — a thought with no action attached. An unfiled capture is
