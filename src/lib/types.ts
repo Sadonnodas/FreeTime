@@ -91,6 +91,8 @@ export interface Idea extends Base {
 
 export interface BuyItem extends Base {
   name: string;
+  /** The project inside the era, exactly as Todo.tag. */
+  tag?: string;
   url?: string;
   priceCents?: number;
   currency?: string;
@@ -296,6 +298,15 @@ export interface WidgetLink {
 
 export interface Widget extends Base {
   projectId: string;
+  /**
+   * The project inside the era this block belongs to (Project.tags).
+   *
+   * Without it a schematic photographed for one build sat on the era itself,
+   * alongside every other project's blocks, which is not where it was put. Same
+   * field and same meaning as Todo.tag and Note.tag; undefined means the block
+   * belongs to the era as a whole rather than to any one project in it.
+   */
+  tag?: string;
   kind: WidgetKind;
   /** Shown as the block's small caps header. Optional. */
   title?: string;

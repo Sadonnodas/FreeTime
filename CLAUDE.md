@@ -621,6 +621,21 @@ device; there is nothing to build. Memos are the exception, below.
   without a `blob` means "not here yet", which the UI must not show as "gone". Asserted
   in [memos.test.ts](src/lib/memos.test.ts).
 
+- **A project inside an era owns EVERYTHING, not just to-dos.** `Widget.tag` and
+  `BuyItem.tag` were the two that were missing, and the gap showed the moment the app
+  was used for real: a schematic photographed for one build sat on the era itself,
+  among every other build's blocks, with no way to move it or open it. Blocks and
+  shopping now follow the chip exactly as to-dos, notes and recordings do — same
+  rule, a chip shows only that project and no chip shows the whole era, and adding
+  while a chip is lit files it there. **Renaming a project must carry all five**
+  (to-dos, memos, note, blocks, shopping); miss one and it is not deleted, it is
+  invisible, which is worse. Pinned by [notes.test.ts](src/lib/notes.test.ts).
+  On All the era's to-dos are grouped under a heading per project, with untagged
+  ones last — a flat list across an era with three builds in it reads as one pile,
+  which is what it looked like when the grouping was missing.
+  A photo block opens full-screen on tap (`object-contain`, never cover: it is
+  usually a schematic and cropping it removes the part being looked at).
+
 - **A section is a view of the whole project, not a filter on its to-dos.** The chips
   sit ABOVE the three tabs, so picking a song gives you that song's to-dos, that song's
   lyrics and that song's recordings — which is what the original voice-memo brief asked
@@ -634,8 +649,7 @@ device; there is nothing to build. Memos are the exception, below.
   to keep it unique. Matched in code instead.
 
 **Still not built:** `Memo.place` is never filled in, deliberately — see the privacy
-note above. Buy items have no section, so a project's Buy tab is not scoped by the chips
-the way its other tabs are; nobody has needed it yet.
+note above.
 
 **A waiting service worker can wedge forever on an installed iOS app.** Cost a round
 trip to learn, so: a worker that does not `skipWaiting` stays in *waiting* until every

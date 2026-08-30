@@ -17,11 +17,14 @@
   let {
     items,
     projects = [],
+    sections = [],
     showProject = true,
     groupBy = 'none'
   }: {
     items: BuyItem[];
     projects?: Project[];
+    /** The projects inside an era, when this list is showing one era's parts. */
+    sections?: string[];
     showProject?: boolean;
     groupBy?: GroupBy;
   } = $props();

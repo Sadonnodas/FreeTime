@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from './db';
 import {
   createProject, setProjectTags, getNote, saveNote, renameProjectTag, removeProjectTag,
-  createTodo, updateTodo
+  createTodo, updateTodo, createBuyItem, updateBuyItem
 } from './store';
+import { addWidget, setWidgetTag, widgetsFor } from './widgets';
 
 /**
  * A project holds a note per section, which is what makes "lyrics for this song,
@@ -90,6 +91,47 @@ describe('renaming a section', () => {
     expect((await db.todos.get(todo))!.tag).toBe('Remi (final)');
     expect((await db.memos.get('m1'))!.tag).toBe('Remi (final)');
     expect((await getNote(p, 'Remi (final)'))!.markdown).toBe('verse one');
+  });
+
+  it('carries a blocks and shopping through a rename too', async () => {
+    // Everything a project inside an era owns has to move together. A block or
+    // a part left on the old name is not deleted, it is invisible — the
+    // schematic is simply not on the build any more and nothing says why.
+    const p = await createProject('Crafting');
+    await setProjectTags(p, ['SPD pad']);
+
+    const block = await addWidget(p, 'image', 'SPD pad');
+    const part = await createBuyItem('Piezo discs', { projectId: p, tag: 'SPD pad' });
+
+    await renameProjectTag(p, 'SPD pad', 'Trigger pad');
+
+    expect((await db.widgets.get(block))!.tag).toBe('Trigger pad');
+    expect((await db.buyItems.get(part))!.tag).toBe('Trigger pad');
+  });
+
+  it('moves a block out to the era, and Dexie really deletes the tag', async () => {
+    // update() with undefined REMOVES the property rather than ignoring it,
+    // which is exactly what "belongs to the era, not a project in it" needs.
+    const p = await createProject('Crafting');
+    await setProjectTags(p, ['SPD pad']);
+    const block = await addWidget(p, 'note', 'SPD pad');
+
+    await setWidgetTag(block, undefined);
+
+    expect((await db.widgets.get(block))!.tag).toBeUndefined();
+    expect((await widgetsFor(p)).length).toBe(1);
+  });
+
+  it('leaves a block behind when its project is removed, rather than deleting it', async () => {
+    // Same contract as a note: removing a project unfiles what it held. The
+    // photo is still there, and recreating the project brings it back.
+    const p = await createProject('Crafting');
+    await setProjectTags(p, ['SPD pad']);
+    const block = await addWidget(p, 'image', 'SPD pad');
+
+    await removeProjectTag(p, 'SPD pad');
+
+    expect((await db.widgets.get(block))!.tag).toBe('SPD pad');
   });
 });
 

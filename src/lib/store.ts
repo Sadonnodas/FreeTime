@@ -110,6 +110,16 @@ export async function renameProjectTag(
     .filter((m) => !m.deletedAt && m.tag === from);
   await Promise.all(memos.map((m) => db.memos.update(m.id, { tag: next, updatedAt: at })));
 
+  // Blocks and shopping move too. Miss either and renaming a project silently
+  // strands its schematic photo or its parts list on a name nothing shows.
+  const widgets = (await db.widgets.where('projectId').equals(projectId).toArray())
+    .filter((w) => !w.deletedAt && w.tag === from);
+  await Promise.all(widgets.map((w) => db.widgets.update(w.id, { tag: next, updatedAt: at })));
+
+  const buys = (await db.buyItems.where('projectId').equals(projectId).toArray())
+    .filter((b) => !b.deletedAt && b.tag === from);
+  await Promise.all(buys.map((b) => db.buyItems.update(b.id, { tag: next, updatedAt: at })));
+
   await moveNoteSection(projectId, from, next);
 }
 
@@ -189,7 +199,14 @@ export async function promoteIdea(ideaId: string): Promise<string> {
 
 export async function createBuyItem(
   name: string,
-  opts: { url?: string; priceCents?: number; currency?: string; projectId?: string } = {}
+  opts: {
+    url?: string;
+    priceCents?: number;
+    currency?: string;
+    projectId?: string;
+    /** The project inside the era, as Todo.tag. */
+    tag?: string;
+  } = {}
 ): Promise<string> {
   const b: BuyItem = stamp({ name: name.trim(), currency: 'EUR', ...opts });
   await db.buyItems.add(b);

@@ -2,7 +2,7 @@
   import { liveQuery } from 'dexie';
   import type { Widget, WidgetKind, Memo } from '$lib/types';
   import {
-    widgetsFor, addWidget, updateWidget, removeWidget, moveWidget,
+    widgetsFor, addWidget, updateWidget, removeWidget, moveWidget, setWidgetTag,
     countdownLabel, activityByWeek, projectCounts, nextDated, resizeImage,
     WIDGET_KINDS
   } from '$lib/widgets';
@@ -19,9 +19,28 @@
    * firm that a project has exactly three, and depth is what killed the last
    * system. Edit mode is explicit, so nothing rearranges under a stray tap.
    */
-  let { projectId, section }: { projectId: string; section?: string } = $props();
+  let {
+    projectId,
+    section,
+    sections = []
+  }: { projectId: string; section?: string; sections?: string[] } = $props();
 
   const widgetsQ = $derived(liveQuery(() => widgetsFor(projectId)));
+
+  /**
+   * Blocks belong to a project inside the era, the same way its to-dos and its
+   * recordings do.
+   *
+   * Before this they did not, and it showed the moment anyone used the app for
+   * real: a schematic photographed for one build sat on the era itself, in
+   * among every other build's blocks. Same rule as the to-do list — a chip
+   * shows only that project, no chip shows the whole era.
+   */
+  const widgets = $derived(
+    (($widgetsQ as Widget[] | undefined) ?? []).filter((w) =>
+      section ? w.tag === section : true
+    )
+  );
 
   let editing = $state(false);
   let adding = $state(false);
@@ -53,7 +72,9 @@
   const peak = $derived(Math.max(1, ...weeks));
 
   async function add(kind: WidgetKind) {
-    const id = await addWidget(projectId, kind);
+    // Added while a project chip is lit, so it lands there — the same "the
+    // filter is also the destination" rule the to-do field uses.
+    const id = await addWidget(projectId, kind, section);
     adding = false;
     editing = true;
     // A countdown with no date is useless, so seed it from the project's next
@@ -87,7 +108,10 @@
   const linksToText = (w: Widget) =>
     (w.links ?? []).map((l) => (l.label === l.url ? l.url : `${l.label} | ${l.url}`)).join('\n');
 
-  const list = $derived(($widgetsQ as Widget[] | undefined) ?? []);
+  const list = $derived(widgets);
+
+  /** The photo opened full-screen, if any. */
+  let viewing = $state<Widget | null>(null);
 </script>
 
 <section class="mb-5">
@@ -179,11 +203,20 @@
             {/if}
           {:else if widget.kind === 'image'}
             {#if widget.image}
-              <img
-                src={widget.image}
-                alt={widget.title ?? 'Project photo'}
-                class="-m-4 mt-0 w-[calc(100%+2rem)] rounded-b-[20px] object-cover"
-              />
+              <!-- Tappable, because a schematic is the one block whose whole
+                   point is the detail in it, and a card on a phone is 170px
+                   wide. -->
+              <button
+                class="press -m-4 mt-0 block w-[calc(100%+2rem)]"
+                onclick={() => (viewing = widget)}
+                aria-label="View {widget.title ?? 'photo'} full screen"
+              >
+                <img
+                  src={widget.image}
+                  alt={widget.title ?? 'Photo'}
+                  class="w-full rounded-b-[20px] object-cover"
+                />
+              </button>
             {:else}
               <p class="footnote">No photo yet.</p>
             {/if}
@@ -226,6 +259,28 @@
                   <input type="file" accept="image/*" class="hidden" onchange={(e) => onImage(widget, e)} />
                   <span class="text-accent">Choose a photo</span>
                 </label>
+              {/if}
+
+              {#if sections.length}
+                <!-- Which project inside the era this block belongs to. Same
+                     shape as the buy list's picker, so moving a photo to the
+                     right build is a tap rather than a delete and re-upload. -->
+                <div class="flex flex-wrap gap-2 pt-1">
+                  <button
+                    class="chip press {widget.tag ? '' : 'chip-on'}"
+                    onclick={() => setWidgetTag(widget.id, undefined)}
+                  >
+                    Whole era
+                  </button>
+                  {#each sections as t (t)}
+                    <button
+                      class="chip press {widget.tag === t ? 'chip-on' : ''}"
+                      onclick={() => setWidgetTag(widget.id, widget.tag === t ? undefined : t)}
+                    >
+                      {t}
+                    </button>
+                  {/each}
+                </div>
               {/if}
 
               <div class="flex items-center gap-1">
@@ -284,6 +339,36 @@
     </div>
   {/if}
 </section>
+
+{#if viewing}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <!--
+    A photo, as large as the screen allows.
+
+    object-contain and not cover: this is nearly always a schematic, a parts
+    diagram or a whiteboard, and cropping the edges off one to fill a phone
+    would cut away the part being looked at. Pinch-zoom still works on top of
+    it, which is why the field-size floor in app.css matters — nothing here
+    should trigger the OS zoom by accident.
+  -->
+  <div
+    class="glass-strong rise fixed inset-0 z-50 flex flex-col"
+    onclick={() => (viewing = null)}
+  >
+    <div class="flex items-center justify-between gap-3 px-4 pt-safe">
+      <p class="section-label truncate py-3">{viewing.title || 'Photo'}</p>
+      <button
+        class="press tap-h px-2 text-[22px] leading-none text-ink-400"
+        onclick={() => (viewing = null)}
+        aria-label="Close">×</button
+      >
+    </div>
+    <div class="flex min-h-0 flex-1 items-center justify-center p-3 pb-safe">
+      <img src={viewing.image} alt={viewing.title ?? 'Photo'} class="max-h-full max-w-full object-contain" />
+    </div>
+  </div>
+{/if}
 
 {#if recording}
   <MemoRecorder {projectId} {section} onDone={() => (recording = false)} />

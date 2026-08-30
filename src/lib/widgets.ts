@@ -22,12 +22,17 @@ export async function widgetsFor(projectId: string): Promise<Widget[]> {
   return all.filter((w) => !w.deletedAt).sort((a, b) => a.order - b.order);
 }
 
-export async function addWidget(projectId: string, kind: WidgetKind): Promise<string> {
+export async function addWidget(
+  projectId: string,
+  kind: WidgetKind,
+  tag?: string
+): Promise<string> {
   const existing = await widgetsFor(projectId);
   const t = now();
   const w: Widget = {
     id: uid(),
     projectId,
+    tag,
     kind,
     // Wide by default for the kinds that need the room; the rest pair up.
     size:
@@ -44,6 +49,13 @@ export async function addWidget(projectId: string, kind: WidgetKind): Promise<st
 
 export async function updateWidget(id: string, patch: Partial<Widget>): Promise<void> {
   await db.widgets.update(id, { ...patch, updatedAt: now() });
+}
+
+/** Move a block to another project inside the era, or out to the era itself. */
+export async function setWidgetTag(id: string, tag?: string): Promise<void> {
+  // Dexie's update() DELETES a property given undefined, which is what we want
+  // here: no tag means the block belongs to the era rather than to a project.
+  await db.widgets.update(id, { tag, updatedAt: now() });
 }
 
 export async function removeWidget(id: string): Promise<void> {

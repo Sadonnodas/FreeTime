@@ -144,7 +144,9 @@
   }
 
   const buyItems = $derived(
-    (($buyQ as BuyItem[] | undefined) ?? []).sort(
+    (($buyQ as BuyItem[] | undefined) ?? [])
+      .filter((b) => (activeTag ? b.tag === activeTag : true))
+      .sort(
       (a, b) =>
         (a.purchasedAt ? 1 : 0) - (b.purchasedAt ? 1 : 0) ||
         (b.needed ? 1 : 0) - (a.needed ? 1 : 0) ||
@@ -173,6 +175,34 @@
   const open = $derived(
     (($todosQ as Todo[] | undefined) ?? []).filter((t) => !t.completedAt).filter(inSection)
   );
+  /**
+   * On All, the era's to-dos grouped under the project each belongs to.
+   *
+   * A flat list across an era is the thing Toon actually hit: Crafting with a
+   * trigger-pad build, a shelf and the garden in it reads as one undifferentiated
+   * pile, and which project a row belongs to was a grey footnote under it.
+   * Grouping is a heading per project and nothing else — no counts, no
+   * progress, and every project that has something open appears whether or not
+   * it is the one being worked on.
+   *
+   * Only on All. Inside a project the heading would be the chip already lit at
+   * the top of the screen, repeated once.
+   */
+  const openGrouped = $derived.by(() => {
+    const buckets = new Map<string, Todo[]>();
+    for (const t of open) {
+      const key = t.tag && tags.includes(t.tag) ? t.tag : '';
+      const bucket = buckets.get(key);
+      if (bucket) bucket.push(t);
+      else buckets.set(key, [t]);
+    }
+    return [...buckets]
+      .map(([tag, todos]) => ({ tag, todos }))
+      // Era-level to-dos last: they are the ones not yet belonging anywhere,
+      // which is a pile to sort rather than a project to work on.
+      .sort((a, b) => (!a.tag ? 1 : !b.tag ? -1 : tags.indexOf(a.tag) - tags.indexOf(b.tag)));
+  });
+
   // Closed items are shown, always. Never deleted, never hidden (principle 2).
   const closed = $derived(
     (($todosQ as Todo[] | undefined) ?? [])
@@ -314,7 +344,7 @@
     </div>
   {/if}
 
-  <WidgetBoard {projectId} section={activeTag ?? undefined} />
+  <WidgetBoard {projectId} section={activeTag ?? undefined} sections={tags} />
 
   <div class="segmented mb-4">
     {#each [['notes', 'Notes'], ['todos', 'To-dos'], ['buy', 'Buy']] as const as [key, label]}
@@ -353,25 +383,32 @@
       <button class="btn btn-primary press">Add</button>
     </form>
 
-    <ul class="space-y-1">
-      {#each open as todo (todo.id)}
-        <li class="card-flat flex items-center gap-3 px-3">
-          <button
-            class="press tap shrink-0 text-ink-400"
-            onclick={() => completeTodo(todo.id)}
-            aria-label="Complete">○</button
-          >
-          <div class="min-w-0 flex-1 py-3">
-            <p>{todo.title}</p>
-            <!-- Only worth showing from All; inside a section it would repeat
-                 the chip on every single row. -->
-            {#if todo.tag && !activeTag}
-              <p class="footnote">{todo.tag}</p>
-            {/if}
-          </div>
-        </li>
+    {#snippet row(todo: Todo)}
+      <li class="card-flat flex items-center gap-3 px-3">
+        <button
+          class="press tap shrink-0 text-ink-400"
+          onclick={() => completeTodo(todo.id)}
+          aria-label="Complete">○</button
+        >
+        <div class="min-w-0 flex-1 py-3"><p>{todo.title}</p></div>
+      </li>
+    {/snippet}
+
+    {#if !activeTag && tags.length}
+      <!-- Grouped under the project each belongs to. The heading replaces the
+           grey footnote that used to sit under every row, which said the same
+           thing once per to-do instead of once per group. -->
+      {#each openGrouped as group (group.tag)}
+        <h2 class="section-label mt-4 mb-2 first:mt-0">{group.tag || 'Rest of the era'}</h2>
+        <ul class="space-y-1">
+          {#each group.todos as todo (todo.id)}{@render row(todo)}{/each}
+        </ul>
       {/each}
-    </ul>
+    {:else}
+      <ul class="space-y-1">
+        {#each open as todo (todo.id)}{@render row(todo)}{/each}
+      </ul>
+    {/if}
 
     {#if closed.length}
       <h2 class="section-label mb-2 mt-6">
@@ -391,14 +428,14 @@
       onsubmit={async (e) => {
         e.preventDefault();
         if (!newBuy.trim()) return;
-        await createBuyItem(newBuy, { projectId: id });
+        await createBuyItem(newBuy, { projectId: id, tag: activeTag ?? undefined });
         newBuy = '';
       }}
       class="mb-4 flex gap-2"
     >
       <input
         bind:value={newBuy}
-        placeholder="Something to buy"
+        placeholder={activeTag ? `Something to buy for ${activeTag}` : 'Something to buy'}
         class="field min-w-0 flex-1"
       />
       <button class="btn btn-primary press">Add</button>
@@ -417,9 +454,9 @@
       {/each}
     </div>
 
-    <!-- No project chips here: everything on this tab already belongs to this
-         project, so showing them would only be a way to file it away. -->
-    <BuyList items={buyItems} showProject={false} groupBy={buyGroup} />
+    <!-- No ERA chips here: everything on this tab already belongs to this era.
+         The per-item picker inside BuyList is for the project within it. -->
+    <BuyList items={buyItems} showProject={false} groupBy={buyGroup} sections={tags} />
 
     {#if outstanding > 0}
       <p class="footnote mt-3 text-right">
