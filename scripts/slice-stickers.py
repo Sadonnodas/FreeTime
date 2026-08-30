@@ -296,6 +296,56 @@ def punch_holes(art: Image.Image, seeds: list[list[float]]) -> Image.Image:
     return Image.fromarray(a)
 
 
+def strip_keyline(art: Image.Image) -> Image.Image:
+    """Remove the white die-cut border printed around each sticker.
+
+    Unlike the enclosed gaps, this one IS decidable: the border is the white
+    that touches the outside, so a flood inward from the transparent edge finds
+    it and nothing else. A drawn white sitting behind its own dark outline is
+    never reached.
+
+    THE FEATHER IS THE POINT. Cutting on a threshold alone swaps a white rim for
+    a pale grey one, because the pixels where the outline meets the border are a
+    blend of the two and sit just under whatever threshold was chosen. So every
+    pixel left on the new edge has its alpha scaled by how far it is from white:
+    a black outline stays solid, a near-white leftover disappears, and the ones
+    between come out part-transparent, which is what an anti-aliased edge is
+    supposed to be.
+    """
+    a = np.array(art.convert("RGBA"))
+    h, w = a.shape[:2]
+    lightness = a[:, :, :3].min(axis=2).astype(np.int16)
+    opaque = a[:, :, 3] > 128
+
+    outside = ~opaque
+    border = np.pad(outside, 1, constant_values=True)
+    touching = (border[:-2, 1:-1] | border[2:, 1:-1] |
+                border[1:-1, :-2] | border[1:-1, 2:])
+
+    white = opaque & (lightness >= 232)
+    seeds = np.nonzero(white & touching)
+    if len(seeds[0]) == 0:
+        return art
+    keyline = flood(list(zip(seeds[0].tolist(), seeds[1].tolist())), white)
+
+    alpha = a[:, :, 3].astype(np.float32)
+    alpha[keyline] = 0
+
+    gone = outside | keyline
+    grew = np.pad(gone, 1, constant_values=True)
+    fringe = (grew[:-2, 1:-1] | grew[2:, 1:-1] |
+              grew[1:-1, :-2] | grew[1:-1, 2:]) & ~gone
+    # 200 is where the outline's own shading stops and the blend into the border
+    # begins; below it a pixel is art and keeps all of its alpha.
+    blend = np.clip((lightness - 200) / 55.0, 0.0, 1.0)
+    alpha[fringe] *= (1.0 - blend[fringe])
+
+    a[:, :, 3] = alpha.round().astype(np.uint8)
+    trimmed = Image.fromarray(a)
+    bounds = trimmed.getbbox()
+    return trimmed.crop(bounds) if bounds else trimmed
+
+
 def slice_sheet(path: Path) -> list[Path]:
     sheet = Image.open(path).convert("RGB")
     rgb = np.array(sheet)
@@ -356,6 +406,8 @@ def slice_sheet(path: Path) -> list[Path]:
             art = punch_holes(art, holes.get(slug, []))
         else:
             slug = f"{stem}-{found:02d}"
+
+        art = strip_keyline(art)
 
         # Never enlarge. These sheets are phone screenshots, so a sticker is
         # around 230px tall; stretching that to 360 buys nothing but soft edges

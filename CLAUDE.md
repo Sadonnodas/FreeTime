@@ -531,6 +531,19 @@ one came close to a hard rule, the reasoning is recorded here.
   screen mid-sentence takes the conversation away from under you. The assistant's mic
   transcribes into the input box and does NOT send — you read the words first.
 
+- **The white die-cut border is stripped, and the feather is the point**
+  ([slice-stickers.py](scripts/slice-stickers.py) `strip_keyline`). Unlike the
+  enclosed gaps, this one IS decidable: the border is the white that touches the
+  outside, so a flood inward from the transparent edge finds it and never reaches a
+  drawn white sitting behind its own dark outline. But cutting on a threshold alone
+  just swaps a white rim for a pale grey one — the pixels where the outline meets the
+  border are a blend of the two and sit under any threshold you pick. So every pixel
+  left on the new edge has its alpha scaled by how far it is from white: black
+  outline stays solid, near-white leftover vanishes, and the in-between comes out
+  part-transparent, which is what an anti-aliased edge is. Without that step the
+  stickers look haloed on a coloured card, which is exactly what they looked like
+  before.
+
 - **Which leftover white is background CANNOT be decided automatically, and the list
   is curated by hand** (`art/stickers.json` → `holes`,
   [slice-stickers.py](scripts/slice-stickers.py) `punch_holes`). A gap of paper
