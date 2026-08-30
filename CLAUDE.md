@@ -388,6 +388,12 @@ one came close to a hard rule, the reasoning is recorded here.
   It shows on the assistant's empty screen only: once a conversation is going, a big red
   button in the middle of it is a different app. Distinct from the assistant's microphone,
   which transcribes into the input for you to read before anything is sent.
+- **One capture surface, not two.** The capture field and a separate "New idea" button
+  both just made an Idea; the only difference was that the button opened a sheet with a
+  project picker. The picker moved into the field: chips appear once there is something to
+  file, tapping one files it, ignoring them leaves it unfiled — which is still a valid
+  resting state. The fast path (type, Enter, done, no sheet) is untouched, which is the
+  whole point of spec principle 1. QuickIdea.svelte is gone.
 - **The dinosaur gets a line under the button**, rotating independently of the scene so
   the pairing is fresh each open (`QUIPS` in freeTimeScenes.ts). **The house rule is that
   the jokes are about the dinosaur, never about you** — "you should get on with it" is a

@@ -166,9 +166,9 @@ export const SCENES: Scene[] = [
     id: 'bicycle', from: '#ffc46b', to: '#e06a4a', ink: '#341407',
     front:
       '<g fill="none" stroke="currentColor" stroke-width="2.4" opacity=".8">' +
-      '<circle cx="66" cy="80" r="8"/><circle cx="88" cy="80" r="8"/>' +
-      '<path d="M66 80l8-12h8l6 12" stroke-linecap="round"/>' +
-      '<path d="M74 68h8" stroke-linecap="round"/></g>'
+      '<circle cx="66" cy="83" r="7.5"/><circle cx="87" cy="83" r="7.5"/>' +
+      '<path d="M66 83l8-10h7l6 10" stroke-linecap="round"/>' +
+      '<path d="M74 73h7" stroke-linecap="round"/></g>'
   },
   {
     id: 'skateboard', from: '#a0e0d0', to: '#3f8fa0', ink: '#062a2f',
