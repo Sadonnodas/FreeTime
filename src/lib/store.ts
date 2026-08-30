@@ -70,13 +70,26 @@ export async function removeProjectTag(projectId: string, tag: string): Promise<
   if (!project) return;
   await setProjectTags(projectId, (project.tags ?? []).filter((t) => t !== tag));
 
-  const affected = (await db.todos.where('projectId').equals(projectId).toArray())
-    .filter((t) => !t.deletedAt && t.tag === tag);
   const at = now();
-  await Promise.all(affected.map((t) => db.todos.update(t.id, { tag: undefined, updatedAt: at })));
+
+  const todos = (await db.todos.where('projectId').equals(projectId).toArray())
+    .filter((t) => !t.deletedAt && t.tag === tag);
+  await Promise.all(todos.map((t) => db.todos.update(t.id, { tag: undefined, updatedAt: at })));
+
+  const memos = (await db.memos.where('projectId').equals(projectId).toArray())
+    .filter((m) => !m.deletedAt && m.tag === tag);
+  await Promise.all(memos.map((m) => db.memos.update(m.id, { tag: undefined, updatedAt: at })));
+
+  // The note is deliberately left attached to the removed name rather than
+  // merged into the project's own note, which would overwrite it. Recreate the
+  // section with the same name and the lyrics come straight back.
 }
 
-/** Renaming carries the to-dos with it, so a typo fix is not a data loss. */
+/**
+ * Renaming carries everything filed under the section with it — to-dos, its
+ * note and its recordings — so a typo fix is not a scattering. Missing any one
+ * of the three would silently detach a song's lyrics from the song.
+ */
 export async function renameProjectTag(
   projectId: string,
   from: string,
@@ -87,10 +100,17 @@ export async function renameProjectTag(
   if (!project || !next || from === next) return;
   await setProjectTags(projectId, (project.tags ?? []).map((t) => (t === from ? next : t)));
 
-  const affected = (await db.todos.where('projectId').equals(projectId).toArray())
-    .filter((t) => !t.deletedAt && t.tag === from);
   const at = now();
-  await Promise.all(affected.map((t) => db.todos.update(t.id, { tag: next, updatedAt: at })));
+
+  const todos = (await db.todos.where('projectId').equals(projectId).toArray())
+    .filter((t) => !t.deletedAt && t.tag === from);
+  await Promise.all(todos.map((t) => db.todos.update(t.id, { tag: next, updatedAt: at })));
+
+  const memos = (await db.memos.where('projectId').equals(projectId).toArray())
+    .filter((m) => !m.deletedAt && m.tag === from);
+  await Promise.all(memos.map((m) => db.memos.update(m.id, { tag: next, updatedAt: at })));
+
+  await moveNoteSection(projectId, from, next);
 }
 
 // ------------------------------------------------------------------- todos
@@ -283,18 +303,46 @@ export async function capture(text: string): Promise<string> {
 
 // ------------------------------------------------------------------- notes
 
-export async function getNote(projectId: string): Promise<Note | undefined> {
-  return db.notes.where('projectId').equals(projectId).first();
+/**
+ * A project's note, or one of its sections'.
+ *
+ * `section` undefined is the project's own note — the one that was there before
+ * sections existed. A named section gets its own, which is what makes "lyrics
+ * for this song, separate from lyrics for the next" work.
+ *
+ * Matched in code rather than by a compound index; see the version 6 comment in
+ * db.ts for why that index would have quietly excluded every existing note.
+ */
+const sameSection = (a?: string, b?: string) => (a ?? '') === (b ?? '');
+
+export async function getNote(projectId: string, section?: string): Promise<Note | undefined> {
+  const rows = await db.notes.where('projectId').equals(projectId).toArray();
+  return rows.find((n) => !n.deletedAt && sameSection(n.tag, section));
 }
 
-export async function saveNote(projectId: string, markdown: string): Promise<void> {
-  const existing = await getNote(projectId);
+export async function saveNote(
+  projectId: string,
+  markdown: string,
+  section?: string
+): Promise<void> {
+  const existing = await getNote(projectId, section);
   if (existing) {
     await db.notes.update(existing.id, { markdown, updatedAt: now() });
   } else {
-    const n: Note = stamp({ projectId, markdown });
+    const n: Note = stamp({ projectId, markdown, tag: section });
     await db.notes.add(n);
   }
+}
+
+/** Renaming a section has to bring its note along, or the lyrics detach from
+ *  the song they belong to. */
+export async function moveNoteSection(
+  projectId: string,
+  from: string,
+  to?: string
+): Promise<void> {
+  const note = await getNote(projectId, from);
+  if (note) await db.notes.update(note.id, { tag: to, updatedAt: now() });
 }
 
 // ------------------------------------------------------------- soft delete

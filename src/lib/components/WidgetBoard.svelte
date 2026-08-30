@@ -19,7 +19,7 @@
    * firm that a project has exactly three, and depth is what killed the last
    * system. Edit mode is explicit, so nothing rearranges under a stray tap.
    */
-  let { projectId }: { projectId: string } = $props();
+  let { projectId, section }: { projectId: string; section?: string } = $props();
 
   const widgetsQ = $derived(liveQuery(() => widgetsFor(projectId)));
 
@@ -28,7 +28,11 @@
 
   // Derived data each block needs, loaded once per project.
   const memosQ = $derived(liveQuery(() => memosForProject(projectId)));
-  const memos = $derived(($memosQ as Memo[] | undefined) ?? []);
+  // Scoped by the section chip above, so picking a song shows that song's
+  // recordings rather than everything the project has ever collected.
+  const memos = $derived(
+    (($memosQ as Memo[] | undefined) ?? []).filter((m) => (section ? m.tag === section : true))
+  );
   let recording = $state(false);
   const recordable = canRecord();
 
@@ -158,7 +162,9 @@
             {#if memos.length}
               <MemoList {memos} grouped={false} showProject={false} />
             {:else}
-              <p class="footnote">Nothing filed here yet.</p>
+              <p class="footnote">
+                {section ? `Nothing recorded for ${section} yet.` : 'Nothing filed here yet.'}
+              </p>
             {/if}
             {#if recordable}
               <button
@@ -278,5 +284,5 @@
 </section>
 
 {#if recording}
-  <MemoRecorder {projectId} onDone={() => (recording = false)} />
+  <MemoRecorder {projectId} {section} onDone={() => (recording = false)} />
 {/if}

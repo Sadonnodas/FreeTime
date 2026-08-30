@@ -81,6 +81,22 @@ export class FreeTimeDB extends Dexie {
     this.version(5).stores({
       memos: 'id, recordedAt, projectId, updatedAt, deletedAt'
     });
+
+    /*
+     * Version 6 drops the UNIQUE constraint on notes.projectId, so a project
+     * can hold a note per section — lyrics for one song, separate from lyrics
+     * for the next.
+     *
+     * Deliberately not a `&[projectId+tag]` compound: IndexedDB skips a record
+     * entirely when any part of a compound key is undefined, so every existing
+     * project-level note (which has no tag) would silently drop out of its own
+     * index and the uniqueness it was supposed to enforce would not apply to
+     * exactly the rows that already exist. There are at most a handful of notes
+     * per project, so the pairing is matched in code instead.
+     */
+    this.version(6).stores({
+      notes: 'id, projectId, updatedAt, deletedAt'
+    });
   }
 }
 

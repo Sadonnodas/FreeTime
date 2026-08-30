@@ -16,7 +16,11 @@
    * it, and closing it without touching anything loses nothing. An idea caught
    * at a bus stop is worth more than a tidy library.
    */
-  let { onDone, projectId: presetProject }: { onDone: () => void; projectId?: string } = $props();
+  let {
+    onDone,
+    projectId: presetProject,
+    section: presetSection
+  }: { onDone: () => void; projectId?: string; section?: string } = $props();
 
   type Phase = 'idle' | 'recording' | 'saved' | 'error';
   let phase = $state<Phase>('idle');
@@ -86,7 +90,9 @@
         blob,
         mime,
         durationMs: elapsed,
-        projectId: presetProject
+        projectId: presetProject,
+        // Started from inside a song, so it belongs to that song.
+        tag: presetSection
       });
       savedId = id;
       phase = 'saved';

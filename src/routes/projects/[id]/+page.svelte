@@ -117,8 +117,9 @@
 
   $effect(() => {
     const pid = id;
+    const section = activeTag ?? undefined;
     noteLoaded = false;
-    getNote(pid).then((n) => {
+    getNote(pid, section).then((n) => {
       markdown = n?.markdown ?? '';
       noteLoaded = true;
     });
@@ -130,9 +131,12 @@
   function onNoteInput() {
     if (!noteLoaded) return;
     clearTimeout(saveTimer);
+    // Captured now, not read at fire time: switching section mid-debounce would
+    // otherwise write one song's lyrics onto another's.
     const pid = id;
+    const section = activeTag ?? undefined;
     const text = markdown;
-    saveTimer = setTimeout(() => void saveNote(pid, text), 500);
+    saveTimer = setTimeout(() => void saveNote(pid, text, section), 500);
   }
 
   const buyItems = $derived(
@@ -157,6 +161,8 @@
       .filter((b) => !b.purchasedAt && b.priceCents != null)
       .reduce((sum, b) => sum + b.priceCents!, 0)
   );
+
+  let buyGroup = $state<'none' | 'shop'>('none');
 
   const inSection = (t: Todo) => (activeTag ? t.tag === activeTag : true);
 
@@ -208,8 +214,83 @@
     {/if}
   </header>
 
-  <!-- Blocks live above the tabs, not as a fourth one. -->
-  <WidgetBoard {projectId} />
+  <!--
+    The section chips, above the tabs rather than inside one.
+
+    A section is a view of the whole project, not a filter on its to-dos: pick a
+    song and you get that song's to-dos, that song's lyrics and that song's
+    recordings. That is what the original brief asked for — "a section for a
+    specific song where I can have my lyrics and my audio recordings" — and it
+    only works if the chips sit outside the tabs.
+
+    Still one row, still never a page you go into. It scrolls sideways only when
+    there are more sections than fit, which is the one honest use of that.
+  -->
+  {#if tags.length || editingTags}
+    <div class="no-bar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1">
+      <button
+        class="chip shrink-0 press {activeTag === null ? 'chip-on' : ''}"
+        onclick={() => (activeTag = null)}
+      >
+        All
+      </button>
+      {#each tags as t (t)}
+        <button
+          class="chip shrink-0 press {activeTag === t ? 'chip-on' : ''}"
+          onclick={() => (activeTag = activeTag === t ? null : t)}
+        >
+          {t}
+        </button>
+      {/each}
+      <button
+        class="chip shrink-0 press {editingTags ? 'chip-on' : ''}"
+        onclick={() => (editingTags = !editingTags)}
+        aria-label="Edit sections"
+      >
+        {editingTags ? 'Done' : '+'}
+      </button>
+    </div>
+  {:else}
+    <button
+      class="press footnote mb-3 rounded-xl border border-dashed border-line-2 px-3 py-2"
+      onclick={() => (editingTags = true)}
+    >
+      + Sections
+    </button>
+  {/if}
+
+  {#if editingTags}
+    <div class="card mb-3 p-3">
+      <p class="footnote mb-2">
+        Sections split this project's to-dos without adding a screen. Removing one
+        keeps its to-dos and just unfiles them.
+      </p>
+      {#each tags as t (t)}
+        <div class="mb-1 flex items-center gap-2">
+          <input
+            value={t}
+            onchange={(e) => renameProjectTag(id, t, e.currentTarget.value)}
+            class="field min-w-0 flex-1 text-sm"
+          />
+          <button
+            class="press tap-h w-11 shrink-0 rounded-lg text-ink-400"
+            onclick={() => removeProjectTag(id, t)}
+            aria-label="Remove {t}">✕</button
+          >
+        </div>
+      {/each}
+      <form onsubmit={addTag} class="mt-2 flex gap-2">
+        <input
+          bind:value={newTagName}
+          placeholder="New section"
+          class="field min-w-0 flex-1 text-sm"
+        />
+        <button class="btn btn-secondary press shrink-0" disabled={!newTagName.trim()}>Add</button>
+      </form>
+    </div>
+  {/if}
+
+  <WidgetBoard {projectId} section={activeTag ?? undefined} />
 
   <div class="segmented mb-4">
     {#each [['notes', 'Notes'], ['todos', 'To-dos'], ['buy', 'Buy']] as const as [key, label]}
@@ -225,78 +306,10 @@
     <textarea
       bind:value={markdown}
       oninput={onNoteInput}
-      placeholder="Markdown. Autosaves."
+      placeholder={activeTag ? `Notes and lyrics for ${activeTag}. Autosaves.` : 'Markdown. Autosaves.'}
       class="field min-h-[60vh] w-full py-4 font-mono text-sm leading-relaxed"
     ></textarea>
   {:else if tab === 'todos'}
-    <!--
-      The section chips. One row, always visible, never a page you go into —
-      that is the whole design. Scrolls sideways only when there are more
-      sections than fit, which is the one place horizontal scroll is honest.
-    -->
-    {#if tags.length || editingTags}
-      <div class="no-bar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1">
-        <button
-          class="chip shrink-0 press {activeTag === null ? 'chip-on' : ''}"
-          onclick={() => (activeTag = null)}
-        >
-          All
-        </button>
-        {#each tags as t (t)}
-          <button
-            class="chip shrink-0 press {activeTag === t ? 'chip-on' : ''}"
-            onclick={() => (activeTag = activeTag === t ? null : t)}
-          >
-            {t}
-          </button>
-        {/each}
-        <button
-          class="chip shrink-0 press {editingTags ? 'chip-on' : ''}"
-          onclick={() => (editingTags = !editingTags)}
-          aria-label="Edit sections"
-        >
-          {editingTags ? 'Done' : '+'}
-        </button>
-      </div>
-    {:else}
-      <button
-        class="press footnote mb-3 rounded-xl border border-dashed border-line-2 px-3 py-2"
-        onclick={() => (editingTags = true)}
-      >
-        + Sections
-      </button>
-    {/if}
-
-    {#if editingTags}
-      <div class="card mb-3 p-3">
-        <p class="footnote mb-2">
-          Sections split this project's to-dos without adding a screen. Removing one
-          keeps its to-dos and just unfiles them.
-        </p>
-        {#each tags as t (t)}
-          <div class="mb-1 flex items-center gap-2">
-            <input
-              value={t}
-              onchange={(e) => renameProjectTag(id, t, e.currentTarget.value)}
-              class="field min-w-0 flex-1 text-sm"
-            />
-            <button
-              class="press tap-h w-11 shrink-0 rounded-lg text-ink-400"
-              onclick={() => removeProjectTag(id, t)}
-              aria-label="Remove {t}">✕</button
-            >
-          </div>
-        {/each}
-        <form onsubmit={addTag} class="mt-2 flex gap-2">
-          <input
-            bind:value={newTagName}
-            placeholder="New section"
-            class="field min-w-0 flex-1 text-sm"
-          />
-          <button class="btn btn-secondary press shrink-0" disabled={!newTagName.trim()}>Add</button>
-        </form>
-      </div>
-    {/if}
 
     <form
       onsubmit={async (e) => {
@@ -367,9 +380,22 @@
       <button class="btn btn-primary press">Add</button>
     </form>
 
+    <!-- Grouping by shop matters here too: a campervan's parts come from three
+         different places, and that is three deliveries or one. -->
+    <div class="segmented mb-3">
+      {#each [['none', 'Recent'], ['shop', 'By shop']] as const as [key, label]}
+        <button
+          class="press segment {buyGroup === key ? 'segment-on' : ''}"
+          onclick={() => (buyGroup = key)}
+        >
+          {label}
+        </button>
+      {/each}
+    </div>
+
     <!-- No project chips here: everything on this tab already belongs to this
          project, so showing them would only be a way to file it away. -->
-    <BuyList items={buyItems} showProject={false} />
+    <BuyList items={buyItems} showProject={false} groupBy={buyGroup} />
 
     {#if outstanding > 0}
       <p class="footnote mt-3 text-right">

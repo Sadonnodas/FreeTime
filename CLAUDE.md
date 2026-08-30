@@ -418,9 +418,21 @@ device; there is nothing to build. Memos are the exception, below.
   without a `blob` means "not here yet", which the UI must not show as "gone". Asserted
   in [memos.test.ts](src/lib/memos.test.ts).
 
+- **A section is a view of the whole project, not a filter on its to-dos.** The chips
+  sit ABOVE the three tabs, so picking a song gives you that song's to-dos, that song's
+  lyrics and that song's recordings — which is what the original voice-memo brief asked
+  for. `Note.tag` makes lyrics-per-song work; renaming a section carries its to-dos, its
+  note AND its memos, since missing any one silently detaches the lyrics from the song.
+  Removing one leaves the note attached to the old name rather than merging it into the
+  project note, which would overwrite it — recreate the section and the lyrics return.
+  **The db v6 note is worth reading before touching that index**: a `&[projectId+tag]`
+  compound looks right and is a trap, because IndexedDB skips a record when any part of a
+  compound key is undefined, so every pre-sections note would drop out of the index meant
+  to keep it unique. Matched in code instead.
+
 **Still not built:** `Memo.place` is never filled in, deliberately — see the privacy
-note above; and lyrics-per-song would need `notes` to stop being one-per-project, since
-it has a `&projectId` unique index today.
+note above. Buy items have no section, so a project's Buy tab is not scoped by the chips
+the way its other tabs are; nobody has needed it yet.
 
 **A waiting service worker can wedge forever on an installed iOS app.** Cost a round
 trip to learn, so: a worker that does not `skipWaiting` stays in *waiting* until every

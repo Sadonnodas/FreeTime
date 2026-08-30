@@ -189,6 +189,9 @@ export interface Capture extends Base {
 export interface Note extends Base {
   projectId: string;
   markdown: string;
+  /** Which section of the project this belongs to — in practice, which song.
+   *  Undefined is the project's own note, the one that predates sections. */
+  tag?: string;
 }
 
 /**
