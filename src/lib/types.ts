@@ -225,6 +225,19 @@ export interface Memo extends Base {
   lng?: number;
   /** Human-readable, filled in later when there is a connection. */
   place?: string;
+
+  /**
+   * The audio's own file in Drive.
+   *
+   * The bytes never go into memos.json — an hour of recordings would make the
+   * metadata file bigger than the entire rest of the database, and base64 adds
+   * a third on top. They are uploaded as real audio files instead, so they can
+   * be played and shared straight from Drive by someone who has never heard of
+   * this app. Present on a memo means "the audio exists in Drive"; combined
+   * with a missing `blob` it means "not on this device yet", which is a
+   * different thing from gone.
+   */
+  driveFileId?: string;
 }
 
 /**

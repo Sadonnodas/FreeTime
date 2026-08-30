@@ -302,10 +302,21 @@ one came close to a hard rule, the reasoning is recorded here.
 client ID is in [config.ts](src/lib/config.ts). It needs signing in to Google on each
 device; there is nothing to build. Memos are the exception, below.
 
-**Still not built:** memos do not sync to Drive yet (the audio must go as real Drive
-files, never inside the JSON); `Memo.place` is never filled in, deliberately — see the
-privacy note above; and lyrics-per-song would need `notes` to stop being one-per-project,
-since it has a `&projectId` unique index today.
+- **Memo sync** ([sync.ts](src/lib/sync.ts) `syncMemos`). Metadata rides in
+  `memos/memos.json`; the audio goes up as real audio files in the same folder, so a
+  recording can be played and shared straight from Drive by someone who has never heard
+  of this app. **Never run memos through the generic table loop** — `JSON.stringify` on
+  a Blob yields `{}`, and the loop's `bulkPut` would write that back over the local row
+  and destroy the only copy of a recording while leaving it looking healthy. The blob is
+  stripped before merging and reattached from the local row afterwards, never taken from
+  the remote side. Downloads are on demand, the first time you press play on a device,
+  so a laptop does not silently pull down every recording ever made; `driveFileId`
+  without a `blob` means "not here yet", which the UI must not show as "gone". Asserted
+  in [memos.test.ts](src/lib/memos.test.ts).
+
+**Still not built:** `Memo.place` is never filled in, deliberately — see the privacy
+note above; and lyrics-per-song would need `notes` to stop being one-per-project, since
+it has a `&projectId` unique index today.
 
 **A waiting service worker can wedge forever on an installed iOS app.** Cost a round
 trip to learn, so: a worker that does not `skipWaiting` stays in *waiting* until every

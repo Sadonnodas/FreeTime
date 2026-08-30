@@ -4,8 +4,11 @@ import { now, uid } from './store';
 import { mergeRecords, conflictFileName } from './merge';
 import { getAccessToken } from './google/auth';
 import {
-  ensureFolders, list, readFile, readJsonArray, writeFile, DriveAuthError
+  ensureFolders, list, readFile, readJsonArray, writeFile, writeBlob, readBlob,
+  deleteFile, DriveAuthError
 } from './google/drive';
+import type { Memo } from './types';
+import { fileName } from './memos';
 import { isGoogleConfigured } from './config';
 
 /**
@@ -141,6 +144,129 @@ async function syncNotes(token: string, notesFolderId: string): Promise<void> {
 }
 
 /**
+ * Voice memos: metadata like everything else, audio as real files.
+ *
+ * The audio cannot ride in memos.json. An hour of recordings is around 50 MB,
+ * base64 adds a third, and it would make the metadata file larger than the
+ * whole rest of the database — re-uploaded in full every time a title changed.
+ * So the bytes go to Drive as ordinary audio files, which has the pleasant
+ * side effect that they can be played and shared from Drive directly.
+ *
+ * THE DANGEROUS PART is the metadata merge. Running memos through the generic
+ * table loop would `JSON.stringify` a Blob into `{}` and then bulkPut that back
+ * over the local row — silently destroying the only copy of a recording. So the
+ * blob is stripped before merging and reattached from the local row afterwards,
+ * and it is never taken from the remote side at all.
+ *
+ * Downloads are deliberately NOT done here. Metadata is small and syncs
+ * everywhere; the audio is fetched on demand the first time you press play, so
+ * a laptop does not quietly pull down every recording ever made.
+ */
+async function syncMemos(token: string, memosFolderId: string): Promise<void> {
+  const local = await db.memos.toArray();
+  const localById = new Map(local.map((m) => [m.id, m]));
+
+  const remoteFile = (await list(token, { parentId: memosFolderId, name: 'memos.json' }))[0];
+  const remoteMeta = remoteFile ? await readJsonArray<Memo>(token, remoteFile.id) : [];
+
+  // Blobs are never serialised, never compared, and never merged.
+  const strip = (m: Memo): Memo => ({ ...m, blob: undefined });
+  const { merged, overwrites, localChanged, remoteChanged } = mergeRecords(
+    local.map(strip),
+    remoteMeta.map(strip)
+  );
+  await logOverwrites('memos', overwrites);
+
+  if (localChanged) {
+    applyingRemote = true;
+    try {
+      await db.memos.bulkPut(
+        merged.map((m) => {
+          const mine = localById.get(m.id);
+          // A tombstone drops the bytes; otherwise whatever this device already
+          // holds is kept exactly as it was.
+          return { ...m, blob: m.deletedAt ? undefined : mine?.blob };
+        })
+      );
+    } finally {
+      applyingRemote = false;
+    }
+  }
+
+  // Upload anything recorded here that Drive has not got yet.
+  const fresh = await db.memos.toArray();
+  let uploaded = false;
+  for (const memo of fresh) {
+    if (memo.deletedAt || memo.driveFileId || !memo.blob) continue;
+    const id = await writeBlob(token, {
+      name: fileName(memo),
+      parentId: memosFolderId,
+      blob: memo.blob,
+      mimeType: memo.mime
+    });
+    // Bookkeeping, so it must not look like a user edit to the next merge.
+    applyingRemote = true;
+    try {
+      await db.memos.update(memo.id, { driveFileId: id, updatedAt: now() });
+    } finally {
+      applyingRemote = false;
+    }
+    uploaded = true;
+  }
+
+  // Audio the user deleted goes for real, on every device and in Drive.
+  for (const memo of fresh) {
+    if (!memo.deletedAt || !memo.driveFileId) continue;
+    await deleteFile(token, memo.driveFileId);
+    applyingRemote = true;
+    try {
+      await db.memos.update(memo.id, { driveFileId: undefined, updatedAt: now() });
+    } finally {
+      applyingRemote = false;
+    }
+    uploaded = true;
+  }
+
+  if (remoteChanged || !remoteFile || uploaded) {
+    const toWrite = (await db.memos.toArray()).map(strip);
+    await writeFile(token, {
+      id: remoteFile?.id,
+      name: 'memos.json',
+      parentId: memosFolderId,
+      content: JSON.stringify(toWrite, null, 2)
+    });
+  }
+}
+
+/**
+ * Fetch one recording's audio, the first time it is played on this device.
+ *
+ * Returns null when there is nothing to fetch — no connection, signed out, or
+ * the memo genuinely has no audio anywhere. The caller says so rather than
+ * pretending the recording is broken.
+ */
+export async function downloadMemoAudio(memoId: string): Promise<Blob | null> {
+  const memo = await db.memos.get(memoId);
+  if (!memo || memo.deletedAt) return null;
+  if (memo.blob) return memo.blob;
+  if (!memo.driveFileId || !navigator.onLine) return null;
+
+  const token = await getAccessToken();
+  if (!token) return null;
+
+  const blob = await readBlob(token, memo.driveFileId);
+  if (!blob) return null;
+
+  applyingRemote = true;
+  try {
+    await db.memos.update(memoId, { blob });
+  } finally {
+    applyingRemote = false;
+  }
+  return blob;
+}
+
+/**
  * One full pass: pull every file, merge per record, write back whatever
  * changed on either side.
  *
@@ -171,7 +297,7 @@ export async function syncNow(): Promise<SyncState> {
   setState({ status: 'syncing' });
 
   try {
-    const { folderId, notesFolderId } = await ensureFolders(token);
+    const { folderId, notesFolderId, memosFolderId } = await ensureFolders(token);
     const remoteFiles = await list(token, { parentId: folderId });
     const ids: Record<string, string> = {};
 
@@ -206,6 +332,7 @@ export async function syncNow(): Promise<SyncState> {
     }
 
     await syncNotes(token, notesFolderId);
+    await syncMemos(token, memosFolderId);
 
     const lastSyncAt = now();
     await patchSettings({

@@ -107,3 +107,82 @@ describe('naming', () => {
     expect(fileName(memo({ title: 'a/b:c?d' }))).toBe('2026-08-14 22.40 a-b-c-d.webm');
   });
 });
+
+/**
+ * The metadata/audio split, asserted at the level sync depends on.
+ *
+ * syncMemos strips the blob before merging and reattaches it from the local row
+ * afterwards. The failure this guards against is silent and total: if a remote
+ * metadata record were written straight over the local one, the blob would
+ * become undefined and the only copy of a recording would be gone, with the row
+ * still sitting there looking healthy.
+ */
+describe('metadata and audio are separable', () => {
+  const strip = (m: Memo): Memo => ({ ...m, blob: undefined });
+
+  it('survives a JSON round trip with the blob stripped', async () => {
+    const id = await make({ title: 'Chorus', projectId: 'p1', tag: 'Creating' });
+    const row = (await db.memos.get(id))!;
+
+    const wire = JSON.parse(JSON.stringify([row].map(strip)))[0] as Memo;
+
+    expect(wire.blob).toBeUndefined();
+    expect(wire.title).toBe('Chorus');
+    expect(wire.tag).toBe('Creating');
+    expect(wire.durationMs).toBe(4200);
+  });
+
+  it('a Blob does NOT survive JSON, which is why it is stripped', async () => {
+    // Left as an executable explanation. Serialising a Blob yields {}, so
+    // running memos through the generic table loop would write "blob": {} to
+    // Drive and then put that back over the real one.
+    const round = JSON.parse(JSON.stringify({ blob: wav() }));
+    expect(round.blob).toEqual({});
+    expect(round.blob instanceof Blob).toBe(false);
+  });
+
+  it('reattaching keeps the local audio when remote metadata wins', async () => {
+    const id = await make({ title: 'local name' });
+    const mine = (await db.memos.get(id))!;
+
+    // What another device would send: same record, newer title, no bytes.
+    const fromRemote: Memo = { ...strip(mine), title: 'renamed elsewhere' };
+
+    await db.memos.put({ ...fromRemote, blob: mine.blob });
+
+    const after = (await db.memos.get(id))!;
+    expect(after.title).toBe('renamed elsewhere');
+    expect(after.blob).toBeInstanceOf(Blob);
+    expect(after.blob!.size).toBe(4);
+  });
+
+  it('a tombstone from another device drops the bytes here too', async () => {
+    const id = await make();
+    const mine = (await db.memos.get(id))!;
+    const tombstoned: Memo = { ...strip(mine), deletedAt: new Date().toISOString() };
+
+    await db.memos.put({ ...tombstoned, blob: tombstoned.deletedAt ? undefined : mine.blob });
+
+    const after = (await db.memos.get(id))!;
+    expect(after.deletedAt).toBeTruthy();
+    expect(after.blob).toBeUndefined();
+  });
+});
+
+describe('where a recording lives', () => {
+  const state = (m: Partial<Memo>) => ({
+    elsewhere: !m.blob && !!m.driveFileId,
+    lost: !m.blob && !m.driveFileId
+  });
+
+  it('tells "not downloaded yet" apart from "gone"', () => {
+    // These look identical in the data and must not look identical on screen:
+    // one is a recording waiting on a connection, the other is deleted audio.
+    expect(state({ driveFileId: 'abc' })).toEqual({ elsewhere: true, lost: false });
+    expect(state({})).toEqual({ elsewhere: false, lost: true });
+    expect(state({ blob: wav(), driveFileId: 'abc' })).toEqual({
+      elsewhere: false,
+      lost: false
+    });
+  });
+});

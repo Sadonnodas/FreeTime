@@ -1,4 +1,4 @@
-import { DRIVE_FOLDER, DRIVE_NOTES_FOLDER } from '../config';
+import { DRIVE_FOLDER, DRIVE_NOTES_FOLDER, DRIVE_MEMOS_FOLDER } from '../config';
 
 /**
  * Google Drive REST v3, hand-rolled.
@@ -96,10 +96,11 @@ async function findOrCreateFolder(
  */
 export async function ensureFolders(
   token: string
-): Promise<{ folderId: string; notesFolderId: string }> {
+): Promise<{ folderId: string; notesFolderId: string; memosFolderId: string }> {
   const folderId = await findOrCreateFolder(token, DRIVE_FOLDER);
   const notesFolderId = await findOrCreateFolder(token, DRIVE_NOTES_FOLDER, folderId);
-  return { folderId, notesFolderId };
+  const memosFolderId = await findOrCreateFolder(token, DRIVE_MEMOS_FOLDER, folderId);
+  return { folderId, notesFolderId, memosFolderId };
 }
 
 /**
@@ -141,6 +142,79 @@ export async function writeFile(
     body
   });
   return (await res.json()).id;
+}
+
+/**
+ * The same, for bytes.
+ *
+ * Kept separate from writeFile rather than folded into it, because the two
+ * differ in more than a type: a multipart body containing binary cannot be
+ * assembled as a string. Concatenating a Blob into a template literal
+ * stringifies it to "[object Blob]" and uploads nineteen bytes of nonsense with
+ * a perfectly successful 200 — a corruption that only shows up later, on
+ * another device, when the audio will not play. Building the body as a Blob of
+ * parts keeps the bytes intact.
+ */
+export async function writeBlob(
+  token: string,
+  opts: { id?: string; name: string; parentId: string; blob: Blob; mimeType?: string }
+): Promise<string> {
+  const mimeType = opts.mimeType ?? opts.blob.type ?? 'application/octet-stream';
+
+  if (opts.id) {
+    const res = await call(token, `${UPLOAD}/files/${opts.id}?uploadType=media&fields=id`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': mimeType },
+      body: opts.blob
+    });
+    return (await res.json()).id;
+  }
+
+  const boundary = `ft${crypto.randomUUID().replace(/-/g, '')}`;
+  const body = new Blob([
+    `--${boundary}\r\n`,
+    `Content-Type: application/json; charset=UTF-8\r\n\r\n`,
+    `${JSON.stringify({ name: opts.name, parents: [opts.parentId] })}\r\n`,
+    `--${boundary}\r\n`,
+    `Content-Type: ${mimeType}\r\n\r\n`,
+    opts.blob,
+    `\r\n--${boundary}--`
+  ]);
+
+  const res = await call(token, `${UPLOAD}/files?uploadType=multipart&fields=id`, {
+    method: 'POST',
+    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body
+  });
+  return (await res.json()).id;
+}
+
+/** File contents as bytes, or null if the id no longer resolves. */
+export async function readBlob(token: string, id: string): Promise<Blob | null> {
+  try {
+    const res = await call(token, `${API}/files/${id}?alt=media`);
+    return await res.blob();
+  } catch (err) {
+    if (err instanceof DriveAuthError) throw err;
+    return null;
+  }
+}
+
+/**
+ * Really deletes, which almost nothing in this app does.
+ *
+ * Used only for the audio of a memo the user deleted. The memo's own row stays
+ * as a tombstone the way every other record does; it is the megabytes that go,
+ * because keeping audio somebody explicitly threw away is not what "nothing is
+ * ever hard-deleted" was protecting.
+ */
+export async function deleteFile(token: string, id: string): Promise<void> {
+  try {
+    await call(token, `${API}/files/${id}`, { method: 'DELETE' });
+  } catch (err) {
+    if (err instanceof DriveAuthError) throw err;
+    // Already gone is the desired state, so a 404 here is success.
+  }
 }
 
 /** File contents as text, or null if the id no longer resolves. */

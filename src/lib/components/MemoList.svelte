@@ -4,6 +4,7 @@
   import {
     deleteMemo, updateMemo, shareMemo, mmss, whenLabel, monthLabel, displayTitle
   } from '$lib/memos';
+  import { downloadMemoAudio } from '$lib/sync';
 
   /**
    * A list of recordings, with its own transport.
@@ -39,6 +40,18 @@
   let editingId = $state<string | null>(null);
   let note = $state('');
 
+  /**
+   * Recordings made on another device arrive as metadata only — the audio is
+   * fetched the first time it is played here, rather than every device pulling
+   * down every recording ever made. So a row can be in three states, and they
+   * must not look alike: playable, fetchable, and genuinely gone.
+   */
+  let fetchingId = $state<string | null>(null);
+  let fetchError = $state('');
+
+  const elsewhere = (m: Memo): boolean => !m.blob && !!m.driveFileId;
+  const lost = (m: Memo): boolean => !m.blob && !m.driveFileId;
+
   function revoke() {
     if (url) URL.revokeObjectURL(url);
     url = null;
@@ -49,13 +62,33 @@
 
   onDestroy(revoke);
 
-  function open(memo: Memo) {
+  async function open(memo: Memo) {
     revoke();
     openId = memo.id;
+    fetchError = '';
     // Fall back to the recorded length: see onMeta for why the file's own
     // duration cannot be trusted.
     duration = memo.durationMs / 1000;
-    if (memo.blob) url = URL.createObjectURL(memo.blob);
+
+    if (memo.blob) {
+      url = URL.createObjectURL(memo.blob);
+      return;
+    }
+    if (!memo.driveFileId) return;
+
+    fetchingId = memo.id;
+    try {
+      const blob = await downloadMemoAudio(memo.id);
+      // The row may have been closed, or another one opened, while this was in
+      // flight. Handing it a url now would start audio nobody asked for.
+      if (openId !== memo.id) return;
+      if (blob) url = URL.createObjectURL(blob);
+      else fetchError = 'Could not fetch it — you may be offline, or signed out of Google.';
+    } catch (err) {
+      if (openId === memo.id) fetchError = (err as Error).message;
+    } finally {
+      if (fetchingId === memo.id) fetchingId = null;
+    }
   }
 
   function close() {
@@ -66,7 +99,7 @@
 
   function onPlayButton(memo: Memo) {
     if (openId !== memo.id) {
-      open(memo);
+      void open(memo);
       return; // autoplay takes it from here
     }
     if (!audioEl) return;
@@ -113,7 +146,21 @@
   }
 
   async function share(memo: Memo) {
-    const result = await shareMemo(memo);
+    // Sharing needs the actual bytes, so a memo from another device has to come
+    // down first rather than the button quietly doing nothing.
+    let subject = memo;
+    if (!memo.blob && memo.driveFileId) {
+      fetchingId = memo.id;
+      const blob = await downloadMemoAudio(memo.id);
+      fetchingId = null;
+      if (!blob) {
+        note = 'Could not fetch the audio to share.';
+        setTimeout(() => (note = ''), 3000);
+        return;
+      }
+      subject = { ...memo, blob };
+    }
+    const result = await shareMemo(subject);
     note = result === 'downloaded' ? 'Saved to your downloads.' : '';
     if (note) setTimeout(() => (note = ''), 3000);
   }
@@ -169,7 +216,7 @@
             class="press tap-h flex w-11 shrink-0 items-center justify-center rounded-full
                    bg-white/8 text-accent"
             onclick={() => onPlayButton(memo)}
-            disabled={!memo.blob}
+            disabled={lost(memo) || fetchingId === memo.id}
             aria-label={openId === memo.id && playing ? 'Pause' : `Play ${displayTitle(memo)}`}
           >
             {#if openId === memo.id && playing}
@@ -185,7 +232,7 @@
 
           <button
             class="min-w-0 flex-1 py-1 text-left"
-            onclick={() => (openId === memo.id ? close() : open(memo))}
+            onclick={() => (openId === memo.id ? close() : void open(memo))}
           >
             <p class="truncate">{displayTitle(memo)}</p>
             <p class="footnote truncate">
@@ -194,7 +241,12 @@
                 memo.title ? whenLabel(memo.recordedAt) : null,
                 showProject ? projectName(memo.projectId) : null,
                 memo.tag,
-                memo.place
+                memo.place,
+                fetchingId === memo.id
+                  ? 'fetching…'
+                  : elsewhere(memo)
+                    ? 'not on this device'
+                    : null
               ]
                 .filter(Boolean)
                 .join(' · ')}
@@ -246,6 +298,10 @@
                 <span class="footnote tabular-nums">{mmss(position * 1000)}</span>
                 <span class="footnote tabular-nums">{mmss(duration * 1000)}</span>
               </div>
+            {:else if fetchingId === memo.id}
+              <p class="footnote">Fetching the audio…</p>
+            {:else if fetchError}
+              <p class="footnote">{fetchError}</p>
             {:else}
               <p class="footnote">The audio for this one is gone.</p>
             {/if}
@@ -270,7 +326,7 @@
               <button
                 class="press tap-h rounded-lg px-3 text-sm text-accent"
                 onclick={() => share(memo)}
-                disabled={!memo.blob}
+                disabled={lost(memo) || fetchingId === memo.id}
               >
                 Share
               </button>

@@ -47,3 +47,6 @@ export const isGoogleConfigured = (): boolean => GOOGLE_CLIENT_ID.length > 0;
 /** The folder the app owns in the user's Drive. Visible on purpose. */
 export const DRIVE_FOLDER = 'FreeTime';
 export const DRIVE_NOTES_FOLDER = 'notes';
+/** Voice memos, as real audio files. Playable straight from Drive, and
+ *  shareable with someone who has never heard of this app. */
+export const DRIVE_MEMOS_FOLDER = 'memos';
