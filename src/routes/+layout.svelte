@@ -12,10 +12,12 @@
   let { children } = $props();
 
   let stopSync: (() => void) | undefined;
+  let stopUpdates: (() => void) | undefined;
   const drainQueue = () => void processQueue();
 
   onDestroy(() => {
     stopSync?.();
+    stopUpdates?.();
     window.removeEventListener('online', drainQueue);
   });
 
@@ -104,10 +106,14 @@
     // Registering the service worker is what makes the app boot with no
     // network. Imported dynamically because the virtual module only exists in
     // a real build, and because nothing about it needs to block first paint.
-    // registerType 'autoUpdate' means a new build swaps in silently on the
-    // next load — no "update available" prompt, per the no-nag rule.
-    const { registerSW } = await import('virtual:pwa-register');
-    registerSW({ immediate: true });
+    //
+    // It also starts the update watch. An installed home-screen app on iOS is
+    // suspended rather than closed, so without this it can go on running a
+    // build from weeks ago; see lib/pwa.ts. Still silent — a new build is
+    // installed when the app is in the background or coming back to the front,
+    // and is never announced.
+    const { startUpdateWatch } = await import('$lib/pwa');
+    stopUpdates = startUpdateWatch();
   });
 
   /**

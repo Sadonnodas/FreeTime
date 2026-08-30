@@ -11,6 +11,7 @@
   import { ago } from '$lib/format';
   import { getApiKey, setApiKey } from '$lib/gemini/client';
   import { pendingAudioCount, processQueue } from '$lib/gemini/commit';
+  import { onUpdateStatus, checkAndApply, buildLabel, type UpdateStatus } from '$lib/pwa';
 
   let sync = $state<SyncState>({ status: 'idle' });
   let connected = $state(false);
@@ -19,6 +20,9 @@
   let keySaved = $state(false);
   let queued = $state(0);
   let stop: (() => void) | undefined;
+  let stopUpdate: (() => void) | undefined;
+
+  let updateStatus = $state<UpdateStatus>('idle');
 
   const conflictsQ = liveQuery(async () =>
     (await db.conflicts.toArray()).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -26,12 +30,35 @@
 
   onMount(async () => {
     stop = onSyncState((s) => (sync = s));
+    stopUpdate = onUpdateStatus((s) => (updateStatus = s));
     connected = await isConnected();
     authError = (await db.settings.get('settings'))?.lastAuthError;
     apiKey = (await getApiKey()) ?? '';
     queued = await pendingAudioCount();
   });
-  onDestroy(() => stop?.());
+  onDestroy(() => {
+    stop?.();
+    stopUpdate?.();
+  });
+
+  const updateLine = $derived.by(() => {
+    switch (updateStatus) {
+      case 'checking':
+        return 'Looking…';
+      case 'current':
+        return 'This is the latest version.';
+      case 'ready':
+        return 'A newer version is ready.';
+      case 'updating':
+        return 'Updating…';
+      case 'unsupported':
+        // The dev server has no service worker, and neither does a browser with
+        // site data blocked. Saying so beats a button that does nothing.
+        return 'Updates only apply to the installed app.';
+      default:
+        return '';
+    }
+  });
 
   const configured = isGoogleConfigured();
 
@@ -201,6 +228,33 @@
           >
         </div>
       {/if}
+    </div>
+  </section>
+
+  <!--
+    An installed home-screen app gives no way to tell which build it is running,
+    and iOS suspends rather than closes it, so it can sit on old code for weeks.
+    The app now checks on its own in the background; this is here so the
+    question "am I on the new one?" has an answer rather than requiring faith.
+  -->
+  <section class="mb-8">
+    <h2 class="section-label mb-2">Version</h2>
+    <div class="card p-4">
+      <p class="text-sm">Built {buildLabel()}</p>
+      {#if updateLine}
+        <p class="footnote mt-1">{updateLine}</p>
+      {/if}
+      <button
+        class="press tap mt-3 rounded-xl bg-white/8 px-4 text-sm text-ink-200"
+        disabled={updateStatus === 'checking' || updateStatus === 'updating'}
+        onclick={checkAndApply}
+      >
+        Check for updates
+      </button>
+      <p class="footnote mt-3">
+        New versions install by themselves when the app is in the background, so
+        this is rarely needed. Updating reloads the app; nothing stored is lost.
+      </p>
     </div>
   </section>
 </div>

@@ -7,16 +7,31 @@ import { defineConfig } from 'vite';
 const BASE = '/FreeTime';
 
 export default defineConfig({
+  define: {
+    // Stamped at build time so Settings can say which build is running. An
+    // installed home-screen app gives no other way to tell.
+    __APP_VERSION__: JSON.stringify(new Date().toISOString())
+  },
   plugins: [
     // Tailwind v4 is a Vite plugin now — no tailwind.config.js, no PostCSS step.
     // Configuration lives in CSS via @theme (see src/app.css).
     tailwindcss(),
     sveltekit(),
     SvelteKitPWA({
-      // 'autoUpdate' = the service worker installs a new build in the background
-      // and swaps to it on next load. No "update available" nag, which fits the
-      // spec's no-nag rule.
-      registerType: 'autoUpdate',
+      /*
+       * 'prompt' does NOT mean the user is prompted — nothing in this app ever
+       * asks "update available?". It means the reload is ours to time rather
+       * than the plugin's, and that matters now that the app checks for new
+       * builds every half hour instead of only at startup.
+       *
+       * Under 'autoUpdate' the page reloads the instant a new worker takes
+       * control. That was harmless when updates could only be discovered during
+       * a page load; with periodic checks it would eventually land mid-sentence
+       * and throw away whatever was in the capture box. See lib/pwa.ts, which
+       * installs waiting builds only while the app is in the background or
+       * being brought back to the foreground.
+       */
+      registerType: 'prompt',
       // Must match kit.paths.base in svelte.config.js. Everything a manifest
       // points at is resolved against the origin, not the manifest's own
       // location, so these paths need the /FreeTime/ prefix spelled out.

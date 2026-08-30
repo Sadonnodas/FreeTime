@@ -10,12 +10,20 @@ otherwise have to be re-explained.
 
 ---
 
-## State: everything in the spec is built
+## State: everything in the spec is built, plus a round of additions
 
 All eight phases of spec §10, plus the §9 importer, plus a visual redesign.
 Live at **https://sadonnodas.github.io/FreeTime/** — pushing to `main` deploys.
 
-73 tests pass. `npm run check` is clean.
+Since the spec was finished: project cover photos and a picture grid, per-project
+section chips on to-dos, a quick-idea sheet, kept voice memos with date/time/place,
+and three more assistant tools. See *Additions after the spec* below.
+
+90 tests pass. `npm run check` is clean.
+
+**Local dev runs on port 5199**, not Vite's default 5173 — another project of Toon's
+lives there. `.claude/launch.json` pins it; the URL is
+`http://localhost:5199/FreeTime`.
 
 **Waiting on Toon, not on code:**
 
@@ -112,6 +120,43 @@ Do not "fix" these without talking to Toon first.
 
 ## Traps, found the hard way
 
+- **getUserMedia's defaults destroy music.** `{audio: true}` turns on echo
+  cancellation, noise suppression and auto gain, because the browser assumes a voice
+  call. On a sung melody or an acoustic guitar this is audible immediately: noise
+  suppression treats a sustained note as background hum and gates it, and auto gain
+  pumps the level between phrases. Voice memos pass `startRecording({ music: true })`
+  ([audio.ts](src/lib/audio.ts)) to turn all three off and raise the bitrate. The
+  brain-dump path deliberately keeps them ON — for speech in a car they help.
+- **A MediaRecorder webm carries no duration.** Chrome writes no duration into the
+  container, so `audio.duration` comes back `Infinity` and the scrubber is dead until
+  the stream has been walked to the end. [MemoList.svelte](src/lib/components/MemoList.svelte)
+  forces the walk by seeking to `1e101` and then resetting, and falls back to the
+  elapsed time recorded at capture. Safari's mp4 reports correctly, so this looks fine
+  on a phone and broken on a laptop.
+- **Dexie's `update()` with `undefined` DELETES the property.** Load-bearing in three
+  places: removing a project cover, unfiling a memo, and dropping a deleted memo's
+  audio. If it silently ignored undefined instead, deleted recordings would keep tens
+  of megabytes on the device forever and nothing on screen would show it. Pinned by
+  [memos.test.ts](src/lib/memos.test.ts) — do not remove those assertions.
+- **The built-in `<audio controls>` is a white pill on every platform.** It reads as a
+  form element dropped into the page and undoes the whole dark treatment in one
+  element. MemoList drives a hidden `<audio>` by hand instead; it is about forty lines.
+- **The in-app preview browser blocks the microphone AND service workers.** The mic
+  throws `NotAllowedError`; SW registration fails with *"An unknown error occurred when
+  fetching the script"* even though the script is served with a 200 and the right MIME
+  type. A three-line no-op worker fails identically, so it is the browser, not the code
+  — do not go looking for a scope or base-path bug. Recording, offline boot, and the
+  update flow all have to be tested on a real device. Same class of problem as the
+  headless-Chrome note below.
+- **`registerType` is `'prompt'`, and that does NOT mean the user gets prompted.** It
+  means the reload is ours to time ([pwa.ts](src/lib/pwa.ts)). Under `'autoUpdate'` the
+  page reloads the instant a new worker takes control, which was fine when updates were
+  only discovered at startup — and is not, now that the app checks every 30 minutes and
+  on every foreground. That reload would eventually land mid-sentence and bin whatever
+  was in the capture box. Waiting builds are installed only while the app is in the
+  background, at launch, or on the way back to the foreground. Nothing is ever
+  announced, so the no-nag rule still holds.
+
 - **The model name is a single point of failure.** One constant,
   [client.ts](src/lib/gemini/client.ts) `MODEL`. Google retires models for *new* keys
   without warning: `gemini-2.5-flash` started returning `404 NOT_FOUND` — "no longer
@@ -161,6 +206,50 @@ Do not "fix" these without talking to Toon first.
 - **Careful with `\b` in Python-driven edits.** A `\b` in a non-raw Python string
   becomes a literal backspace byte and silently corrupts a regex. Caught once by a test;
   scan with a control-character check if edits go through Python.
+
+## Additions after the spec
+
+These are not in [freetime-spec.md](freetime-spec.md). They follow its rules; where
+one came close to a hard rule, the reasoning is recorded here.
+
+- **Project covers.** `Project.image` is a data URL capped at 640px
+  ([images.ts](src/lib/images.ts)); the Projects grid is photo tiles, and a project
+  with no cover gets a gradient keyed to a hash of its own name so it still looks
+  deliberate. The grid's order control offers *Quiet first* — deliberately a sort you
+  ask for and never a badge the app assigns, which is what keeps it the right side of
+  the no-nag rule.
+- **Sections** (`Project.tags`, `Todo.tag`). Named groups within a project — Creating /
+  Mixing / Mastering, or one per song. Rendered as a chip row over ONE flat list, not
+  as pages: the project still has exactly three tabs and nothing is deeper than two
+  taps. Adding a to-do while a chip is lit files it there, so it stays one field.
+  One tag per to-do on purpose — multi-select turns a glance into a query builder.
+- **Voice memos** (`Memo`, [memos.ts](src/lib/memos.ts)). Kept recordings, structurally
+  separate from `QueuedAudio` because that one is consumed and thrown away while a memo
+  IS the artifact. **Stopping saves** — there is no confirm step and no required field;
+  the panel afterwards is optional. Date, time and location are captured without being
+  asked for, and location is never awaited, because a recorder that waits on a
+  permission sheet misses the idea. They live in Brain → Memos and, per project, in a
+  `memos` widget above the three tabs.
+- **Update checking** ([pwa.ts](src/lib/pwa.ts)). An installed PWA on iOS is suspended,
+  not closed, so without this it can run a build from weeks ago while the fix sits live
+  on Pages. Checks every 30 minutes and on every foreground; installs silently at a safe
+  moment; *Me → Settings → Version* shows the build timestamp (`__APP_VERSION__`, stamped
+  by `define` in vite.config.ts) and offers a manual check.
+- **Assistant tools** added: `create_habit`, `append_note` (appends — never replaces,
+  because a misheard sentence overwriting a page of notes is unrecoverable), and
+  `navigate`. Navigation is a third category (`SAFE_TOOLS`): it writes nothing, but it
+  is still offered as a link rather than followed, because a model that can move the
+  screen mid-sentence takes the conversation away from under you. The assistant's mic
+  transcribes into the input box and does NOT send — you read the words first.
+
+**Sync between devices already works** and always did — Drive sync is spec §8 and the
+client ID is in [config.ts](src/lib/config.ts). It needs signing in to Google on each
+device; there is nothing to build. Memos are the exception, below.
+
+**Still not built:** memos do not sync to Drive yet (the audio must go as real Drive
+files, never inside the JSON), there is no map view (coordinates are captured, and
+`place` is never filled in), and lyrics-per-song would need `notes` to stop being
+one-per-project — it has a `&projectId` unique index today.
 
 ## Working style Toon has asked for
 
