@@ -3,7 +3,6 @@
   import { capture } from '$lib/store';
   import { hasApiKey } from '$lib/gemini/client';
   import { canRecord } from '$lib/audio';
-  import VoiceCapture from './VoiceCapture.svelte';
   import Assistant from './Assistant.svelte';
   import QuickIdea from './QuickIdea.svelte';
   import MemoRecorder from './MemoRecorder.svelte';
@@ -11,8 +10,14 @@
   /**
    * Capture must be under 5 seconds, with no required fields, ever (spec
    * principle 1). So: one input, Enter to save, no project picker, no date, no
-   * confirmation dialog. It lands in the Brain inbox and can stay there
-   * forever — unsorted is a valid resting state, not a failure.
+   * confirmation dialog. It lands unfiled in Ideas and can stay there forever —
+   * undecided is a valid resting state, not a failure.
+   *
+   * THERE IS ONE RECORD BUTTON, not two. The waveform keeps the audio; the
+   * brain-dump that fed it to Gemini and threw the recording away has moved
+   * into the assistant, where it belongs — it was always a Gemini interaction
+   * wearing a capture button's clothes, and two record buttons side by side
+   * only ever raised the question of which was which.
    */
   let text = $state('');
   let flash = $state(false);
@@ -21,8 +26,6 @@
   // The mic is hidden rather than disabled without a key: an AI feature that
   // is visible but dead is worse than one that was never offered (spec 7.4).
   let hasKey = $state(false);
-  let voiceAvailable = $state(false);
-  let voiceOpen = $state(false);
   let assistantOpen = $state(false);
 
   // Unlike the mic and the assistant, these two need no key and are never
@@ -32,9 +35,6 @@
   let canRecordAudio = $state(false);
   onMount(async () => {
     hasKey = await hasApiKey();
-    // Recording needs both a key and a browser that can do it; the assistant
-    // only needs the key. Hidden entirely otherwise (spec 7.4).
-    voiceAvailable = canRecord() && hasKey;
     // A kept recording involves no model at all, so it only needs a browser
     // that can record.
     canRecordAudio = canRecord();
@@ -113,33 +113,12 @@
         ✦
       </button>
     {/if}
-    {#if voiceAvailable && !text.trim()}
-      <button
-        type="button"
-        class="press tap shrink-0 rounded-xl bg-surface-2 px-3 text-lg text-accent"
-        onclick={() => (voiceOpen = true)}
-        aria-label="Record a brain-dump"
-      >
-        ●
-      </button>
-    {:else}
-      <button
-        type="submit"
-        disabled={!text.trim()}
-        class="btn btn-primary press"
-      >
-        Add
-      </button>
-    {/if}
+    <button type="submit" disabled={!text.trim()} class="btn btn-primary press">Add</button>
   </div>
   {#if flash}
     <p class="mt-2 text-[12px] text-good">Saved to Brain.</p>
   {/if}
 </form>
-
-{#if voiceOpen}
-  <VoiceCapture onDone={() => (voiceOpen = false)} />
-{/if}
 
 {#if assistantOpen}
   <Assistant onDone={() => (assistantOpen = false)} />

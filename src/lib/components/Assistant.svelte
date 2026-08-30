@@ -7,6 +7,7 @@
   import { goto } from '$app/navigation';
   import { startRecording, toGeminiWav, beep, canRecord, type Recorder } from '$lib/audio';
   import { transcribe } from '$lib/gemini/extract';
+  import VoiceCapture from './VoiceCapture.svelte';
 
   /**
    * Chat with the store (spec 7.1).
@@ -39,6 +40,21 @@
    * batch of proposals about something you never said. You see the words first.
    */
   const micAvailable = canRecord();
+
+  /**
+   * The long brain-dump (spec 7.2), moved in here from the capture row.
+   *
+   * It was a second record button sitting next to the one that keeps your
+   * audio, and the difference between them — this one feeds Gemini and discards
+   * the recording — was invisible until you had used both. It is a Gemini
+   * interaction, so it lives with the other one, and the capture row is down to
+   * a single record button that does the obvious thing.
+   *
+   * Kept distinct from the microphone below, which puts words in the box for
+   * you to read before anything is sent. This one is for talking for two
+   * minutes without looking at the screen and getting a list back.
+   */
+  let dumping = $state(false);
   let listening = $state(false);
   let transcribing = $state(false);
   let recorder: Recorder | null = null;
@@ -130,9 +146,25 @@
 
   <div class="flex-1 space-y-3 overflow-y-auto px-4 py-2">
     {#if !bubbles.length}
-      <p class="footnote py-10 text-center">
+      <p class="footnote pt-10 pb-5 text-center">
         Ask what's open, or just say what you need to remember.
       </p>
+
+      <!-- Offered on the empty screen only. Once there is a conversation going,
+           a big red button in the middle of it is a different app. -->
+      <button
+        class="press tap card flex w-full items-center gap-3 p-4 text-left"
+        onclick={() => (dumping = true)}
+      >
+        <span class="text-[18px] text-red-400">●</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-[15px]">Brain-dump</span>
+          <span class="footnote">
+            Talk for as long as you like — in the car, on a walk. It comes back as a list
+            you can edit before anything is saved.
+          </span>
+        </span>
+      </button>
     {/if}
 
     {#each bubbles as b, i (i)}
@@ -233,3 +265,7 @@
     >
   </form>
 </div>
+
+{#if dumping}
+  <VoiceCapture onDone={() => (dumping = false)} />
+{/if}

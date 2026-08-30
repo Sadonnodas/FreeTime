@@ -381,6 +381,13 @@ one came close to a hard rule, the reasoning is recorded here.
   personal tab. `/settings` and `/settings/import` are top-level routes now; Me is
   habits and wins only. Five is the ceiling: six starts to crowd the bar on a phone,
   where each tab gets 75px.
+- **One record button in the capture row, not two.** The waveform keeps your audio; the
+  brain-dump — which feeds the recording to Gemini and then discards it — now lives
+  inside the assistant. It was always a Gemini interaction wearing a capture button's
+  clothes, and side by side the two were indistinguishable until you had used both.
+  It shows on the assistant's empty screen only: once a conversation is going, a big red
+  button in the middle of it is a different app. Distinct from the assistant's microphone,
+  which transcribes into the input for you to read before anything is sent.
 - **The Free Time button rotates through scenes** ([freeTimeScenes.ts](src/lib/freeTimeScenes.ts)).
   A different gradient and a different little scene each open — the dinosaur with a ball,
   in a river, under stars, with a guitar. **The division of labour is the lesson from the
