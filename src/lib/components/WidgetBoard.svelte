@@ -127,7 +127,7 @@
             <div class="flex h-12 items-end gap-[3px]">
               {#each weeks as n, i (i)}
                 <div
-                  class="flex-1 rounded-[2px] {n ? 'bg-accent' : 'bg-white/10'}"
+                  class="flex-1 rounded-[2px] {n ? 'bg-accent' : 'bg-surface-3'}"
                   style="height: {n ? Math.max(12, (n / peak) * 100) : 8}%"
                   title="{n} closed"
                 ></div>
@@ -163,7 +163,7 @@
             {#if recordable}
               <button
                 class="press tap mt-2 flex w-full items-center justify-center gap-2 rounded-xl
-                       bg-white/8 text-sm text-ink-50"
+                       bg-surface-2 text-sm text-ink-50"
                 onclick={() => (recording = true)}
               >
                 <span class="text-red-400">●</span> Record
@@ -182,7 +182,7 @@
           {/if}
 
           {#if editing}
-            <div class="mt-3 space-y-2 border-t border-white/8 pt-3">
+            <div class="mt-3 space-y-2 border-t border-line-1 pt-3">
               <input
                 value={widget.title ?? ''}
                 oninput={(e) => updateWidget(widget.id, { title: e.currentTarget.value })}
@@ -214,7 +214,7 @@
                   rows="3"
                 ></textarea>
               {:else if widget.kind === 'image'}
-                <label class="press tap flex items-center justify-center rounded-xl bg-white/8 text-sm">
+                <label class="press tap flex items-center justify-center rounded-xl bg-surface-2 text-sm">
                   <input type="file" accept="image/*" class="hidden" onchange={(e) => onImage(widget, e)} />
                   <span class="text-accent">Choose a photo</span>
                 </label>
@@ -222,15 +222,15 @@
 
               <div class="flex items-center gap-1">
                 <button
-                  class="press tap min-w-0 flex-1 rounded-lg bg-white/8 text-sm"
+                  class="press tap min-w-0 flex-1 rounded-lg bg-surface-2 text-sm"
                   onclick={() =>
                     updateWidget(widget.id, { size: widget.size === 'wide' ? 'small' : 'wide' })}
                 >
                   {widget.size === 'wide' ? 'Narrow' : 'Wide'}
                 </button>
-                <button class="press tap-h w-11 shrink-0 rounded-lg bg-white/8" onclick={() => moveWidget(widget.id, -1)}
+                <button class="press tap-h w-11 shrink-0 rounded-lg bg-surface-2" onclick={() => moveWidget(widget.id, -1)}
                   aria-label="Move up">↑</button>
-                <button class="press tap-h w-11 shrink-0 rounded-lg bg-white/8" onclick={() => moveWidget(widget.id, 1)}
+                <button class="press tap-h w-11 shrink-0 rounded-lg bg-surface-2" onclick={() => moveWidget(widget.id, 1)}
                   aria-label="Move down">↓</button>
                 <button class="press tap-h w-11 shrink-0 rounded-lg text-ink-400" onclick={() => removeWidget(widget.id)}
                   aria-label="Remove">✕</button>
@@ -260,7 +260,7 @@
   {:else}
     <div class="mt-3 flex gap-2">
       <button
-        class="press tap flex-1 rounded-xl border border-dashed border-white/12 text-sm text-ink-400"
+        class="press tap flex-1 rounded-xl border border-dashed border-line-2 text-sm text-ink-400"
         onclick={() => (adding = true)}
       >
         + Add a block

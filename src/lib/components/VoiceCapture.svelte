@@ -209,7 +209,7 @@
         {#each items as item, i (i)}
           <div class="card rise p-3">
             <div class="flex items-start gap-2">
-              <span class="mt-0.5 rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-medium text-ink-400">
+              <span class="mt-0.5 rounded-md bg-surface-3 px-2 py-0.5 text-[11px] font-medium text-ink-400">
                 {KIND_LABEL[item.kind]}
               </span>
               <input

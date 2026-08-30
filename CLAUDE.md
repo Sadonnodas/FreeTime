@@ -288,6 +288,27 @@ one came close to a hard rule, the reasoning is recorded here.
   ink-950 exactly or the app opens with a flash of the wrong black. **iOS bakes the icon
   in at install time** — changing it does nothing for an already-installed home-screen app
   until it is removed and re-added.
+- **Light and dark** ([theme.ts](src/lib/theme.ts), the token blocks at the top of
+  [app.css](src/app.css)). The whole theme is eight ink values plus five surface tokens,
+  redefined under `[data-theme='light']` and a `prefers-color-scheme` query. **The ink
+  ramp is a role, not a brightness**: ink-950 is always the page and ink-50 always the
+  text on it, so the app inverts by redefining those values and no component needs to
+  know. Surfaces were `bg-white/8` — a *lift* off the page, which is invisible on white —
+  so they became `bg-surface-N` tokens that darken instead of lighten in light mode.
+  `--color-brand-1/2` never flip: the Free Time button and the icon glow are the same
+  orange in both themes because that is what the icon promises. `--color-accent` DOES
+  flip, because amber that sings on black is unreadable as text on paper.
+  Three choices, not four. **macOS and iOS already switch at real sunrise and sunset for
+  wherever you are**, so `system` inherits that for free; an in-app schedule would need
+  a location it cannot ask for and would disagree with every other app on the device.
+  A blocking script in [app.html](src/app.html) sets the attribute before first paint —
+  without it a light theme shows a full frame of near-black first, worst on the phone
+  where it is the whole screen.
+- **`:global()` is Svelte syntax and is INVALID in app.css.** Moving the map's styles
+  out of the component and into the global sheet took the `:global()` wrappers along,
+  and the browser silently discarded every rule containing one — the map pins vanished
+  and the dark-mode tile inversion stopped, with no error anywhere. Plain descendant
+  selectors in a plain stylesheet.
 - **The desktop layout is a rail, not a wider phone** ([+layout.svelte](src/routes/+layout.svelte),
   `.shell` / `.page` / `.rail-item` in [app.css](src/app.css)). From 1024px the shell
   widens to 1040, the bottom tab bar is replaced by a labelled rail down the left, and

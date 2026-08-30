@@ -71,7 +71,7 @@
       />
       <button
         type="button"
-        class="press tap rounded-xl bg-white/8 px-3 text-sm text-ink-400"
+        class="press tap rounded-xl bg-surface-2 px-3 text-sm text-ink-400"
         onclick={() => (showUrl = !showUrl)}
         aria-label="Add a link">🔗</button
       >

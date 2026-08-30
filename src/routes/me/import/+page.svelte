@@ -163,7 +163,7 @@
         {/each}
       </select>
       {#if noteProjectId}
-        <label class="card-flat press tap block border border-dashed border-white/12 p-5 text-center">
+        <label class="card-flat press tap block border border-dashed border-line-2 p-5 text-center">
           <input type="file" accept=".md,.markdown,.txt" class="hidden" onchange={onMarkdown} />
           <span class="text-sm text-accent">Choose a .md file</span>
         </label>
@@ -183,7 +183,7 @@
           <button
             class="press tap rounded-xl border px-4 text-sm {target === value
               ? 'border-accent/60 bg-accent/[0.08] text-ink-50'
-              : 'border-white/10 text-ink-400'}"
+              : 'border-line-1 text-ink-400'}"
             onclick={() => {
               target = value;
               remap();

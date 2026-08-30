@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%sveltekit.assets%/favicon.svg" />
@@ -9,6 +9,28 @@
     <meta name="theme-color" content="#08080a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <script>
+      /*
+       * Runs before the first paint, on purpose.
+       *
+       * Everything else in this app boots in JavaScript after the HTML lands,
+       * which is fine for content but not for the background colour: a light
+       * theme applied from the layout would show a full frame of near-black
+       * first, and the flash is worst on the phone, where it is the whole
+       * screen. Four lines here, blocking, is the fix.
+       *
+       * `system` deliberately writes nothing, leaving the CSS media query in
+       * charge — see lib/theme.ts.
+       */
+      try {
+        var t = localStorage.getItem('freetime.theme');
+        if (t === 'light' || t === 'dark') {
+          document.documentElement.setAttribute('data-theme', t);
+        }
+      } catch (e) {
+        /* blocked site data; the OS preference still applies */
+      }
+    </script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">

@@ -165,7 +165,7 @@
     </div>
 
     {#if $projectQ?.image}
-      <div class="relative mt-2 overflow-hidden rounded-[20px] border border-white/8">
+      <div class="relative mt-2 overflow-hidden rounded-[20px] border border-line-1">
         <img src={$projectQ.image} alt="" class="h-40 w-full object-cover" />
         <div
           class="absolute inset-x-0 bottom-0 px-4 pt-12 pb-3"
@@ -235,7 +235,7 @@
       </div>
     {:else}
       <button
-        class="press footnote mb-3 rounded-xl border border-dashed border-white/12 px-3 py-2"
+        class="press footnote mb-3 rounded-xl border border-dashed border-line-2 px-3 py-2"
         onclick={() => (editingTags = true)}
       >
         + Sections
@@ -317,7 +317,7 @@
       </h2>
       <ul class="space-y-1">
         {#each closed as todo (todo.id)}
-          <li class="flex items-center gap-3 rounded-2xl bg-white/[0.025] px-3 text-ink-400">
+          <li class="flex items-center gap-3 rounded-2xl bg-surface-1 px-3 text-ink-400">
             <span class="shrink-0 text-good">✓</span>
             <span class="flex-1 py-3">{todo.title}</span>
           </li>
@@ -365,7 +365,7 @@
   {/if}
 
   <!-- Right at the bottom, where a destructive-looking action belongs. -->
-  <div class="mt-10 border-t border-white/8 pt-4">
+  <div class="mt-10 border-t border-line-1 pt-4">
     <button
       class="press tap w-full rounded-xl text-sm {confirmArchive ? 'text-accent-2' : 'text-ink-400'}"
       onclick={archive}

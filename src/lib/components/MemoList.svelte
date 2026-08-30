@@ -214,7 +214,7 @@
         <div class="flex items-center gap-3">
           <button
             class="press tap-h flex w-11 shrink-0 items-center justify-center rounded-full
-                   bg-white/8 text-accent"
+                   bg-surface-2 text-accent"
             onclick={() => onPlayButton(memo)}
             disabled={lost(memo) || fetchingId === memo.id}
             aria-label={openId === memo.id && playing ? 'Pause' : `Play ${displayTitle(memo)}`}
@@ -255,7 +255,7 @@
         </div>
 
         {#if openId === memo.id}
-          <div class="mt-2 border-t border-white/8 pt-3">
+          <div class="mt-2 border-t border-line-1 pt-3">
             {#if url}
               <!-- svelte-ignore a11y_media_has_caption -->
               <audio
@@ -283,7 +283,7 @@
               >
                 <!-- The bar is 4px but the target is the full 36px row, so it
                      can be scrubbed with a thumb rather than a cursor. -->
-                <div class="absolute inset-x-0 top-4 h-1 rounded-full bg-white/12"></div>
+                <div class="absolute inset-x-0 top-4 h-1 rounded-full bg-surface-3"></div>
                 <div
                   class="absolute top-4 left-0 h-1 rounded-full bg-accent"
                   style="width: {progress}%"

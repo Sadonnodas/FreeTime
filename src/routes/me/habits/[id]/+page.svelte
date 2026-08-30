@@ -40,7 +40,7 @@
       class="press tap mb-6 w-full rounded-2xl border py-4 text-[17px] font-medium transition-colors
              {loggedToday
         ? 'border-good/50 bg-good/[0.14] text-good'
-        : 'border-white/8 bg-white/[0.05] text-ink-200'}"
+        : 'border-line-1 bg-surface-1 text-ink-200'}"
       onclick={() => toggleHabitLog(habit.id)}
     >
       {loggedToday ? '✓ Done today' : 'Log for today'}
@@ -58,7 +58,7 @@
             <div class="flex flex-col gap-[3px]">
               {#each week as day (day.date)}
                 <div
-                  class="h-3 w-3 rounded-[2px] {day.on ? 'bg-good' : 'bg-white/[0.07]'}"
+                  class="h-3 w-3 rounded-[2px] {day.on ? 'bg-good' : 'bg-surface-2'}"
                   title={day.date}
                 ></div>
               {/each}
@@ -106,7 +106,7 @@
             class="press tap w-full rounded-2xl border px-4 py-3 text-left
                    {habit.state === state
               ? 'border-accent/60 bg-accent/[0.08]'
-              : 'border-white/8 bg-white/[0.04]'}"
+              : 'border-line-1 bg-surface-1'}"
             onclick={() => setHabitState(habit.id, state)}
           >
             <span class="block capitalize">{state}</span>

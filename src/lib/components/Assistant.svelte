@@ -139,7 +139,7 @@
       <div class="flex {b.role === 'you' ? 'justify-end' : 'justify-start'}">
         <p
           class="max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2.5
-                 {b.role === 'you' ? 'bg-accent text-[#1a1206]' : 'bg-white/[0.07] text-ink-50'}"
+                 {b.role === 'you' ? 'bg-accent text-[#1a1206]' : 'bg-surface-2 text-ink-50'}"
         >
           {b.text}
         </p>
@@ -207,7 +207,7 @@
         type="button"
         class="press tap shrink-0 rounded-xl px-3 {listening
           ? 'bg-red-500/20 text-red-400'
-          : 'bg-white/8 text-ink-200'}"
+          : 'bg-surface-2 text-ink-200'}"
         onclick={toggleMic}
         disabled={transcribing}
         aria-label={listening ? 'Stop and write it down' : 'Speak instead of typing'}

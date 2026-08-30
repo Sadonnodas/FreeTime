@@ -163,7 +163,7 @@
       </button>
     {:else if roomLeft > 0 && !picking}
       <button
-        class="press mt-4 w-full rounded-2xl border border-dashed border-white/12 py-4 text-ink-400"
+        class="press mt-4 w-full rounded-2xl border border-dashed border-line-2 py-4 text-ink-400"
         onclick={() => (picking = true)}
       >
         {#if day?.closedAt}One more?{:else}Add ({roomLeft} left){/if}
@@ -220,7 +220,7 @@
               class="press tap rounded-2xl border px-4 py-3 text-[15px] font-medium transition-colors
                      {done
                 ? 'border-good/50 bg-good/[0.14] text-good'
-                : 'border-white/8 bg-white/[0.05] text-ink-200'}"
+                : 'border-line-1 bg-surface-1 text-ink-200'}"
               onclick={() => toggleHabitLog(habit.id)}
             >
               {done ? '✓ ' : ''}{habit.name}

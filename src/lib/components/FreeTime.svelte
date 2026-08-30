@@ -183,7 +183,7 @@
             <div class="mt-3 flex gap-2">
               {#if canReshuffle(slot.kind)}
                 <button
-                  class="press tap rounded-xl bg-white/8 px-4 text-sm text-ink-200"
+                  class="press tap rounded-xl bg-surface-2 px-4 text-sm text-ink-200"
                   onclick={() => reshuffle(slot.kind, slot.todo.id)}>Something else</button
                 >
               {/if}

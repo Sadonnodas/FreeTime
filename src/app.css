@@ -22,8 +22,17 @@
  */
 
 @theme {
-  /* Near-black, very slightly warm. Not pure #000: on an LCD that goes
-     flat and harsh, and the layered surfaces above need somewhere to sit. */
+  /*
+   * THE INK RAMP IS A ROLE, NOT A BRIGHTNESS.
+   *
+   * ink-950 is always the page, ink-50 is always the text on it. In dark that
+   * runs near-black up to near-white; in light it runs the other way. Every
+   * component names the role, so the whole app inverts by redefining these
+   * eight values further down and nothing else has to know.
+   *
+   * Dark stays the default and the designed-for case. Not pure #000: on an LCD
+   * that goes flat and harsh, and the layered surfaces need somewhere to sit.
+   */
   --color-ink-950: #08080a;
   --color-ink-900: #101013;
   --color-ink-800: #18181d;
@@ -33,9 +42,33 @@
   --color-ink-200: #c8c8d0;
   --color-ink-50: #f5f5f7;
 
+  /*
+   * Surfaces are a lift off the page, not a fixed colour — that is why they
+   * were white-at-low-alpha to begin with. On a light ground the lift has to
+   * go the other way, so these are tokens rather than `bg-white/8`, which is
+   * invisible on white.
+   */
+  --color-surface-1: rgba(255, 255, 255, 0.055);
+  --color-surface-2: rgba(255, 255, 255, 0.08);
+  --color-surface-3: rgba(255, 255, 255, 0.13);
+  --color-line-1: rgba(255, 255, 255, 0.08);
+  --color-line-2: rgba(255, 255, 255, 0.12);
+
+  /*
+   * The brand colours never flip: the Free Time button and the icon's glow are
+   * the same warm orange whatever the theme, because that is the app's one
+   * memorable image. `accent` DOES flip — amber that reads beautifully on black
+   * is unreadable as text on white, so in light it darkens to something with
+   * actual contrast while staying recognisably the same colour.
+   */
+  --color-brand-1: #ff9f0a;
+  --color-brand-2: #ff6482;
+
   --color-accent: #ff9f0a;
   --color-accent-2: #ff6482;
   --color-good: #30d158;
+  /* Text sitting ON the accent, e.g. the Add button. */
+  --color-on-accent: #1a1206;
 
   /* -apple-system resolves to SF Pro on Apple devices, which is most of the
      Apple feel for free. The rest is a sensible fallback chain. */
@@ -44,6 +77,74 @@
     'Segoe UI', Roboto, system-ui, sans-serif;
 
   --radius-card: 20px;
+}
+
+/*
+ * LIGHT.
+ *
+ * Only the tokens change. The ramp inverts, the surface lifts become darkenings
+ * instead of lightenings, and the accent drops to something readable on paper.
+ *
+ * The page is a warm off-white rather than #fff, for the same reason the dark
+ * one is not #000: a pure white ground makes every surface above it look grey
+ * and dirty, and warmth is what keeps this from looking like a spreadsheet.
+ *
+ * `:root[data-theme='light']` wins over the media query below it, so an
+ * explicit choice always beats the system's.
+ */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --color-ink-950: #f7f5f2;
+    --color-ink-900: #efece8;
+    --color-ink-800: #e5e1db;
+    --color-ink-700: #d6d1c9;
+    --color-ink-600: #bab5ac;
+    --color-ink-400: #6e6b73;
+    --color-ink-200: #3b3941;
+    --color-ink-50: #17161b;
+
+    --color-surface-1: rgba(20, 18, 26, 0.045);
+    --color-surface-2: rgba(20, 18, 26, 0.07);
+    --color-surface-3: rgba(20, 18, 26, 0.11);
+    --color-line-1: rgba(20, 18, 26, 0.1);
+    --color-line-2: rgba(20, 18, 26, 0.15);
+
+    --color-accent: #b0640a;
+    --color-accent-2: #c93f60;
+    --color-good: #1c8f3c;
+    --color-on-accent: #fffaf2;
+
+    /* A raised edge is a light catching a dark surface. On paper there is no
+       such highlight, so it is removed rather than inverted into a grey smear,
+       and the drop shadow softens to something a printed card would cast. */
+    --card-highlight: transparent;
+    --card-shadow: rgba(20, 18, 26, 0.09);
+  }
+}
+
+:root[data-theme='light'] {
+  --color-ink-950: #f7f5f2;
+  --color-ink-900: #efece8;
+  --color-ink-800: #e5e1db;
+  --color-ink-700: #d6d1c9;
+  --color-ink-600: #bab5ac;
+  --color-ink-400: #6e6b73;
+  --color-ink-200: #3b3941;
+  --color-ink-50: #17161b;
+
+  --color-surface-1: rgba(20, 18, 26, 0.045);
+  --color-surface-2: rgba(20, 18, 26, 0.07);
+  --color-surface-3: rgba(20, 18, 26, 0.11);
+  --color-line-1: rgba(20, 18, 26, 0.1);
+  --color-line-2: rgba(20, 18, 26, 0.15);
+
+  --color-accent: #b0640a;
+  --color-accent-2: #c93f60;
+  --color-good: #1c8f3c;
+  --color-on-accent: #fffaf2;
+
+  --card-highlight: transparent;
+  --card-shadow: rgba(20, 18, 26, 0.09);
 }
 
 /*
@@ -188,39 +289,39 @@ body {
    * a physical raised edge.
    */
   .card {
-    background: rgba(255, 255, 255, 0.055);
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: var(--color-surface-1);
+    border: 1px solid var(--color-line-1);
     border-radius: var(--radius-card);
     box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
-      0 1px 2px rgba(0, 0, 0, 0.4);
+      inset 0 1px 0 0 var(--card-highlight, rgba(255, 255, 255, 0.05)),
+      0 1px 2px var(--card-shadow, rgba(0, 0, 0, 0.4));
   }
 
   .card-flat {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--color-surface-1);
     border-radius: 16px;
   }
 
   /* Frosted bars. saturate() is what keeps colour alive behind the blur —
      without it, glass looks like dirty grey plastic. */
   .glass {
-    background: rgba(16, 16, 19, 0.72);
+    background: color-mix(in srgb, var(--color-ink-950) 74%, transparent);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
   }
 
   .glass-strong {
-    background: rgba(8, 8, 10, 0.86);
+    background: color-mix(in srgb, var(--color-ink-950) 88%, transparent);
     backdrop-filter: blur(40px) saturate(180%);
     -webkit-backdrop-filter: blur(40px) saturate(180%);
   }
 
   .hairline-t {
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid var(--color-line-1);
   }
 
   .hairline-r {
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: 1px solid var(--color-line-1);
   }
 
   /* A row in the desktop rail. Wider hit area than the phone tab, because a
@@ -241,13 +342,13 @@ body {
   }
 
   .rail-item:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--color-surface-1);
     color: var(--color-ink-200);
   }
 
   .rail-on,
   .rail-on:hover {
-    background: rgba(255, 159, 10, 0.13);
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
     color: var(--color-accent);
   }
 
@@ -304,11 +405,11 @@ body {
 
   .btn-primary {
     background: var(--color-accent);
-    color: #1a1206;
+    color: var(--color-on-accent);
   }
 
   .btn-secondary {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--color-surface-2);
     color: var(--color-ink-50);
   }
 
@@ -322,8 +423,10 @@ body {
 
   /* The one place a gradient earns its keep: the single hero action on an
      otherwise empty screen. */
+  /* Deliberately NOT themed. The Free Time button is the same warm orange in
+     both modes, because it is the thing the icon promises. */
   .btn-hero {
-    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-2));
+    background: linear-gradient(135deg, var(--color-brand-1), var(--color-brand-2));
     color: #1a0d06;
     border-radius: 22px;
     box-shadow: 0 10px 34px -12px rgba(255, 122, 60, 0.7);
@@ -335,7 +438,7 @@ body {
     display: flex;
     gap: 2px;
     padding: 2px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--color-surface-1);
     border-radius: 12px;
   }
 
@@ -353,7 +456,7 @@ body {
   }
 
   .segment-on {
-    background: rgba(255, 255, 255, 0.13);
+    background: var(--color-surface-3);
     color: var(--color-ink-50);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   }
@@ -371,7 +474,7 @@ body {
     min-height: 34px;
     padding: 0 0.875rem;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--color-surface-1);
     color: var(--color-ink-400);
     font-size: 0.875rem;
     font-weight: 550;
@@ -381,7 +484,7 @@ body {
   }
 
   .chip-on {
-    background: rgba(255, 159, 10, 0.16);
+    background: color-mix(in srgb, var(--color-accent) 16%, transparent);
     color: var(--color-accent);
   }
 
@@ -390,7 +493,7 @@ body {
   /* iOS inset grouped table style: one rounded container, hairlines between
      rows rather than gaps. Reads as a single object instead of a stack. */
   .list-group {
-    background: rgba(255, 255, 255, 0.055);
+    background: var(--color-surface-1);
     border-radius: 16px;
     overflow: hidden;
   }
@@ -404,7 +507,7 @@ body {
   }
 
   .list-row + .list-row {
-    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 1px 0 0 var(--color-line-1);
   }
 
   /* -------------------------------------------------------------- inputs */
@@ -412,7 +515,7 @@ body {
   .field {
     min-height: 44px;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.07);
+    background: var(--color-surface-2);
     border: 1px solid transparent;
     padding: 0 1rem;
     color: var(--color-ink-50);
@@ -426,12 +529,74 @@ body {
 
   .field:focus {
     outline: none;
-    border-color: rgba(255, 159, 10, 0.55);
-    background: rgba(255, 255, 255, 0.09);
+    border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
+    background: var(--color-surface-3);
   }
 
   select.field {
     padding-right: 0.5rem;
     font-size: 0.9375rem;
+  }
+}
+
+/*
+ * The map.
+ *
+ * Lives here rather than scoped inside MemoMap.svelte because it has to react
+ * to the theme, and Svelte's scoping makes an ancestor selector like
+ * :root[data-theme] awkward to express.
+ *
+ * OpenStreetMap only serves light tiles. In dark mode they are inverted and
+ * hue-rotated, which lands roads and water about where a designed dark style
+ * would put them for no API key and no extra request. In light mode that would
+ * be actively wrong, so the filter is simply removed and the real tiles show —
+ * which is what they were drawn for.
+ */
+.memo-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.7);
+}
+
+.memo-map .leaflet-container {
+  background: var(--color-ink-900);
+  font-family: inherit;
+}
+
+.memo-map .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--color-ink-950) 72%, transparent);
+  color: var(--color-ink-400);
+  font-size: 10px;
+}
+
+.memo-map .leaflet-control-attribution a {
+  color: var(--color-ink-200);
+}
+
+.memo-map .leaflet-bar a {
+  background: color-mix(in srgb, var(--color-ink-900) 92%, transparent);
+  color: var(--color-ink-50);
+  border-color: var(--color-line-2);
+}
+
+/* Markers sit outside the filtered layer, so they keep their real colour. */
+.memo-map .memo-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--color-brand-1);
+  color: #1a1206;
+  font-size: 12px;
+  font-weight: 700;
+  border: 2px solid color-mix(in srgb, var(--color-ink-950) 85%, transparent);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme='light'] .memo-map .leaflet-tile-pane {
+  filter: none;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .memo-map .leaflet-tile-pane {
+    filter: none;
   }
 }

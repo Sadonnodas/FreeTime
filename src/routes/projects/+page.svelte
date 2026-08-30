@@ -163,7 +163,7 @@
       <a
         href="{base}/projects/{p.project.id}"
         class="press rise relative block aspect-square overflow-hidden rounded-[20px]
-               border border-white/8 bg-ink-800"
+               border border-line-1 bg-ink-800"
       >
         {#if p.project.image}
           <img

@@ -8,16 +8,22 @@
   import { handleRedirect, renewIfSafe } from '$lib/google/auth';
   import { startSync } from '$lib/sync';
   import { processQueue } from '$lib/gemini/commit';
+  import { startThemeWatch } from '$lib/theme';
 
   let { children } = $props();
 
   let stopSync: (() => void) | undefined;
   let stopUpdates: (() => void) | undefined;
+  // Started outside onMount so the theme is settled before the first render,
+  // rather than a frame after it. The pre-paint script in app.html has already
+  // set the attribute; this keeps `system` following the OS live afterwards.
+  const stopTheme = startThemeWatch();
   const drainQueue = () => void processQueue();
 
   onDestroy(() => {
     stopSync?.();
     stopUpdates?.();
+    stopTheme();
     window.removeEventListener('online', drainQueue);
   });
 

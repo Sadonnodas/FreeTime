@@ -159,58 +159,10 @@
 {:else}
   <div
     bind:this={host}
-    class="memo-map h-[58vh] w-full overflow-hidden rounded-[20px] border border-white/8"
+    class="memo-map h-[58vh] w-full overflow-hidden rounded-[20px] border border-line-1"
   ></div>
   <p class="footnote mt-2">
     {shown.length} of {withPlace.length} recording{withPlace.length === 1 ? '' : 's'} shown.
     Tap a pin to play what was recorded there.
   </p>
 {/if}
-
-<style>
-  /*
-   * OpenStreetMap only serves light tiles, and a white map dropped into this
-   * app looks like a browser window someone left open on top of it. Inverting
-   * and rotating the hue gives a dark map from light tiles: roads and water end
-   * up about where a designed dark style would put them, and it costs nothing
-   * and no API key. Markers are drawn outside the filtered layer so they keep
-   * their real colour.
-   */
-  .memo-map :global(.leaflet-tile-pane) {
-    filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.7);
-  }
-
-  .memo-map :global(.leaflet-container) {
-    background: #101013;
-    font-family: inherit;
-  }
-
-  .memo-map :global(.leaflet-control-attribution) {
-    background: rgba(8, 8, 10, 0.7);
-    color: #8a8a95;
-    font-size: 10px;
-  }
-
-  .memo-map :global(.leaflet-control-attribution a) {
-    color: #c8c8d0;
-  }
-
-  .memo-map :global(.leaflet-bar a) {
-    background: rgba(16, 16, 19, 0.9);
-    color: #f5f5f7;
-    border-color: rgba(255, 255, 255, 0.12);
-  }
-
-  .memo-map :global(.memo-pin) {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    background: var(--color-accent);
-    color: #1a1206;
-    font-size: 12px;
-    font-weight: 700;
-    border: 2px solid rgba(8, 8, 10, 0.85);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-  }
-</style>

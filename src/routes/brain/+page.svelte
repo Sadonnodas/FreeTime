@@ -162,11 +162,11 @@
         <p class="mb-2">{c.text}</p>
         <div class="flex gap-2">
           <button
-            class="press tap rounded-xl bg-white/8 px-4 text-sm text-ink-200"
+            class="press tap rounded-xl bg-surface-2 px-4 text-sm text-ink-200"
             onclick={() => sortCaptureToTodo(c.id)}>→ To-do</button
           >
           <button
-            class="press tap rounded-xl bg-white/8 px-4 text-sm text-ink-200"
+            class="press tap rounded-xl bg-surface-2 px-4 text-sm text-ink-200"
             onclick={() => sortCaptureToIdea(c.id)}>→ Idea</button
           >
         </div>
@@ -208,7 +208,7 @@
         <option value="no">No date</option>
       </select>
       <button
-        class="press tap rounded-xl border border-white/10 px-3 text-sm {showClosed
+        class="press tap rounded-xl border border-line-1 px-3 text-sm {showClosed
           ? 'text-good'
           : 'text-ink-400'}"
         onclick={() => (showClosed = !showClosed)}
@@ -250,7 +250,7 @@
             <span class="text-xs text-good">→ to-do</span>
           {:else}
             <button
-              class="press tap rounded-xl bg-white/8 px-4 text-sm text-ink-200"
+              class="press tap rounded-xl bg-surface-2 px-4 text-sm text-ink-200"
               onclick={() => promoteIdea(i.id)}>Promote</button
             >
           {/if}
@@ -263,7 +263,7 @@
     {#if recordable}
       <button
         class="press tap mb-3 flex w-full items-center justify-center gap-2 rounded-2xl
-               bg-white/8 text-[15px] font-medium text-ink-50"
+               bg-surface-2 text-[15px] font-medium text-ink-50"
         onclick={() => (recording = true)}
       >
         <span class="text-red-400">●</span> Record
@@ -307,7 +307,7 @@
       </p>
     {/if}
   {:else if section === 'lists'}
-    <button class="press tap mb-3 rounded-xl bg-white/8 px-4 text-[15px] text-ink-200" onclick={newList}>
+    <button class="press tap mb-3 rounded-xl bg-surface-2 px-4 text-[15px] text-ink-200" onclick={newList}>
       + New list
     </button>
     <ul class="space-y-1">

@@ -70,7 +70,7 @@
     {#if !text.trim()}
       <button
         type="button"
-        class="press tap shrink-0 rounded-xl bg-white/8 px-3 text-ink-200"
+        class="press tap shrink-0 rounded-xl bg-surface-2 px-3 text-ink-200"
         onclick={() => (ideaOpen = true)}
         aria-label="New idea"
       >
@@ -92,7 +92,7 @@
            two identical-looking record buttons would be a trap. -->
       <button
         type="button"
-        class="press tap shrink-0 rounded-xl bg-white/8 px-3 text-ink-200"
+        class="press tap shrink-0 rounded-xl bg-surface-2 px-3 text-ink-200"
         onclick={() => (memoOpen = true)}
         aria-label="Record a voice memo"
       >
@@ -106,7 +106,7 @@
     {#if hasKey && !text.trim()}
       <button
         type="button"
-        class="press tap shrink-0 rounded-xl bg-white/8 px-3 text-lg text-ink-200"
+        class="press tap shrink-0 rounded-xl bg-surface-2 px-3 text-lg text-ink-200"
         onclick={() => (assistantOpen = true)}
         aria-label="Ask the assistant"
       >
@@ -116,7 +116,7 @@
     {#if voiceAvailable && !text.trim()}
       <button
         type="button"
-        class="press tap shrink-0 rounded-xl bg-white/8 px-3 text-lg text-accent"
+        class="press tap shrink-0 rounded-xl bg-surface-2 px-3 text-lg text-accent"
         onclick={() => (voiceOpen = true)}
         aria-label="Record a brain-dump"
       >

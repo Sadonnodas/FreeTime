@@ -11,6 +11,7 @@
   import { ago } from '$lib/format';
   import { getApiKey, setApiKey } from '$lib/gemini/client';
   import { pendingAudioCount, processQueue } from '$lib/gemini/commit';
+  import { getTheme, setTheme, THEME_LABELS, type ThemeChoice } from '$lib/theme';
 
   let sync = $state<SyncState>({ status: 'idle' });
   let connected = $state(false);
@@ -19,6 +20,12 @@
   let keySaved = $state(false);
   let queued = $state(0);
   let stop: (() => void) | undefined;
+
+  let theme = $state<ThemeChoice>(getTheme());
+  function pickTheme(next: ThemeChoice) {
+    theme = next;
+    setTheme(next);
+  }
 
 
   const conflictsQ = liveQuery(async () =>
@@ -55,6 +62,25 @@
     <h1 class="large-title mt-1">Settings</h1>
   </header>
 
+  <!-- First, because it is the one setting anybody actually goes looking for. -->
+  <section class="mb-8">
+    <h2 class="section-label mb-2">Appearance</h2>
+    <div class="segmented">
+      {#each THEME_LABELS as t (t.value)}
+        <button
+          class="press segment {theme === t.value ? 'segment-on' : ''}"
+          onclick={() => pickTheme(t.value)}
+        >
+          {t.label}
+        </button>
+      {/each}
+    </div>
+    <p class="footnote mt-2">
+      System follows your Mac or iPhone — including their automatic switch at sunset,
+      which already knows where you are.
+    </p>
+  </section>
+
   <section class="mb-8">
     <h2 class="section-label mb-2">Google Drive</h2>
 
@@ -82,7 +108,7 @@
           </p>
           <div class="mt-3 flex gap-2">
             <button
-              class="press tap rounded-xl bg-white/8 px-4 text-sm text-ink-200"
+              class="press tap rounded-xl bg-surface-2 px-4 text-sm text-ink-200"
               onclick={() => syncNow()}
               disabled={sync.status === 'syncing'}>Sync now</button
             >
@@ -195,7 +221,7 @@
             {queued} recording{queued === 1 ? '' : 's'} waiting to be processed.
           </p>
           <button
-            class="press tap mt-2 rounded-xl bg-white/8 px-4 text-sm text-ink-200"
+            class="press tap mt-2 rounded-xl bg-surface-2 px-4 text-sm text-ink-200"
             onclick={async () => {
               await processQueue();
               queued = await pendingAudioCount();

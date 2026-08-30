@@ -206,7 +206,7 @@
       {:else if phase === 'recording'}
         <!-- Deliberately almost empty: one very large target and a clock. -->
         <button
-          class="press flex h-60 w-60 items-center justify-center rounded-full bg-white/10
+          class="press flex h-60 w-60 items-center justify-center rounded-full bg-surface-3
                  text-[1.6rem] font-semibold text-white ring-4 ring-red-500/70"
           onclick={stop}
         >
