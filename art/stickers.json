@@ -1,0 +1,175 @@
+{
+ "sheets": {
+  "img_8794-2": [
+   "snowboarding",
+   "on-the-moon",
+   "behind-the-decks",
+   "ninja-on-a-bridge",
+   "leaping-the-rooftops",
+   "over-the-canyon",
+   "pirate-treasure",
+   "flying-a-biplane",
+   "surfing",
+   "scuba-diving",
+   "skate-ramp",
+   "satellite-repair"
+  ],
+  "img_8793-2": [
+   "rolling-sushi",
+   "building-a-landscape",
+   "at-the-mixing-desk",
+   "model-railway",
+   "pouring-coffee",
+   "drawing-on-a-tablet",
+   "digging-up-fossils",
+   "board-game-night",
+   "reading",
+   "through-the-fire-hoop",
+   "at-the-telescope",
+   "at-the-typewriter",
+   "just-standing-there",
+   "recording-studio",
+   "tailoring-a-suit"
+  ],
+  "img_8792-2": [
+   "painting-at-an-easel",
+   "weaving",
+   "on-the-keytar",
+   "building-a-toy-car",
+   "handstand",
+   "knitting-a-scarf",
+   "unearthing-eggs",
+   null,
+   "rainbow-skate-ramp",
+   null,
+   "orange-and-upright",
+   "small-and-unbothered",
+   "tall-and-pleased",
+   "playing-guitar",
+   "throwing-a-pot"
+  ],
+  "img_8791-2": [
+   "rainbow-roar",
+   "rainbow-arc",
+   "fruit-salad",
+   "fruit-salad-again",
+   "sparkles",
+   "rainbow-contrail",
+   "bubbles",
+   "a-burst-of-music",
+   "puzzle-pieces",
+   "a-cloud-of-rainbow",
+   "a-spray-of-flowers",
+   "rainbow-swirl",
+   "standing-on-the-rainbow",
+   "a-wave-of-water"
+  ],
+  "img_8790": [
+   "rainbow-arc-2"
+  ]
+ },
+ "holes": {
+  "a-burst-of-music": [
+   [
+    0.1836,
+    0.6585
+   ]
+  ],
+  "at-the-mixing-desk": [
+   [
+    0.1318,
+    0.6049
+   ]
+  ],
+  "at-the-telescope": [
+   [
+    0.4203,
+    0.567
+   ],
+   [
+    0.6456,
+    0.5402
+   ]
+  ],
+  "building-a-landscape": [
+   [
+    0.3121,
+    0.2746
+   ]
+  ],
+  "ninja-on-a-bridge": [
+   [
+    0.2082,
+    0.7165
+   ]
+  ],
+  "on-the-moon": [
+   [
+    0.7269,
+    0.558
+   ]
+  ],
+  "painting-at-an-easel": [
+   [
+    0.6484,
+    0.7277
+   ]
+  ],
+  "pouring-coffee": [
+   [
+    0.332,
+    0.8192
+   ]
+  ],
+  "rainbow-arc-2": [
+   [
+    0.5629,
+    0.3906
+   ]
+  ],
+  "rainbow-roar": [
+   [
+    0.4482,
+    0.3705
+   ]
+  ],
+  "standing-on-the-rainbow": [
+   [
+    0.5734,
+    0.4129
+   ]
+  ],
+  "tailoring-a-suit": [
+   [
+    0.2734,
+    0.8192
+   ],
+   [
+    0.4031,
+    0.7634
+   ]
+  ],
+  "through-the-fire-hoop": [
+   [
+    0.7692,
+    0.3326
+   ],
+   [
+    0.4957,
+    0.1473
+   ]
+  ],
+  "throwing-a-pot": [
+   [
+    0.3917,
+    0.7455
+   ]
+  ],
+  "weaving": [
+   [
+    0.8369,
+    0.5156
+   ]
+  ]
+ }
+}

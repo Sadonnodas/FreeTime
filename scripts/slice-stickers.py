@@ -41,6 +41,7 @@ art/contact-<sheet>.png for naming them afterwards.
 
 from __future__ import annotations
 
+import json
 import sys
 from collections import deque
 from pathlib import Path
@@ -51,6 +52,11 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "static" / "dino"
 CONTACT = ROOT / "art"
+
+# The names and the background holes, kept beside the sheets so re-running this
+# reproduces exactly what is in static/dino rather than something that has to be
+# renamed and retouched by hand afterwards.
+CATALOGUE = ROOT / "art" / "stickers.json"
 
 # How far a pixel must sit from the paper colour to count as ink. Low, because
 # the drawings have pale washes - a grey shadow, a near-white sky - that must
@@ -244,6 +250,52 @@ def cut_out(sheet: Image.Image, paper: np.ndarray, blob: dict, ids: np.ndarray,
     return art.crop(bounds) if bounds else None
 
 
+def punch_holes(art: Image.Image, seeds: list[list[float]]) -> Image.Image:
+    """Make listed background regions transparent.
+
+    THIS LIST IS CURATED BY HAND AND HAS TO BE. A gap of paper enclosed by the
+    artwork - inside the loop of the soldering iron's cable, between a dinosaur
+    and the loom it is standing at - is the same white as a drawn one: the
+    chef's jacket, the astronaut's suit, the canvas on the easel. Every rule
+    that might separate them was measured and none does. On the sheet both sit
+    at (244,245,239); after upscaling both read (251,251,247). Distance from the
+    outside overlaps completely, 13-41 dilations for background against 7-41 for
+    drawn. Connectivity fails too, because these gaps are sealed by the
+    sticker's white keyline and are as enclosed as any painted shape.
+
+    So each seed is a point somebody looked at and judged, stored in normalised
+    coordinates so it survives a change of resolution. Flooding from the point
+    means the exact region boundary is still computed rather than stored.
+    """
+    a = np.array(art.convert("RGBA"))
+    h, w = a.shape[:2]
+    opaque = a[:, :, 3] > 128
+    # 232 rather than the 238 the seeds were picked at: they were chosen on the
+    # upscaled art, which is cleaner and more contrasty than what comes off the
+    # sheet, so a point that is plainly white there can be a shade under it here.
+    white = opaque & (a[:, :, :3].min(axis=2) >= 232)
+
+    ys, xs = np.nonzero(white)
+    for sx, sy in seeds:
+        x, y = min(w - 1, int(sx * w)), min(h - 1, int(sy * h))
+        if not white[y, x]:
+            # Snap to the nearest white pixel, but only just: a seed that has to
+            # travel is a seed pointing at art that has moved, and silently
+            # flooding whatever is closest would erase the wrong thing.
+            if len(ys) == 0:
+                continue
+            d = (ys - y) ** 2 + (xs - x) ** 2
+            i = int(d.argmin())
+            limit = max(4, round(min(h, w) * 0.03))
+            if d[i] > limit ** 2:
+                print(f"    ! seed ({sx}, {sy}) is not on a white region any more")
+                continue
+            y, x = int(ys[i]), int(xs[i])
+        a[:, :, 3][flood([(y, x)], white)] = 0
+
+    return Image.fromarray(a)
+
+
 def slice_sheet(path: Path) -> list[Path]:
     sheet = Image.open(path).convert("RGB")
     rgb = np.array(sheet)
@@ -269,8 +321,12 @@ def slice_sheet(path: Path) -> list[Path]:
     OUT.mkdir(parents=True, exist_ok=True)
     CONTACT.mkdir(parents=True, exist_ok=True)
     stem = path.stem.lower().replace(" ", "-")
+    catalogue = json.loads(CATALOGUE.read_text()) if CATALOGUE.exists() else {}
+    slugs = catalogue.get("sheets", {}).get(stem, [])
+    holes = catalogue.get("holes", {})
     written: list[Path] = []
     tiles: list[Image.Image] = []
+    found = 0
 
     for blob in stickers:
         top, left, bottom, right = blob["box"]
@@ -284,6 +340,22 @@ def slice_sheet(path: Path) -> list[Path]:
         art = cut_out(sheet, paper, blob, ids, box)
         if art is None:
             continue
+        found += 1
+
+        # Named from the catalogue when there is one, so the output is the final
+        # filename rather than something to be renamed by hand afterwards. A
+        # null entry is a sticker deliberately dropped - a duplicate, or the one
+        # that turned out to be a globe with no dinosaur in it.
+        if slugs:
+            if found > len(slugs):
+                print(f"    ! sticker {found} is past the end of the catalogue")
+                continue
+            slug = slugs[found - 1]
+            if slug is None:
+                continue
+            art = punch_holes(art, holes.get(slug, []))
+        else:
+            slug = f"{stem}-{found:02d}"
 
         # Never enlarge. These sheets are phone screenshots, so a sticker is
         # around 230px tall; stretching that to 360 buys nothing but soft edges
@@ -292,7 +364,7 @@ def slice_sheet(path: Path) -> list[Path]:
             scale = TARGET_H / art.height
             art = art.resize((max(1, round(art.width * scale)), TARGET_H), Image.LANCZOS)
 
-        dest = OUT / f"{stem}-{len(written) + 1:02d}.webp"
+        dest = OUT / f"{slug}.webp"
         art.save(dest, "WEBP", quality=82, method=6)
         written.append(dest)
         tiles.append(art)

@@ -335,9 +335,18 @@ To redo them from new sheets:
 python3 scripts/slice-stickers.py art/sheets/*
 ```
 
-That writes `static/dino/<sheet>-NN.webp` plus a contact sheet per page in
-`art/`, for naming them. The names in `stickers.ts` are curated by hand
-afterwards; `src/lib/stickers.test.ts` fails if the two ever disagree.
+`art/stickers.json` holds the finished names per sheet (a `null` entry is a
+sticker deliberately dropped) and the list of background holes to make
+transparent, so the command above reproduces `static/dino/` exactly rather than
+producing something to rename and retouch afterwards.
+`src/lib/stickers.test.ts` fails if the names and the files ever disagree.
+
+The holes are curated by hand and have to be: a gap of paper enclosed by the
+artwork is the same white as a drawn one — the chef's jacket, the canvas on the
+easel — and colour, connectivity and distance-to-the-outside were all measured
+and all overlap. Each entry is a normalised point inside a region judged by eye.
+
+After re-slicing, re-run the upscale (below) before the stickers go in the app.
 
 The sheets are phone screenshots, so a sticker arrives about 200px tall while a
 cover on a 3x phone wants roughly 450. They were sharpened with **Real-ESRGAN's

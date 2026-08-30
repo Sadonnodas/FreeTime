@@ -531,6 +531,21 @@ one came close to a hard rule, the reasoning is recorded here.
   screen mid-sentence takes the conversation away from under you. The assistant's mic
   transcribes into the input box and does NOT send — you read the words first.
 
+- **Which leftover white is background CANNOT be decided automatically, and the list
+  is curated by hand** (`art/stickers.json` → `holes`,
+  [slice-stickers.py](scripts/slice-stickers.py) `punch_holes`). A gap of paper
+  enclosed by the artwork — inside the loop of the soldering iron's cable, between a
+  dinosaur and its loom — is *the same white* as a drawn one: the chef's jacket, the
+  astronaut's suit, the canvas on the easel. Every separating rule was measured and
+  all of them failed. Colour: both are (244,245,239) on the sheet and (251,251,247)
+  after upscaling. Distance to the outside: 13–41 dilations for background against
+  7–41 for drawn, fully overlapping. Connectivity: these gaps are sealed by the
+  sticker's own white keyline, so they are as enclosed as any painted shape. **Do not
+  spend another afternoon looking for the rule.** Each hole is a normalised point
+  somebody looked at and judged; the flood still computes the region, so the points
+  survive a change of resolution, and a point that no longer lands on white prints a
+  warning rather than silently doing nothing.
+
 - **The two levels are Eras and Projects, in the UI only.** Toon's own words: Music,
   Crafting and Family are categories, and the actual projects (Mixing, building an
   SPD pad, Gardening) live inside them. The app already had that shape — it just
