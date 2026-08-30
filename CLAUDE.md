@@ -388,6 +388,12 @@ one came close to a hard rule, the reasoning is recorded here.
   It shows on the assistant's empty screen only: once a conversation is going, a big red
   button in the middle of it is a different app. Distinct from the assistant's microphone,
   which transcribes into the input for you to read before anything is sent.
+- **The dinosaur gets a line under the button**, rotating independently of the scene so
+  the pairing is fresh each open (`QUIPS` in freeTimeScenes.ts). **The house rule is that
+  the jokes are about the dinosaur, never about you** — "you should get on with it" is a
+  nag with a joke stapled to it, and this is specifically the app that does not do that.
+  Several of them give explicit permission to do nothing, because that is a real answer
+  to "free time?".
 - **The Free Time button rotates through scenes** ([freeTimeScenes.ts](src/lib/freeTimeScenes.ts)).
   A different gradient and a different little scene each open — the dinosaur with a ball,
   in a river, under stars, with a guitar. **The division of labour is the lesson from the

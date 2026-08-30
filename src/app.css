@@ -70,6 +70,13 @@
   /* Text sitting ON the accent, e.g. the Add button. */
   --color-on-accent: #1a1206;
 
+  /* The sun and the moon on the theme slider. They keep their own colours in
+     both themes — see ThemePicker — but a silver moon is invisible against a
+     near-white page, so the moon darkens in light mode while staying cool, and
+     the sun deepens so it does not glare off the paper. */
+  --color-sun: #ffb020;
+  --color-moon: #cfd8e8;
+
   /* -apple-system resolves to SF Pro on Apple devices, which is most of the
      Apple feel for free. The rest is a sensible fallback chain. */
   --font-sans:
@@ -119,6 +126,9 @@
        and the drop shadow softens to something a printed card would cast. */
     --card-highlight: transparent;
     --card-shadow: rgba(20, 18, 26, 0.09);
+
+    --color-sun: #c47f00;
+    --color-moon: #5b6b87;
   }
 }
 
@@ -145,6 +155,9 @@
 
   --card-highlight: transparent;
   --card-shadow: rgba(20, 18, 26, 0.09);
+
+  --color-sun: #c47f00;
+  --color-moon: #5b6b87;
 }
 
 /*

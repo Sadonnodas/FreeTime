@@ -303,3 +303,73 @@ export function pickScene(): Scene {
   }
   return scene;
 }
+
+/**
+ * Things the dinosaur says under the button.
+ *
+ * The house rule for these, and it is the same one the empty states follow:
+ * they are about the dinosaur, never about you. "You should get on with it" is
+ * a nag with a joke stapled to it, and this app is specifically the one that
+ * does not do that. Several of them actively give you permission to do nothing,
+ * because that is a real answer to "free time?".
+ */
+export const QUIPS = [
+  'Stick your neck out. That is where the best leaves are.',
+  'Go on, put your teeth into something.',
+  'Or don’t. Standing around looking prehistoric is also valid.',
+  'Long neck, long view.',
+  'Somewhere out there is a very good leaf.',
+  'Leaf it for later. Or don’t.',
+  'A neck this long is wasted on low branches.',
+  'Head in the canopy, feet in the mud.',
+  'One stomp at a time.',
+  'Big feet. Small steps.',
+  'Chew it over. Then chew something else.',
+  'You do not need a big brain for a good afternoon.',
+  'Slow is fine. I am built for slow.',
+  'The tail end of the day still counts.',
+  'Reach higher. You were built for it.',
+  'Wander off. That is how the good fossils got found.',
+  'Nothing ventured, nothing hatched.',
+  'Be the thunder in thunder lizard.',
+  'One good afternoon beats a long extinction.',
+  'Rome was not built in a day. Neither was the Jurassic.',
+  'Trample something. Gently.',
+  'Four legs, one afternoon.',
+  'Graze widely.',
+  'The good branches are always a little further up.',
+  'Stretch. It is what the neck is for.',
+  'Time flies. So did the pterosaurs.',
+  'Make a bit of history. Or a nap.',
+  'A hundred million years of practice and still winging it.',
+  'Low branches are for amateurs.',
+  'The canopy is not going to eat itself.',
+  'Some days you move mountains. Some days you are the hill.',
+  'Everything worth reaching is slightly out of reach. By design.',
+  'No thumbs, no problem.',
+  'Take the long way. Look at these legs.',
+  'Big enough to matter, slow enough to enjoy it.'
+];
+
+const QUIP_KEY = 'freetime.lastQuip';
+
+/** Same no-repeats rule as the scenes, and picked independently — so the
+ *  scene and the line it comes with are a fresh pairing each open. */
+export function pickQuip(): string {
+  let last: string | null = null;
+  try {
+    last = browser ? localStorage.getItem(QUIP_KEY) : null;
+  } catch {
+    /* ignored */
+  }
+
+  const pool = QUIPS.filter((q) => q !== last);
+  const quip = pool[Math.floor(Math.random() * pool.length)] ?? QUIPS[0]!;
+
+  try {
+    if (browser) localStorage.setItem(QUIP_KEY, quip);
+  } catch {
+    /* ignored */
+  }
+  return quip;
+}

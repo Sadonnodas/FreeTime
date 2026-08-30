@@ -16,7 +16,7 @@
   import { onMount } from 'svelte';
   import FreeTime from '$lib/components/FreeTime.svelte';
   import Dino from '$lib/components/Dino.svelte';
-  import { pickScene } from '$lib/freeTimeScenes';
+  import { pickScene, pickQuip } from '$lib/freeTimeScenes';
 
   /**
    * Dexie's liveQuery re-runs its callback whenever any table it touched
@@ -57,6 +57,7 @@
    * change identity while being looked at.
    */
   const scene = pickScene();
+  const quip = pickQuip();
 
   let showClose = $state(false);
   let unlockAvailable = $state(false);
@@ -205,6 +206,13 @@
           {/if}
         </button>
       </div>
+      <!-- The dinosaur gets a line. Below the circle rather than inside it: the
+           button has to stay one clear thing to press, and there is a screen
+           full of room down here. -->
+      <p class="mx-auto mt-5 max-w-[19rem] text-center text-[14px] italic text-ink-400">
+        {quip}
+      </p>
+
       <button
         class="press mt-4 w-full text-center text-[13px] text-ink-400"
         onclick={() => (picking = true)}

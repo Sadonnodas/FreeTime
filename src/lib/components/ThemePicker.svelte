@@ -7,12 +7,18 @@
    * A road with the sun at one end and the moon at the other, and the dinosaur
    * walking between them. Tap an end, or drag the dinosaur across.
    *
-   * THE SUN IS ALWAYS GOLD AND THE MOON IS ALWAYS SILVER. They were coloured by
-   * which one was selected — accent for on, grey for off — which meant that in
-   * dark mode the moon glowed gold and the sun sat there silver. Reported as
-   * confusing, and rightly: these two things have colours of their own, and
-   * borrowing them to mean "selected" fights what they are. Selection is shown
-   * by brightness and by where the dinosaur is standing instead.
+   * THE SUN IS GOLD AND THE MOON IS SILVER, in both themes.
+   *
+   * They were originally coloured by which one was selected — accent for on,
+   * grey for off — so in dark mode the moon glowed gold while the sun sat there
+   * in silver. These two things have colours of their own, and borrowing them
+   * to mean "selected" fights what they are. Selection is brightness and the
+   * dinosaur's position instead.
+   *
+   * The exact shades are tokens rather than literals, because a silver moon is
+   * invisible against a near-white page. In light mode it darkens while staying
+   * cool, and the sun deepens so it does not glare off the paper. Both problems
+   * were spotted on a real screen, not in the palette.
    */
   let choice = $state<ThemeChoice>(getTheme());
   let showing = $state<'light' | 'dark'>(resolved());
@@ -107,7 +113,7 @@
   <!-- Gold and silver, always. Dimmed when the dinosaur is at the other end. -->
   <span
     class="pointer-events-none absolute left-4 transition-opacity duration-300"
-    style="color: #ffb020; opacity: {showing === 'light' ? 1 : 0.34}"
+    style="color: var(--color-sun); opacity: {showing === 'light' ? 1 : 0.45}"
   >
     <svg viewBox="0 0 24 24" class="h-[22px] w-[22px]" aria-hidden="true">
       <circle cx="12" cy="12" r="4.6" fill="currentColor" />
@@ -120,7 +126,7 @@
 
   <span
     class="pointer-events-none absolute right-4 transition-opacity duration-300"
-    style="color: #cfd8e8; opacity: {showing === 'dark' ? 1 : 0.34}"
+    style="color: var(--color-moon); opacity: {showing === 'dark' ? 1 : 0.45}"
   >
     <svg viewBox="0 0 24 24" class="h-[22px] w-[22px]" aria-hidden="true">
       <path d="M20.4 14.8A8.8 8.8 0 0 1 9.2 3.6a8.8 8.8 0 1 0 11.2 11.2" fill="currentColor" />
