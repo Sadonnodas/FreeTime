@@ -3,7 +3,7 @@ import { base } from "$app/paths";
 /**
  * The dinosaurs.
  *
- * Fifty-five of them, cut out of the sticker sheets Toon drew up (see
+ * Fifty-two of them, cut out of the sticker sheets Toon drew up (see
  * scripts/slice-stickers.py, which did the cutting). They are the second kind
  * of dinosaur in the app and they do a different job from the first: Dino.svelte
  * is one animal, in line art, that recolours with the theme and stands in for
@@ -17,7 +17,7 @@ import { base } from "$app/paths";
  * handles flat cartoon art well — but a traced sticker is 450KB-1MB of SVG
  * because it chases every gradient in the shading, which is 25MB for the set.
  *
- * THEY ARE PRECACHED, all 55, about 2.5MB on top of a 1.1MB app. That is a
+ * THEY ARE PRECACHED, all 52, about 2.3MB on top of a 1.1MB app. That is a
  * large fraction of the whole download for a set where eight might ever get
  * used, and it is still the right trade: this app is offline by default, a
  * cover is the largest thing on the Projects screen, and one that renders
@@ -55,7 +55,6 @@ export const STICKERS: Sticker[] = [
   { id: "knitting-a-scarf", label: "knitting a scarf" },
   { id: "leaping-the-rooftops", label: "leaping the rooftops" },
   { id: "model-railway", label: "model railway" },
-  { id: "ninja-on-a-bridge", label: "ninja on a bridge" },
   { id: "on-the-keytar", label: "on the keytar" },
   { id: "on-the-moon", label: "on the moon" },
   { id: "orange-and-upright", label: "orange and upright" },
@@ -66,7 +65,6 @@ export const STICKERS: Sticker[] = [
   { id: "pouring-coffee", label: "pouring coffee" },
   { id: "puzzle-pieces", label: "puzzle pieces" },
   { id: "rainbow-arc", label: "rainbow arc" },
-  { id: "rainbow-arc-2", label: "rainbow arc" },
   { id: "rainbow-contrail", label: "rainbow contrail" },
   { id: "rainbow-roar", label: "rainbow roar" },
   { id: "rainbow-skate-ramp", label: "rainbow skate ramp" },
@@ -84,7 +82,6 @@ export const STICKERS: Sticker[] = [
   { id: "surfing", label: "surfing" },
   { id: "tailoring-a-suit", label: "tailoring a suit" },
   { id: "tall-and-pleased", label: "tall and pleased" },
-  { id: "through-the-fire-hoop", label: "through the fire hoop" },
   { id: "throwing-a-pot", label: "throwing a pot" },
   { id: "unearthing-eggs", label: "unearthing eggs" },
   { id: "weaving", label: "weaving" },
@@ -105,6 +102,15 @@ const BY_ID = new Map(STICKERS.map((s) => [s.id, s]));
 const PREFIX = "dino:";
 
 export const stickerRef = (id: string) => `${PREFIX}${id}`;
+
+/** Whether an image field names a sticker at all, known or not.
+ *
+ *  Needed because a sticker can be retired — one turned out to be a soft
+ *  duplicate, another just did not work — while a project on another device is
+ *  still pointing at it. Without this the cover fell through to the "it must be
+ *  a photo" branch and rendered <img src="dino:through-the-fire-hoop">, which
+ *  draws as a broken image rather than as the project it belongs to. */
+export const isStickerRef = (image?: string) => !!image?.startsWith(PREFIX);
 
 /** The sticker an image field refers to, or null if it is a real picture. */
 export function stickerFrom(image?: string): Sticker | null {

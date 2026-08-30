@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { stickerFrom, stickerUrl } from '$lib/stickers';
+  import { stickerFrom, stickerUrl, isStickerRef } from '$lib/stickers';
 
   /**
    * A project's picture: a chosen dinosaur, a photo, or neither.
@@ -35,6 +35,8 @@
   } = $props();
 
   const sticker = $derived(stickerFrom(image));
+  // A dino: reference we cannot resolve is a retired sticker, not a photo.
+  const photo = $derived(isStickerRef(image) ? undefined : image);
 
   function hue(text: string): number {
     let h = 0;
@@ -57,8 +59,8 @@
       class="h-full w-full object-contain"
     />
   </div>
-{:else if image}
-  <img src={image} alt="" class="absolute inset-0 h-full w-full object-cover" />
+{:else if photo}
+  <img src={photo} alt="" class="absolute inset-0 h-full w-full object-cover" />
 {:else}
   <div
     class="absolute inset-0 flex items-center justify-center"

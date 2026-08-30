@@ -531,6 +531,16 @@ one came close to a hard rule, the reasoning is recorded here.
   screen mid-sentence takes the conversation away from under you. The assistant's mic
   transcribes into the input box and does NOT send — you read the words first.
 
+- **A retired sticker must not render as a broken image.** Three were taken out
+  after the fact — a soft JPEG duplicate of the rainbow arc, and two that simply did
+  not read as dinosaurs (`through-the-fire-hoop`, `ninja-on-a-bridge`, which looks
+  like a ninja with a dinosaur standing behind him). A project on another device can
+  still be pointing at one. `ProjectCover` used to test `{#if sticker}{:else if
+  image}`, so an unresolvable `dino:` reference fell through to the "it must be a
+  photo" branch and rendered `<img src="dino:through-the-fire-hoop">` — a broken
+  image where the project's own colour should be. `isStickerRef` separates the two
+  cases; pinned by a test, because retiring another one is likely.
+
 - **The white die-cut border is stripped, and the feather is the point**
   ([slice-stickers.py](scripts/slice-stickers.py) `strip_keyline`). Unlike the
   enclosed gaps, this one IS decidable: the border is the white that touches the

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { STICKERS, stickerFrom, stickerRef, stickerFor } from './stickers';
+import { STICKERS, stickerFrom, stickerRef, stickerFor, isStickerRef } from './stickers';
 
 /**
  * The registry and the files have to agree, and nothing at runtime would say
@@ -40,8 +40,27 @@ describe('stickers', () => {
   });
 
   it('ignores an id that no longer exists rather than throwing', () => {
-    // A cover chosen on a newer build, synced to an older one.
+    // A cover chosen on a newer build, synced to an older one — or a sticker
+    // that has since been retired, which has happened three times now.
     expect(stickerFrom('dino:tap-dancing')).toBeNull();
+  });
+
+  it('still knows a retired reference is a sticker and not a photo', () => {
+    // ProjectCover leans on this. Without it a cover pointing at a retired
+    // sticker falls through to the photo branch and renders
+    // <img src="dino:through-the-fire-hoop"> — a broken image where the
+    // project's own colour should be.
+    expect(isStickerRef('dino:through-the-fire-hoop')).toBe(true);
+    expect(isStickerRef('dino:ninja-on-a-bridge')).toBe(true);
+    expect(isStickerRef('data:image/webp;base64,AAAA')).toBe(false);
+    expect(isStickerRef(undefined)).toBe(false);
+  });
+
+  it('has retired the stickers that were taken out', () => {
+    const ids = new Set(STICKERS.map((s) => s.id));
+    for (const gone of ['rainbow-arc-2', 'through-the-fire-hoop', 'ninja-on-a-bridge']) {
+      expect(ids.has(gone)).toBe(false);
+    }
   });
 
   it('gives the same name the same dinosaur every time', () => {

@@ -4,7 +4,7 @@
    "snowboarding",
    "on-the-moon",
    "behind-the-decks",
-   "ninja-on-a-bridge",
+   null,
    "leaping-the-rooftops",
    "over-the-canyon",
    "pirate-treasure",
@@ -24,7 +24,7 @@
    "digging-up-fossils",
    "board-game-night",
    "reading",
-   "through-the-fire-hoop",
+   null,
    "at-the-telescope",
    "at-the-typewriter",
    "just-standing-there",
@@ -65,7 +65,7 @@
    "a-wave-of-water"
   ],
   "img_8790": [
-   "rainbow-arc-2"
+   null
   ]
  },
  "holes": {
@@ -97,12 +97,6 @@
     0.2746
    ]
   ],
-  "ninja-on-a-bridge": [
-   [
-    0.2082,
-    0.7165
-   ]
-  ],
   "on-the-moon": [
    [
     0.7269,
@@ -119,12 +113,6 @@
    [
     0.332,
     0.8192
-   ]
-  ],
-  "rainbow-arc-2": [
-   [
-    0.5629,
-    0.3906
    ]
   ],
   "rainbow-roar": [
@@ -147,16 +135,6 @@
    [
     0.4031,
     0.7634
-   ]
-  ],
-  "through-the-fire-hoop": [
-   [
-    0.7692,
-    0.3326
-   ],
-   [
-    0.4957,
-    0.1473
    ]
   ],
   "throwing-a-pot": [
