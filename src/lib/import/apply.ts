@@ -111,7 +111,7 @@ export async function applyImport(
     } else if (target === 'buy') {
       await createBuyItem(c.title, { url: c.url, priceCents: c.priceCents, projectId });
     } else if (target === 'idea') {
-      await createIdea(c.title, projectId);
+      await createIdea(c.title, { projectId });
     } else {
       const listId = opts.listId ?? (await createList('Imported'));
       await addListItem(listId, c.title, c.url);

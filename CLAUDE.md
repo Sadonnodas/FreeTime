@@ -288,6 +288,24 @@ one came close to a hard rule, the reasoning is recorded here.
   ink-950 exactly or the app opens with a flash of the wrong black. **iOS bakes the icon
   in at install time** — changing it does nothing for an already-installed home-screen app
   until it is removed and re-added.
+- **Brain is four kinds, not six** ([brain/+page.svelte](src/routes/brain/+page.svelte),
+  [migrate.ts](src/lib/migrate.ts)). Inbox and Lists both folded into Ideas, because all
+  three were the same shape — a thought with no action attached. An unfiled capture is
+  one you have not decided about; "read Sapiens" is one you never will. `capture()` now
+  writes an unfiled Idea, so triage is one button ("Make a to-do") instead of two, and
+  `Idea.group` carries the old list name as a chip row. `Idea.doneAt` replaces the list
+  item's 'done' state and keeps feeding the wins feed. Groups are DERIVED from the ideas,
+  so a collection nobody fills stops existing — the old Lists tab accumulated empty lists
+  that had to be tidied by hand.
+  **The migration reuses each source row's id**, which is the whole trick: it runs
+  independently on every device, and minting fresh uuids is exactly what duplicated the
+  seeded projects. Same id on both devices means sync merges rather than stacks, and
+  running it twice is a no-op. Asserted in [migrate.test.ts](src/lib/migrate.test.ts).
+  `?section=inbox` and `?section=lists` still resolve, to Ideas.
+- **Buy items have a "needed" star, not a priority.** Toon asked for priority; the spec
+  bans it. A scale is a second axis to maintain and feel bad about and it always rots,
+  so this is binary: on or off, floats to the top, and never setting it costs nothing.
+  If a priority scale is ever asked for again, this is the argument to make first.
 - **Buy items carry a price, a shop and a project** ([BuyList.svelte](src/lib/components/BuyList.svelte)).
   All three fields existed in `BuyItem` from the start and nothing could enter them. One
   component now serves both Brain and a project's Buy tab so they cannot drift.

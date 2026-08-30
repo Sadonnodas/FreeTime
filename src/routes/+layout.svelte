@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import { onMount } from 'svelte';
   import { openStore as openLocalStore } from '$lib/boot';
+  import { migrateToFourKinds, needsMigration } from '$lib/migrate';
   import { base } from '$app/paths';
   import { onDestroy } from 'svelte';
   import { handleRedirect, renewIfSafe } from '$lib/google/auth';
@@ -107,6 +108,16 @@
       return;
     }
     ready = true;
+
+    // Folds any leftover inbox captures and list items into Ideas. Runs on
+    // every boot rather than once, because a device that has been away will
+    // pull down un-migrated rows from another one; it reuses the source ids, so
+    // running it everywhere converges instead of duplicating. See migrate.ts.
+    try {
+      if (await needsMigration()) await migrateToFourKinds();
+    } catch {
+      /* nothing here is worth failing a boot over */
+    }
 
     // App start is one of the two safe moments to bounce through Google for a
     // fresh token — nothing is half-typed yet. If this redirects, everything

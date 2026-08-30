@@ -1,5 +1,5 @@
 import { db } from './db';
-import type { Project, Todo, ListItem } from './types';
+import type { Project, Todo } from './types';
 import { today } from './store';
 
 /**
@@ -120,24 +120,35 @@ export interface Win {
  * did for other reasons.
  */
 export async function winsSince(sinceIso: string): Promise<Win[]> {
-  const [todos, listItems] = await Promise.all([
-    db.todos.toArray(),
-    db.listItems.toArray()
-  ]);
+  const [todos, ideas] = await Promise.all([db.todos.toArray(), db.ideas.toArray()]);
 
   const fromTodos: Win[] = todos
     .filter(notDeleted)
     .filter((t) => !!t.completedAt && t.completedAt >= sinceIso)
     .map((t) => ({ id: t.id, text: t.title, at: t.completedAt!, projectId: t.projectId }));
 
-  // Finishing a book counts. ListItems use updatedAt as the completion time
-  // because 'done' is a state, not a timestamp.
-  const fromLists: Win[] = listItems
+  // Finishing a book counts, and always has — this used to come from a list
+  // item reaching 'done'. Ideas carry a real timestamp now rather than a state,
+  // so the win has an actual moment attached to it.
+  const fromIdeas: Win[] = ideas
     .filter(notDeleted)
-    .filter((li: ListItem) => li.state === 'done' && li.updatedAt >= sinceIso)
-    .map((li) => ({ id: li.id, text: li.text, at: li.updatedAt }));
+    .filter((i) => !!i.doneAt && i.doneAt >= sinceIso)
+    .map((i) => ({ id: i.id, text: i.text, at: i.doneAt!, projectId: i.projectId }));
 
-  return [...fromTodos, ...fromLists].sort((a, b) => b.at.localeCompare(a.at));
+  return [...fromTodos, ...fromIdeas].sort((a, b) => b.at.localeCompare(a.at));
+}
+
+/**
+ * The named collections in use, derived from the ideas themselves rather than
+ * stored. A collection nobody has put anything in stops existing, which is the
+ * right outcome: the old Lists tab could accumulate empty lists that had to be
+ * tidied up by hand.
+ */
+export async function ideaGroups(): Promise<string[]> {
+  const all = await db.ideas.toArray();
+  const names = new Set<string>();
+  for (const i of all) if (!i.deletedAt && i.group) names.add(i.group);
+  return [...names].sort((a, b) => a.localeCompare(b));
 }
 
 export function startOfWeekIso(d: Date = new Date()): string {

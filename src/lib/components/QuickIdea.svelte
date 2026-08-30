@@ -26,7 +26,7 @@
   async function save() {
     const value = text.trim();
     if (!value) return;
-    await createIdea(value, projectId);
+    await createIdea(value, { projectId });
     onDone();
   }
 

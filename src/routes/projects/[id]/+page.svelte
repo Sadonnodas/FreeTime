@@ -139,6 +139,7 @@
     (($buyQ as BuyItem[] | undefined) ?? []).sort(
       (a, b) =>
         (a.purchasedAt ? 1 : 0) - (b.purchasedAt ? 1 : 0) ||
+        (b.needed ? 1 : 0) - (a.needed ? 1 : 0) ||
         b.createdAt.localeCompare(a.createdAt)
     )
   );

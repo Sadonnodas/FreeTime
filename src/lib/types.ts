@@ -61,11 +61,32 @@ export interface Todo extends Base {
   completedAt?: string;
 }
 
-/** A thought with no action attached. Promoting keeps a backlink. (spec 3.3) */
+/**
+ * A thought with no action attached. Promoting keeps a backlink. (spec 3.3)
+ *
+ * Ideas absorbed two things that used to have their own tabs, because both
+ * turned out to be the same shape:
+ *
+ *  - THE INBOX. Anything typed or spoken into the capture box lands here with
+ *    no group. An unfiled capture IS a thought you have not decided about yet,
+ *    which is the definition of an idea, and keeping them apart meant sorting
+ *    had two buttons where one would do.
+ *  - LISTS. "Read Sapiens" is a want, not a task — the reason the spec kept
+ *    lists away from to-dos — but it is a thought with no action attached, so
+ *    Ideas was already the right home. `group` is the old list's name.
+ */
 export interface Idea extends Base {
   text: string;
   projectId?: string;
   promotedToTodoId?: string;
+  /** A named collection — Books, Albums, Lyrics. Undefined means unfiled. */
+  group?: string;
+  /**
+   * Finished with. Books get read, albums get listened to; a want can be
+   * completed without ever having been a task. Counts as a win (spec 6), which
+   * is what the old ListItem 'done' state did.
+   */
+  doneAt?: string;
 }
 
 export interface BuyItem extends Base {
@@ -75,6 +96,15 @@ export interface BuyItem extends Base {
   currency?: string;
   projectId?: string;
   purchasedAt?: string;
+  /**
+   * Needed soon, as opposed to eventually.
+   *
+   * Deliberately a flag and not a priority. The spec bans priority fields
+   * because a scale is a second axis you have to maintain and feel bad about,
+   * and it always rots. A star cannot become a ranking exercise: it is on or
+   * off, it sorts to the top, and forgetting to set it costs nothing.
+   */
+  needed?: boolean;
 }
 
 export interface List extends Base {
@@ -86,6 +116,7 @@ export interface List extends Base {
  * Structurally separate from Todo and never shown on Today. A book you want to
  * read is a want, not a task — surfacing it as a task turns it into a debt.
  */
+/** @deprecated Lists folded into Ideas; kept so old rows can be migrated. */
 export type ListItemState = 'want' | 'doing' | 'done';
 
 export interface ListItem extends Base {

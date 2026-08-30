@@ -1,6 +1,6 @@
 import { db } from '../db';
 import {
-  createTodo, createIdea, createBuyItem, createList, addListItem,
+  createTodo, createIdea, createBuyItem,
   createProject, completeTodo, toggleHabitLog, today, createHabit,
   getNote, saveNote
 } from '../store';
@@ -26,8 +26,8 @@ import type { Energy } from '../types';
  */
 
 export const WRITE_TOOLS = [
-  'create_todo', 'create_idea', 'create_buy_item', 'add_list_item',
-  'create_list', 'create_project', 'complete_todo', 'log_habit',
+  'create_todo', 'create_idea', 'create_buy_item',
+  'create_project', 'complete_todo', 'log_habit',
   'create_habit', 'append_note'
 ] as const;
 
@@ -70,10 +70,16 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: 'create_idea',
-    description: 'Record a thought with no action attached to it.',
+    description:
+      'Record a thought with no action attached to it — including a want, like a ' +
+      'book to read or an album to hear, which is not a task.',
     parameters: {
       type: 'object',
-      properties: { text: str('The thought.'), projectId: str('Optional.') },
+      properties: {
+        text: str('The thought.'),
+        projectId: str('Optional.'),
+        group: str('Optional named collection, e.g. Books. Reuse an existing name.')
+      },
       required: ['text']
     }
   },
@@ -88,24 +94,6 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
         priceCents: { type: 'integer', description: 'Optional, in cents.' },
         projectId: str('Optional.')
       },
-      required: ['name']
-    }
-  },
-  {
-    name: 'add_list_item',
-    description: 'Add to an existing list, e.g. books or albums.',
-    parameters: {
-      type: 'object',
-      properties: { listId: str('Id of the list.'), text: str('The entry.'), url: str('Optional.') },
-      required: ['listId', 'text']
-    }
-  },
-  {
-    name: 'create_list',
-    description: 'Create a new list.',
-    parameters: {
-      type: 'object',
-      properties: { name: str('List name.') },
       required: ['name']
     }
   },
@@ -189,7 +177,7 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
         kind: {
           type: 'string',
           enum: [
-            'projects', 'open_todos', 'closed_todos', 'lists', 'habits', 'buy',
+            'projects', 'open_todos', 'closed_todos', 'habits', 'buy',
             'ideas', 'memos'
           ]
         },
@@ -225,10 +213,6 @@ export async function runQuery(args: Args): Promise<unknown> {
       return (await closedTodos(projectId))
         .slice(0, 50)
         .map((t) => ({ id: t.id, title: t.title, closedAt: t.completedAt }));
-    case 'lists':
-      return (await db.lists.toArray())
-        .filter((l) => !l.deletedAt)
-        .map((l) => ({ id: l.id, name: l.name }));
     case 'habits':
       return (await db.habits.toArray())
         .filter((h) => !h.deletedAt)
@@ -241,7 +225,13 @@ export async function runQuery(args: Args): Promise<unknown> {
       return (await db.ideas.toArray())
         .filter((i) => !i.deletedAt && (projectId ? i.projectId === projectId : true))
         .slice(0, 100)
-        .map((i) => ({ id: i.id, text: i.text, project: nameFor(i.projectId) }));
+        .map((i) => ({
+          id: i.id,
+          text: i.text,
+          project: nameFor(i.projectId),
+          group: i.group,
+          done: !!i.doneAt
+        }));
     case 'memos':
       // Metadata only. The audio never goes near the model — it is the
       // artifact, not something to be summarised.
@@ -277,14 +267,12 @@ export async function describeWrite(name: WriteTool, args: Args): Promise<string
   switch (name) {
     case 'create_todo':
       return `To-do: ${s(args.title) ?? '?'}${inProject(s(args.projectId))}`;
-    case 'create_idea':
-      return `Idea: ${s(args.text) ?? '?'}`;
+    case 'create_idea': {
+      const group = s(args.group);
+      return `Idea: ${s(args.text) ?? '?'}${group ? ` (${group})` : ''}`;
+    }
     case 'create_buy_item':
       return `Buy: ${s(args.name) ?? '?'}`;
-    case 'add_list_item':
-      return `List entry: ${s(args.text) ?? '?'}`;
-    case 'create_list':
-      return `New list: ${s(args.name) ?? '?'}`;
     case 'create_project':
       return `New project: ${s(args.name) ?? '?'}`;
     case 'complete_todo': {
@@ -316,7 +304,7 @@ export async function applyWrite(name: WriteTool, args: Args): Promise<void> {
       });
       break;
     case 'create_idea':
-      await createIdea(s(args.text) ?? '', s(args.projectId));
+      await createIdea(s(args.text) ?? '', { projectId: s(args.projectId), group: s(args.group) });
       break;
     case 'create_buy_item':
       await createBuyItem(s(args.name) ?? '', {
@@ -324,12 +312,6 @@ export async function applyWrite(name: WriteTool, args: Args): Promise<void> {
         priceCents: typeof args.priceCents === 'number' ? args.priceCents : undefined,
         projectId: s(args.projectId)
       });
-      break;
-    case 'add_list_item':
-      await addListItem(s(args.listId) ?? '', s(args.text) ?? '', s(args.url));
-      break;
-    case 'create_list':
-      await createList(s(args.name) ?? '');
       break;
     case 'create_project':
       await createProject(s(args.name) ?? '');
@@ -371,8 +353,6 @@ export function navigationTarget(args: Args): { label: string; path: string } | 
       return { label: 'Brain', path: '/brain' };
     case 'memos':
       return { label: 'Recordings', path: '/brain?section=memos' };
-    case 'lists':
-      return { label: 'Lists', path: '/brain?section=lists' };
     case 'buy':
       return { label: 'the buy list', path: '/brain?section=buy' };
     case 'habits':

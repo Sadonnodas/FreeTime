@@ -128,10 +128,34 @@ export async function uncompleteTodo(id: string): Promise<void> {
 
 // ------------------------------------------------------------------- ideas
 
-export async function createIdea(text: string, projectId?: string): Promise<string> {
-  const i: Idea = stamp({ text: text.trim(), projectId });
+export async function createIdea(
+  text: string,
+  opts: { projectId?: string; group?: string } = {}
+): Promise<string> {
+  const i: Idea = stamp({ text: text.trim(), ...opts });
   await db.ideas.add(i);
   return i.id;
+}
+
+/** Move it between named collections, or out of one. */
+export async function setIdeaGroup(id: string, group?: string): Promise<void> {
+  await db.ideas.update(id, { group, updatedAt: now() });
+}
+
+/** Read, watched, listened to. A want can be finished without ever having been
+ *  a task, and finishing one is a win (spec 6). */
+export async function toggleIdeaDone(id: string, done = true): Promise<void> {
+  await db.ideas.update(id, { doneAt: done ? now() : undefined, updatedAt: now() });
+}
+
+/** Renaming a collection carries its ideas with it, so a typo fix is not a
+ *  scattering. Same contract as renaming a project's section. */
+export async function renameIdeaGroup(from: string, to: string): Promise<void> {
+  const next = to.trim();
+  if (!next || from === next) return;
+  const affected = (await db.ideas.toArray()).filter((i) => !i.deletedAt && i.group === from);
+  const at = now();
+  await Promise.all(affected.map((i) => db.ideas.update(i.id, { group: next, updatedAt: at })));
 }
 
 /** One tap, and the backlink survives so the idea is not orphaned. */
@@ -156,6 +180,11 @@ export async function createBuyItem(
 
 export async function updateBuyItem(id: string, patch: Partial<BuyItem>): Promise<void> {
   await db.buyItems.update(id, { ...patch, updatedAt: now() });
+}
+
+/** Needed soon rather than eventually. A flag, never a scale — see BuyItem. */
+export async function toggleBuyNeeded(id: string, needed = true): Promise<void> {
+  await db.buyItems.update(id, { needed: needed || undefined, updatedAt: now() });
 }
 
 export async function markPurchased(id: string, purchased = true): Promise<void> {
@@ -239,28 +268,17 @@ export async function toggleHabitLog(habitId: string, date = today()): Promise<b
 
 // ----------------------------------------------------------------- capture
 
-/** The bottom-of-screen box. No fields, no project, no confirmation. */
+/**
+ * The bottom-of-screen box. No fields, no project, no confirmation.
+ *
+ * It writes an unfiled Idea rather than its own Capture row. The two were
+ * always the same thing — a thought you have not decided about yet — and
+ * keeping them apart meant the inbox needed two sorting buttons where one
+ * ("make it a to-do") does the job. Living unfiled is still a valid resting
+ * state; it just has one fewer tab to live in.
+ */
 export async function capture(text: string): Promise<string> {
-  const c: Capture = stamp({ text: text.trim() });
-  await db.captures.add(c);
-  return c.id;
-}
-
-/** Inbox triage. Marks the capture sorted rather than removing it. */
-export async function sortCaptureToTodo(captureId: string, projectId?: string): Promise<string> {
-  const c = await db.captures.get(captureId);
-  if (!c) throw new Error(`No capture ${captureId}`);
-  const todoId = await createTodo(c.text, { projectId });
-  await db.captures.update(captureId, { sortedAt: now(), updatedAt: now() });
-  return todoId;
-}
-
-export async function sortCaptureToIdea(captureId: string, projectId?: string): Promise<string> {
-  const c = await db.captures.get(captureId);
-  if (!c) throw new Error(`No capture ${captureId}`);
-  const ideaId = await createIdea(c.text, projectId);
-  await db.captures.update(captureId, { sortedAt: now(), updatedAt: now() });
-  return ideaId;
+  return createIdea(text);
 }
 
 // ------------------------------------------------------------------- notes

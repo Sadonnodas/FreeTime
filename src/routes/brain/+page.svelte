@@ -1,12 +1,12 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
-  import type { Capture, Todo, Idea, List, BuyItem, Project, Energy, Memo } from '$lib/types';
+  import type { Todo, Idea, BuyItem, Project, Energy, Memo } from '$lib/types';
   import {
-    sortCaptureToTodo, sortCaptureToIdea, promoteIdea, createList, completeTodo,
-    createTodo, createIdea, createBuyItem
+    promoteIdea, completeTodo, createTodo, createIdea, createBuyItem,
+    setIdeaGroup, toggleIdeaDone, renameIdeaGroup
   } from '$lib/store';
-  import { activeProjects } from '$lib/queries';
+  import { activeProjects, ideaGroups } from '$lib/queries';
   import { allMemos, storageUse, mb, type StorageUse } from '$lib/memos';
   import MemoList from '$lib/components/MemoList.svelte';
   import MemoRecorder from '$lib/components/MemoRecorder.svelte';
@@ -21,23 +21,32 @@
    * The memory bank. It should feel well-stocked, never overdue — so there are
    * no counts styled as warnings, no red badges, and nothing here is late.
    */
-  type Section = 'inbox' | 'todos' | 'ideas' | 'lists' | 'buy' | 'memos';
-  const SECTIONS: Section[] = ['inbox', 'todos', 'ideas', 'memos', 'lists', 'buy'];
+  /**
+   * Four kinds, not six.
+   *
+   * Inbox and Lists both folded into Ideas, because all three were the same
+   * shape: a thought with no action attached. An unfiled capture is one you
+   * have not decided about; "read Sapiens" is one you never will. Keeping them
+   * in separate tabs meant sorting needed two buttons where one does, and it
+   * left an empty Lists tab looking like a feature you were failing to use.
+   *
+   * What is left is genuinely four different things: to do, thought, to get,
+   * said out loud.
+   */
+  type Section = 'todos' | 'ideas' | 'buy' | 'memos';
+  const SECTIONS: Section[] = ['todos', 'ideas', 'buy', 'memos'];
 
   /**
    * ?section= lets something else land you on the right tab — the assistant's
-   * "Open the buy list" link, and any bookmark. An unrecognised value falls
-   * back to the inbox rather than showing nothing.
+   * "Open the buy list" link, and any bookmark. The two retired names still
+   * resolve, so an old link lands where its contents went rather than nowhere.
    */
-  const requested = page.url.searchParams.get('section') as Section | null;
+  const RETIRED: Record<string, Section> = { inbox: 'ideas', lists: 'ideas' };
+  const requested = page.url.searchParams.get('section') ?? '';
   let section = $state<Section>(
-    requested && SECTIONS.includes(requested) ? requested : 'inbox'
-  );
-
-  const inboxQ = liveQuery(async () =>
-    (await db.captures.toArray())
-      .filter((c) => !c.deletedAt && !c.sortedAt)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    SECTIONS.includes(requested as Section)
+      ? (requested as Section)
+      : (RETIRED[requested] ?? 'todos')
   );
   const todosQ = liveQuery(async () =>
     (await db.todos.toArray()).filter((t) => !t.deletedAt)
@@ -45,10 +54,7 @@
   const ideasQ = liveQuery(async () =>
     (await db.ideas.toArray()).filter((i) => !i.deletedAt)
   );
-  const listsQ = liveQuery(async () => (await db.lists.toArray()).filter((l) => !l.deletedAt));
-  const listItemsQ = liveQuery(async () =>
-    (await db.listItems.toArray()).filter((i) => !i.deletedAt)
-  );
+  const groupsQ = liveQuery(() => ideaGroups());
   const buyQ = liveQuery(async () => (await db.buyItems.toArray()).filter((b) => !b.deletedAt));
   const projectsQ = liveQuery(() => activeProjects());
   const memosQ = liveQuery(() => allMemos());
@@ -89,9 +95,37 @@
   const projectName = (id?: string) =>
     (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === id)?.name;
 
-  async function newList() {
-    const name = prompt('List name');
-    if (name?.trim()) await createList(name);
+  /**
+   * The collection chips over Ideas — Books, Albums, Lyrics.
+   *
+   * Same mechanic as a project's sections: the chip is both the filter and the
+   * destination, so anything added while one is lit joins it. Groups are
+   * derived from the ideas themselves, so a collection nobody puts anything in
+   * simply stops existing — the old Lists tab could accumulate empty lists that
+   * had to be tidied by hand.
+   */
+  let activeGroup = $state<string | null>(null);
+  /** Distinct from "no group": null is All, '' is the unfiled ones. */
+  let unfiledOnly = $state(false);
+  let namingGroup = $state(false);
+  let newGroupName = $state('');
+
+  const groups = $derived(($groupsQ as string[] | undefined) ?? []);
+
+  function useGroup(name: string | null, unfiled = false) {
+    activeGroup = name;
+    unfiledOnly = unfiled;
+  }
+
+  function addGroup(e: SubmitEvent) {
+    e.preventDefault();
+    const name = newGroupName.trim();
+    if (!name) return;
+    newGroupName = '';
+    namingGroup = false;
+    // Nothing is created: a group is a label, so it exists as soon as the first
+    // idea carries it. Lighting it here means the next thing typed lands in it.
+    useGroup(name);
   }
 
   /**
@@ -124,8 +158,19 @@
     const text = newIdeaText.trim();
     if (!text) return;
     newIdeaText = '';
-    await createIdea(text);
+    await createIdea(text, { group: activeGroup ?? undefined });
   }
+
+  const visibleIdeas = $derived(
+    (($ideasQ as Idea[] | undefined) ?? [])
+      .filter((i) => (activeGroup ? i.group === activeGroup : true))
+      .filter((i) => (unfiledOnly ? !i.group : true))
+      // Finished wants stay — nothing here is ever deleted — but they sink.
+      .sort(
+        (a, b) =>
+          (a.doneAt ? 1 : 0) - (b.doneAt ? 1 : 0) || b.createdAt.localeCompare(a.createdAt)
+      )
+  );
 
   /** Same rule as the to-do filter above: whatever project you are looking at
    *  is where a new one lands, so filing is a side effect of where you are. */
@@ -145,6 +190,7 @@
       // Bought things stay, but they sink: the list is for what you still need.
       .sort((a, b) =>
         (a.purchasedAt ? 1 : 0) - (b.purchasedAt ? 1 : 0) ||
+        (b.needed ? 1 : 0) - (a.needed ? 1 : 0) ||
         b.createdAt.localeCompare(a.createdAt)
       )
   );
@@ -155,41 +201,16 @@
     <h1 class="large-title">Brain</h1>
   </header>
 
-  <div class="segmented no-bar mb-4 overflow-x-auto">
-    {#each [['inbox', 'Inbox'], ['todos', 'To-dos'], ['ideas', 'Ideas'], ['memos', 'Memos'], ['lists', 'Lists'], ['buy', 'Buy']] as const as [key, label]}
+  <div class="segmented mb-4">
+    {#each [['todos', 'To-dos'], ['ideas', 'Ideas'], ['buy', 'Buy'], ['memos', 'Memos']] as const as [key, label]}
       <button
-        class="press segment shrink-0 px-2 {section === key ? 'segment-on' : ''}"
+        class="press segment {section === key ? 'segment-on' : ''}"
         onclick={() => (section = key)}
       >{label}</button>
     {/each}
   </div>
 
-  {#if section === 'inbox'}
-    <!-- Leaving things unsorted is not a failure state, so this list has no
-         "clear inbox" goal and no count-down. It does say what it is, though:
-         "inbox" on its own reads like email, which implies a queue to empty. -->
-    <p class="footnote mb-3">
-      Whatever you typed or said into the box at the bottom of Today lands here,
-      unsorted. Give it a home when you feel like it — or don't.
-    </p>
-    {#each ($inboxQ as Capture[] | undefined) ?? [] as c (c.id)}
-      <div class="card rise mb-2 p-4">
-        <p class="mb-2">{c.text}</p>
-        <div class="flex gap-2">
-          <button
-            class="press tap rounded-xl bg-surface-2 px-4 text-sm text-ink-200"
-            onclick={() => sortCaptureToTodo(c.id)}>→ To-do</button
-          >
-          <button
-            class="press tap rounded-xl bg-surface-2 px-4 text-sm text-ink-200"
-            onclick={() => sortCaptureToIdea(c.id)}>→ Idea</button
-          >
-        </div>
-      </div>
-    {:else}
-      <p class="py-8 text-center text-sm text-ink-400">Nothing waiting.</p>
-    {/each}
-  {:else if section === 'todos'}
+  {#if section === 'todos'}
     <form onsubmit={addTodo} class="mb-3 flex gap-2">
       <input bind:value={newTodoText} placeholder="Add a to-do" class="field min-w-0 flex-1" />
       <button class="btn btn-primary press" disabled={!newTodoText.trim()}>Add</button>
@@ -252,24 +273,123 @@
       {/each}
     </ul>
   {:else if section === 'ideas'}
+    <!-- Collections, over one flat list. Same mechanic as a project's sections:
+         the lit chip is both the filter and where the next one lands. -->
+    <div class="no-bar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1">
+      <button
+        class="chip press shrink-0 {activeGroup === null && !unfiledOnly ? 'chip-on' : ''}"
+        onclick={() => useGroup(null)}
+      >
+        All
+      </button>
+      <button
+        class="chip press shrink-0 {unfiledOnly ? 'chip-on' : ''}"
+        onclick={() => useGroup(null, true)}
+      >
+        Unfiled
+      </button>
+      {#each groups as g (g)}
+        <button
+          class="chip press shrink-0 {activeGroup === g ? 'chip-on' : ''}"
+          onclick={() => useGroup(activeGroup === g ? null : g)}
+        >
+          {g}
+        </button>
+      {/each}
+      <button class="chip press shrink-0" onclick={() => (namingGroup = !namingGroup)}>
+        {namingGroup ? 'Cancel' : '+'}
+      </button>
+    </div>
+
+    {#if namingGroup}
+      <form onsubmit={addGroup} class="mb-3 flex gap-2">
+        <!-- svelte-ignore a11y_autofocus -->
+        <input
+          bind:value={newGroupName}
+          autofocus
+          placeholder="Books, Albums, Films…"
+          class="field min-w-0 flex-1 text-sm"
+        />
+        <button class="btn btn-secondary press shrink-0" disabled={!newGroupName.trim()}>
+          Use it
+        </button>
+      </form>
+    {/if}
+
+    {#if activeGroup}
+      {@const current = activeGroup}
+      <!-- Renaming carries the ideas with it, so fixing a typo is not a
+           scattering. Same contract as renaming a project's section. -->
+      <input
+        value={current}
+        onchange={(e) => {
+          const next = e.currentTarget.value.trim();
+          if (next && next !== current) {
+            renameIdeaGroup(current, next);
+            activeGroup = next;
+          }
+        }}
+        class="field mb-3 w-full text-sm"
+      />
+    {/if}
+
     <form onsubmit={addIdea} class="mb-3 flex gap-2">
-      <input bind:value={newIdeaText} placeholder="A thought, no action attached" class="field min-w-0 flex-1" />
+      <input
+        bind:value={newIdeaText}
+        placeholder={activeGroup ? `Add to ${activeGroup}` : 'A thought, no action attached'}
+        class="field min-w-0 flex-1"
+      />
       <button class="btn btn-primary press" disabled={!newIdeaText.trim()}>Add</button>
     </form>
 
     <ul class="space-y-1">
-      {#each ($ideasQ as Idea[] | undefined) ?? [] as i (i.id)}
+      {#each visibleIdeas as i (i.id)}
         <li class="card-flat flex items-center gap-3 px-3">
-          <span class="flex-1 py-3">{i.text}</span>
-          {#if i.promotedToTodoId}
-            <span class="text-xs text-good">→ to-do</span>
-          {:else}
+          <!-- Finishing a want is a real thing — a book gets read — and it
+               counts as a win without ever having been a task. -->
+          <button
+            class="press tap shrink-0 {i.doneAt ? 'text-good' : 'text-ink-400'}"
+            onclick={() => toggleIdeaDone(i.id, !i.doneAt)}
+            aria-label={i.doneAt ? 'Not done after all' : 'Done with it'}
+          >
+            {i.doneAt ? '✓' : '○'}
+          </button>
+
+          <div class="min-w-0 flex-1 py-3">
+            <p class={i.doneAt ? 'text-ink-400 line-through' : ''}>{i.text}</p>
+            {#if (i.group && !activeGroup) || i.promotedToTodoId}
+              <p class="footnote">
+                {[i.group && !activeGroup ? i.group : null, i.promotedToTodoId ? '→ to-do' : null]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+            {/if}
+          </div>
+
+          {#if activeGroup && i.group !== activeGroup}
             <button
-              class="press tap rounded-xl bg-surface-2 px-4 text-sm text-ink-200"
-              onclick={() => promoteIdea(i.id)}>Promote</button
+              class="press tap-h shrink-0 rounded-xl px-3 text-sm text-accent"
+              onclick={() => setIdeaGroup(i.id, activeGroup ?? undefined)}
+            >
+              File here
+            </button>
+          {:else if !i.promotedToTodoId && !i.doneAt}
+            <!-- The one sorting action left. An unfiled thought is already an
+                 idea; the only decision worth a button is "this is a task". -->
+            <button
+              class="press tap-h shrink-0 rounded-xl bg-surface-2 px-4 text-sm text-ink-200"
+              onclick={() => promoteIdea(i.id)}>Make a to-do</button
             >
           {/if}
         </li>
+      {:else}
+        <p class="py-8 text-center text-sm text-ink-400">
+          {unfiledOnly
+            ? 'Nothing unfiled. Anything you type into the box on Today lands here.'
+            : activeGroup
+              ? `Nothing in ${activeGroup} yet.`
+              : 'Nothing yet. Anything you type into the box on Today lands here.'}
+        </p>
       {/each}
     </ul>
   {:else if section === 'memos'}
@@ -321,25 +441,6 @@
         Nothing recorded yet. Hum something.
       </p>
     {/if}
-  {:else if section === 'lists'}
-    <button class="press tap mb-3 rounded-xl bg-surface-2 px-4 text-[15px] text-ink-200" onclick={newList}>
-      + New list
-    </button>
-    <ul class="space-y-1">
-      {#each ($listsQ as List[] | undefined) ?? [] as l (l.id)}
-        {@const items = (($listItemsQ as { listId: string; state: string }[] | undefined) ?? [])
-          .filter((i) => i.listId === l.id)}
-        <li>
-          <a href="{base}/brain/lists/{l.id}" class="card-flat flex items-center gap-3 px-4 py-3">
-            <span class="flex-1">{l.icon ?? '•'} {l.name}</span>
-            <span class="text-xs text-ink-400">
-              {items.filter((i) => i.state !== 'done').length} open
-            </span>
-            <span class="text-ink-400">›</span>
-          </a>
-        </li>
-      {/each}
-    </ul>
   {:else}
     <form onsubmit={addBuy} class="mb-3 flex gap-2">
       <input

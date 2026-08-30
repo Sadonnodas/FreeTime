@@ -1,8 +1,8 @@
 import { db } from '../db';
 import {
-  createTodo, createIdea, createBuyItem, createList, addListItem, capture, uid, now
+  createTodo, createIdea, createBuyItem, capture, uid, now
 } from '../store';
-import { activeProjects } from '../queries';
+import { activeProjects, ideaGroups } from '../queries';
 import type { ExtractedItem } from './extract';
 import type { QueuedAudio } from '../types';
 import { extractFromAudio } from './extract';
@@ -26,15 +26,14 @@ async function resolveProjectId(name?: string): Promise<string | undefined> {
   return projects.find((p) => p.name.toLowerCase() === wanted)?.id;
 }
 
-async function resolveListId(name?: string): Promise<string | undefined> {
+async function resolveGroup(name?: string): Promise<string | undefined> {
   if (!name?.trim()) return undefined;
   const wanted = name.trim().toLowerCase();
-  const lists = (await db.lists.toArray()).filter((l) => !l.deletedAt);
-  const found = lists.find((l) => l.name.toLowerCase() === wanted);
-  if (found) return found.id;
-  // A named collection that does not exist yet is a reasonable thing to create
-  // — spec principle 4 says a new list is one tap and one field.
-  return createList(name.trim());
+  // Match an existing collection case-insensitively so "books" and "Books" do
+  // not become two. A name nobody has used yet simply becomes one, since a
+  // group is just a label on an idea now — nothing has to be created first.
+  const groups = await ideaGroups();
+  return groups.find((g) => g.toLowerCase() === wanted) ?? name.trim();
 }
 
 export async function commitItems(items: ExtractedItem[]): Promise<number> {
@@ -50,17 +49,16 @@ export async function commitItems(items: ExtractedItem[]): Promise<number> {
         await createTodo(text, { projectId, energy: item.energy });
         break;
       case 'idea':
-        await createIdea(text, projectId);
+        await createIdea(text, { projectId });
         break;
       case 'buy':
         await createBuyItem(text, { url: item.url, projectId });
         break;
       case 'list_item': {
-        const listId = await resolveListId(item.listName);
-        if (listId) await addListItem(listId, text, item.url);
-        // No list name and no way to guess one: keep the words rather than
-        // dropping them. The inbox is the right home for an unsorted thought.
-        else await capture(text);
+        // Lists folded into Ideas: a "book to read" is a want, and a want is a
+        // thought with no action attached. With no collection named it lands
+        // unfiled, which is a valid resting state rather than a loss.
+        await createIdea(text, { projectId, group: await resolveGroup(item.listName) });
         break;
       }
     }

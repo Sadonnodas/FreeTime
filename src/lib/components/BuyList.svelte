@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { BuyItem, Project } from '$lib/types';
-  import { markPurchased, updateBuyItem, softDelete } from '$lib/store';
+  import { markPurchased, updateBuyItem, softDelete, toggleBuyNeeded } from '$lib/store';
   import { money } from '$lib/format';
 
   /**
@@ -96,6 +96,23 @@
             {money(item.priceCents, item.currency)}
           </span>
         {/if}
+
+        <!--
+          Needed soon, as opposed to eventually. Deliberately a flag and not a
+          priority: a scale is a second axis to maintain and feel bad about, and
+          it always rots. This is on or off, it floats the item to the top, and
+          never setting it costs nothing.
+        -->
+        <button
+          class="press tap-h w-9 shrink-0 text-center {item.needed
+            ? 'text-accent'
+            : 'text-ink-600'}"
+          onclick={() => toggleBuyNeeded(item.id, !item.needed)}
+          aria-label={item.needed ? 'Not needed soon' : 'Needed soon'}
+          aria-pressed={!!item.needed}
+        >
+          {item.needed ? '★' : '☆'}
+        </button>
       </div>
 
       {#if openId === item.id}
