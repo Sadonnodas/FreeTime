@@ -12,6 +12,7 @@
   import { getApiKey, setApiKey } from '$lib/gemini/client';
   import { pendingAudioCount, processQueue } from '$lib/gemini/commit';
   import { getTheme, setTheme, THEME_LABELS, type ThemeChoice } from '$lib/theme';
+  import { buildLabel, onUpdateStatus, checkAndApply, type UpdateStatus } from '$lib/pwa';
 
   let sync = $state<SyncState>({ status: 'idle' });
   let connected = $state(false);
@@ -27,6 +28,35 @@
     setTheme(next);
   }
 
+  /**
+   * Which build is running. It briefly lived on Me, because Settings used to be
+   * a screen about connecting Google and it read as sync configuration in
+   * there. Now that Settings is a destination of its own it belongs here — but
+   * high up, not under two account sections, which is how it got missed the
+   * first time.
+   */
+  let updateStatus = $state<UpdateStatus>('idle');
+  let stopUpdate: (() => void) | undefined;
+
+  const busyChecking = $derived(updateStatus === 'checking' || updateStatus === 'updating');
+
+  const updateLine = $derived.by(() => {
+    switch (updateStatus) {
+      case 'checking':
+        return 'Looking…';
+      case 'current':
+        return 'This is the latest version.';
+      case 'ready':
+        return 'A newer version is ready.';
+      case 'updating':
+        return 'Updating…';
+      case 'failed':
+        return "Couldn't check just now — you may be offline.";
+      default:
+        return 'Tap to check for updates.';
+    }
+  });
+
 
   const conflictsQ = liveQuery(async () =>
     (await db.conflicts.toArray()).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -34,12 +64,16 @@
 
   onMount(async () => {
     stop = onSyncState((s) => (sync = s));
+    stopUpdate = onUpdateStatus((s) => (updateStatus = s));
     connected = await isConnected();
     authError = (await db.settings.get('settings'))?.lastAuthError;
     apiKey = (await getApiKey()) ?? '';
     queued = await pendingAudioCount();
   });
-  onDestroy(() => stop?.());
+  onDestroy(() => {
+    stop?.();
+    stopUpdate?.();
+  });
 
 
   const configured = isGoogleConfigured();
@@ -57,9 +91,8 @@
 </script>
 
 <div class="px-4 pt-safe pb-8">
-  <header class="py-4">
-    <a href="{base}/me" class="press footnote inline-block">‹ Me</a>
-    <h1 class="large-title mt-1">Settings</h1>
+  <header class="pt-3 pb-5">
+    <h1 class="large-title">Settings</h1>
   </header>
 
   <!-- First, because it is the one setting anybody actually goes looking for. -->
@@ -79,6 +112,20 @@
       System follows your Mac or iPhone — including their automatic switch at sunset,
       which already knows where you are.
     </p>
+  </section>
+
+  <section class="mb-8">
+    <h2 class="section-label mb-2">Version</h2>
+    <button
+      class="list-group list-row press w-full text-left"
+      onclick={checkAndApply}
+      disabled={busyChecking}
+    >
+      <span class="min-w-0 flex-1">
+        <span class="block">Built {buildLabel()}</span>
+        <span class="footnote">{updateLine}</span>
+      </span>
+    </button>
   </section>
 
   <section class="mb-8">
@@ -230,5 +277,13 @@
         </div>
       {/if}
     </div>
+  </section>
+
+  <section class="mb-8">
+    <h2 class="section-label mb-2">Data</h2>
+    <a href="{base}/settings/import" class="list-group list-row press">
+      <span class="flex-1">Import from Notion</span>
+      <span class="text-ink-400">›</span>
+    </a>
   </section>
 </div>

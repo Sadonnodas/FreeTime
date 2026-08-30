@@ -28,7 +28,14 @@
   });
 
   /**
-   * Four tabs, nothing nested deeper than two levels (spec 4).
+   * Five tabs, nothing nested deeper than two levels.
+   *
+   * The spec said four and put settings inside Me. That conflated two
+   * unrelated things — habits and wins are about you, while sync, keys and
+   * appearance are about the app — and it made configuration something you had
+   * to remember was hiding behind a personal tab. Settings is its own
+   * destination now, which is the fifth and last: six would start to crowd the
+   * bar on a phone.
    *
    * Paths are stored without the base prefix and get it added at render time.
    * `base` is '/FreeTime' here because Pages serves this from a subpath — a
@@ -39,7 +46,8 @@
     { path: '/', label: 'Today' },
     { path: '/projects', label: 'Projects' },
     { path: '/brain', label: 'Brain' },
-    { path: '/me', label: 'Me' }
+    { path: '/me', label: 'Me' },
+    { path: '/settings', label: 'Settings' }
   ];
 
   /**
@@ -51,7 +59,9 @@
     '/': 'M12 3.6 3.9 10v10.4h5.6v-6h5v6h5.6V10z',
     '/projects': 'M4 5.5h6.4v6.4H4zm9.6 0H20v6.4h-6.4zM4 15.1h6.4v6.4H4zm9.6 0H20v6.4h-6.4z',
     '/brain': 'M12 2.6 14.3 9l6.5.3-5.1 4 1.8 6.3L12 16l-5.5 3.6L8.3 13l-5.1-4L9.7 9z',
-    '/me': 'M12 12.4a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4M4.4 20.6a7.6 7.6 0 0 1 15.2 0z'
+    '/me': 'M12 12.4a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4M4.4 20.6a7.6 7.6 0 0 1 15.2 0z',
+    '/settings':
+      'M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2m9 3.6c0 .62-.05 1.2-.14 1.78l2.03 1.5-1.9 3.3-2.38-.9a8.9 8.9 0 0 1-3.06 1.78L15.2 22h-3.8l-.35-2.54a8.9 8.9 0 0 1-3.06-1.78l-2.38.9-1.9-3.3 2.03-1.5A9.6 9.6 0 0 1 5.6 12c0-.62.05-1.2.14-1.78L3.71 8.72l1.9-3.3 2.38.9A8.9 8.9 0 0 1 11.05 4.5L11.4 2h3.8l.35 2.5a8.9 8.9 0 0 1 3.06 1.78l2.38-.9 1.9 3.3-2.03 1.5c.09.58.14 1.16.14 1.82'
   };
 
   // base is '' at the domain root, so fall back to '/' rather than an empty href.
@@ -194,7 +204,7 @@
         <svg viewBox="0 0 24 24" class="h-[22px] w-[22px]" aria-hidden="true">
           <path d={ICONS[tab.path]} fill="currentColor" />
         </svg>
-        <span class="text-[10px] font-medium tracking-[0.01em]">{tab.label}</span>
+        <span class="text-[10px] font-medium tracking-[0.01em] whitespace-nowrap">{tab.label}</span>
       </a>
     {/each}
   </nav>

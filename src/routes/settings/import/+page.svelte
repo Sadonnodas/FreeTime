@@ -132,7 +132,7 @@
 
 <div class="px-4 pt-safe pb-8">
   <header class="py-4">
-    <a href="{base}/me" class="press footnote inline-block">‹ Me</a>
+    <a href="{base}/settings" class="press footnote inline-block">‹ Settings</a>
     <h1 class="large-title mt-1">Import</h1>
   </header>
 

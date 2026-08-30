@@ -288,6 +288,13 @@ one came close to a hard rule, the reasoning is recorded here.
   ink-950 exactly or the app opens with a flash of the wrong black. **iOS bakes the icon
   in at install time** — changing it does nothing for an already-installed home-screen app
   until it is removed and re-added.
+- **Five tabs, and Settings is one of them.** The spec said four and put settings inside
+  Me, which conflated two unrelated things: habits and wins are about Toon, while sync,
+  keys, appearance and the build are about the app. Reported as confusing, and it was
+  also why the appearance control went unfound — it was three levels down behind a
+  personal tab. `/settings` and `/settings/import` are top-level routes now; Me is
+  habits and wins only. Five is the ceiling: six starts to crowd the bar on a phone,
+  where each tab gets 75px.
 - **Light and dark** ([theme.ts](src/lib/theme.ts), the token blocks at the top of
   [app.css](src/app.css)). The whole theme is eight ink values plus five surface tokens,
   redefined under `[data-theme='light']` and a `prefers-color-scheme` query. **The ink
