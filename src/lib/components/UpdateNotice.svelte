@@ -20,15 +20,18 @@
    *    seconds. This is the common case, because a build found at startup is
    *    installed there and then.
    *  - "A newer version is ready" — found mid-session, where reloading would
-   *    throw away whatever is half-typed. It waits for a tap. This one stays
-   *    until acted on, since a dismissable warning about staleness that
-   *    dismisses itself is no use at all.
+   *    throw away whatever is half-typed. It waits for a tap.
+   *
+   * The second one has no dismiss, deliberately. It first shipped with an ×,
+   * which contradicted the entire reason it exists: dismissing set a flag for
+   * the rest of the session, so the one person who had said out loud that he
+   * did not want to work on a stale version could hide the only thing telling
+   * him he was. Tapping Update is how it goes away.
    */
   let status = $state<UpdateStatus>('idle');
   const stop = onUpdateStatus((s) => (status = s));
   onDestroy(stop);
 
-  let dismissed = $state(false);
   let justUpdated = $state(false);
 
   // Read once at construction, then hidden again after a few seconds: the
@@ -38,7 +41,7 @@
     setTimeout(() => (justUpdated = false), 7000);
   }
 
-  const ready = $derived(status === 'ready' && !dismissed);
+  const ready = $derived(status === 'ready');
   const busy = $derived(status === 'updating');
 </script>
 
@@ -61,11 +64,6 @@
       <button class="press tap-h shrink-0 px-2 text-sm font-medium text-accent" onclick={checkAndApply}>
         Update
       </button>
-      <button
-        class="press tap-h shrink-0 px-2 text-sm text-ink-400"
-        onclick={() => (dismissed = true)}
-        aria-label="Not now">×</button
-      >
     {/if}
   </div>
 {/if}

@@ -176,8 +176,24 @@ async function apply(): Promise<void> {
     return;
   }
 
-  // No worker to hand over from — the server simply has something newer. A
-  // reload revalidates and picks it up.
+  /*
+   * No worker to hand over from — the server simply has something newer.
+   *
+   * `location.reload()` alone is NOT enough, and this was observed rather than
+   * theorised: GitHub Pages serves index.html with max-age=600, so a reload
+   * inside that window can be answered from the HTTP cache with exactly the
+   * stale document we are trying to escape. The update would appear to do
+   * nothing, and on the next check it would try again — a quiet reload loop
+   * that never converges.
+   *
+   * Fetching with `cache: 'reload'` forces the network AND rewrites the cached
+   * entry, so the reload immediately after it gets the new shell.
+   */
+  try {
+    await fetch(`${base}/`, { cache: 'reload' });
+  } catch {
+    /* offline: the reload below will simply do nothing, which is correct */
+  }
   location.reload();
 }
 
@@ -212,6 +228,23 @@ function settle(r: ServiceWorkerRegistration): Promise<void> {
  * otherwise plant a small complaint in Settings about a question nobody asked.
  * A check the user tapped for always reports what happened.
  */
+/**
+ * Did this page already reload for an update very recently?
+ *
+ * The belt to the cache-busting braces above. If a reload somehow lands back on
+ * the same stale build, applying again would loop forever; after one attempt
+ * the app stops trying and shows the banner instead, which puts a person in the
+ * loop rather than a timer.
+ */
+function justTriedUpdating(): boolean {
+  try {
+    const raw = localStorage.getItem(UPDATED_KEY);
+    return !!raw && Date.now() - Number(raw) < 60_000;
+  } catch {
+    return false;
+  }
+}
+
 export async function checkForUpdates({ silent = false } = {}): Promise<void> {
   // An update already found and waiting must not be reported as "up to date".
   if (status === 'ready') return;
@@ -222,6 +255,9 @@ export async function checkForUpdates({ silent = false } = {}): Promise<void> {
   try {
     if (await servedBuildDiffers()) {
       setStatus('ready');
+      // Launch is a safe moment to take it, so long as this is not the second
+      // attempt in a row — see justTriedUpdating.
+      if (atLaunch() && !justTriedUpdating()) void apply();
       return;
     }
   } catch {
@@ -276,7 +312,9 @@ export function startUpdateWatch(): () => void {
       return;
     }
     setStatus('ready');
-    if (document.visibilityState === 'hidden' || atLaunch()) void apply();
+    if ((document.visibilityState === 'hidden' || atLaunch()) && !justTriedUpdating()) {
+      void apply();
+    }
   };
   navigator.serviceWorker?.addEventListener('controllerchange', onControllerChange);
 
@@ -294,7 +332,9 @@ export function startUpdateWatch(): () => void {
       // Two safe moments to take it right now: the app is in the background,
       // where nothing can be lost, or it has only just launched, where nothing
       // has been typed yet.
-      if (document.visibilityState === 'hidden' || atLaunch()) void apply();
+      if ((document.visibilityState === 'hidden' || atLaunch()) && !justTriedUpdating()) {
+        void apply();
+      }
     },
     onRegisterError() {
       // Deliberately nothing. A worker that will not register costs offline

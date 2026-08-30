@@ -164,6 +164,15 @@ Do not "fix" these without talking to Toon first.
   settles, and the registration has vanished by the next evaluation. So an update check
   there can look like it succeeded when nothing happened. Recording, offline boot and
   the update cycle all have to be tested on a real device.
+- **`location.reload()` does not escape the HTTP cache, and that broke updating.**
+  Observed live: a page running an old build while the server had a newer one, because
+  GitHub Pages serves index.html with `max-age=600` and a reload inside that window is
+  answered from cache with the very document you are trying to replace. The update
+  appears to do nothing and the next check tries again — a quiet loop that never
+  converges. `apply()` now does `fetch(base + '/', { cache: 'reload' })` first, which
+  forces the network and rewrites the cached entry, and `justTriedUpdating()` stops a
+  second automatic attempt within a minute so a stubborn case shows the banner instead of
+  reloading forever.
 - **The app now says when it updated, reversing an earlier call.** Silent updating was
   chosen on no-nag grounds, and silence has its own failure: you cannot tell a working
   app from one quietly running last month's code, and worrying that you might be is worse
