@@ -326,7 +326,25 @@ Nothing is read from `.env` at build time.
 
 ## Icons
 
-`static/icons/*.png` are generated placeholders — a dark tile with an accent ring — made
-by [scripts/make-icons.mjs](scripts/make-icons.mjs) (a dependency-free PNG writer). Drop
-real artwork in with the same filenames to replace them, or edit the script and re-run
-`node scripts/make-icons.mjs`.
+A sauropod with an idea, on the app's near-black with a warm glow behind it.
+
+    python3 scripts/make-icons.py
+
+Regenerates every size — 192, 512, the Android maskable variant, the iOS
+apple-touch-icon — plus `static/favicon.svg`. macOS only: it rasterises SVG with
+`qlmanage`, since nothing else on this machine can. To run it elsewhere, swap that one
+call for `rsvg-convert` or `cairosvg`; the rest is portable.
+
+To change the animal, replace [scripts/sauropod.svg](scripts/sauropod.svg) and re-run.
+The smile, thought cloud and layout are placed against that file's own 36×36 grid, so a
+different drawing will need those coordinates adjusted — they are at the top of the
+script with the reasoning next to them.
+
+**iOS bakes the icon in when the app is added to the home screen.** Changing it does
+nothing for an already-installed app until it is removed and re-added.
+
+### Attribution
+
+The dinosaur is [Twemoji](https://github.com/twitter/twemoji)'s sauropod, © Twitter, Inc
+and other contributors, licensed **CC-BY 4.0**. The smile, the thought cloud, the
+composition and everything else are this project's.
