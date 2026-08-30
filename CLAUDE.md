@@ -273,6 +273,15 @@ one came close to a hard rule, the reasoning is recorded here.
   (two taps, no dialog) and a *Show archived* list on the Projects screen to restore
   from. Archive rather than delete, because a project is a container: deleting one would
   strand its to-dos, notes and recordings with no way back.
+- **The app icon is generated, not drawn** ([tools/make-icons.py](tools/make-icons.py),
+  `python3 tools/make-icons.py`). It is the Free Time button — an amber-to-pink orb
+  glowing on `--color-ink-950` — because that is the one image the app has, it reads as a
+  low sun, and a warm circle is unmistakable at 60px among a home screen of blue squares.
+  No lettering: type at icon size turns to mush. Regenerate rather than hand-editing the
+  PNGs if the palette moves. `background_color` in the manifest paints the iOS launch
+  screen, so it must equal ink-950 exactly or the app opens with a flash of the wrong
+  black. **iOS bakes the icon in at install time** — changing it does nothing for an
+  already-installed home-screen app until it is removed and re-added.
 - **A map of recordings** ([geo.ts](src/lib/geo.ts),
   [MemoMap.svelte](src/lib/components/MemoMap.svelte)). Brain → Memos toggles List/Map.
   Leaflet is the app's second runtime dependency and is **lazily imported** — opening

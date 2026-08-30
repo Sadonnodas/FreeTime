@@ -40,8 +40,11 @@ export default defineConfig({
         name: 'FREETIME',
         short_name: 'FREETIME',
         description: 'A personal life organizer.',
-        theme_color: '#0f0f11',
-        background_color: '#0f0f11',
+        // Both match --color-ink-950 exactly. background_color paints the iOS
+        // launch screen, so anything else here shows as a flash of the wrong
+        // black every time the app opens.
+        theme_color: '#08080a',
+        background_color: '#08080a',
         // 'standalone' hides the browser chrome once installed to the home screen.
         display: 'standalone',
         orientation: 'portrait',
