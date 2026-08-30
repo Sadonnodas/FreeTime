@@ -217,6 +217,23 @@ Do not "fix" these without talking to Toon first.
   background, at launch, or on the way back to the foreground. Nothing is ever
   announced, so the no-nag rule still holds.
 
+- **"Signed out of Google" was told to a laptop that had never signed in.** `syncNow`
+  checked only for a token, so a device that had never been connected and one whose
+  hour had run out produced the same paused state and the same message — *"will
+  reconnect on next open"* — which is true only for the second. A laptop sat showing
+  none of the projects made on the phone, told to wait for something that could not
+  happen (silent renewal only runs for a device that has consented before). Three
+  states now: `signed-out`, expired-but-renewable, and expired-and-Google-refused.
+  Same rule as the update check: report what did not happen, never a recovery that
+  cannot occur.
+- **A silent renewal is stamped BEFORE the redirect, not when it returns failed.**
+  The 30-minute backoff was armed in `handleRedirect`, which assumes Google always
+  comes back with `#error=`. It does not — `redirect_uri_mismatch` renders Google's
+  own error page and never redirects — so nothing was recorded, the backoff never
+  engaged, and the app bounced to Google on every launch with no way back. Seen in
+  dev, where port 5199 is not a registered redirect URI, but any error Google renders
+  as a page wedges a real install identically.
+
 - **The model name is a single point of failure.** One constant,
   [client.ts](src/lib/gemini/client.ts) `MODEL`. Google retires models for *new* keys
   without warning: `gemini-2.5-flash` started returning `404 NOT_FOUND` — "no longer
@@ -498,6 +515,20 @@ one came close to a hard rule, the reasoning is recorded here.
   is still offered as a link rather than followed, because a model that can move the
   screen mid-sentence takes the conversation away from under you. The assistant's mic
   transcribes into the input box and does NOT send — you read the words first.
+
+- **The dinosaur stickers** ([stickers.ts](src/lib/stickers.ts),
+  [scripts/slice-stickers.py](scripts/slice-stickers.py)). Fifty-five characters cut
+  out of four sticker sheets, in `static/dino/`. A project cover can be one, chosen
+  from a searchable sheet; empty states pick one from their own text so a given empty
+  state always shows the same animal. **They always sit on a tinted ground** — the art
+  has near-black outlines and on this app's near-black page it loses its edges and
+  becomes a smudge; the tint is the same hue-from-the-name already used for a project
+  with no cover. This is the OPPOSITE division of labour from the Free Time scenes,
+  where the dinosaur is artwork and the surroundings are hand-written geometry — here
+  the whole scene is artwork. They are precached (740KB): the app is offline by
+  default and a cover that renders blank on a train reads as data that has gone
+  missing. **Percentage padding in CSS resolves against WIDTH on all four sides** —
+  `p-[12%]` on the wide, short project banner left the dinosaur a centimetre tall.
 
 **Sync between devices already works** and always did — Drive sync is spec §8 and the
 client ID is in [config.ts](src/lib/config.ts). It needs signing in to Google on each

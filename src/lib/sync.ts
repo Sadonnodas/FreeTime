@@ -2,7 +2,7 @@ import { db } from './db';
 import type { Base, Settings, ConflictLog } from './types';
 import { now, uid } from './store';
 import { mergeRecords, conflictFileName } from './merge';
-import { getAccessToken } from './google/auth';
+import { getAccessToken, isConnected } from './google/auth';
 import {
   ensureFolders, list, readFile, readJsonArray, writeFile, writeBlob, readBlob,
   deleteFile, DriveAuthError
@@ -38,7 +38,19 @@ const FILES: { table: keyof typeof db & string; file: string }[] = [
 export type SyncState =
   | { status: 'idle'; lastSyncAt?: string }
   | { status: 'syncing' }
-  | { status: 'paused'; reason: 'no-token' | 'offline' | 'not-configured' }
+  | {
+      status: 'paused';
+      /**
+       * 'signed-out' and 'no-token' look identical from here — neither has a
+       * token — but they are opposite situations and must not share a message.
+       * A device that has NEVER been connected will not fix itself, because
+       * silent renewal only runs for a device that has consented before; one
+       * whose hour simply ran out fixes itself at the next launch with no UI.
+       * Telling the first it would reconnect on next open is how a laptop sat
+       * for days showing none of the projects made on a phone.
+       */
+      reason: 'signed-out' | 'no-token' | 'offline' | 'not-configured';
+    }
   | { status: 'error'; message: string };
 
 let current: SyncState = { status: 'idle' };
@@ -281,6 +293,14 @@ export async function syncNow(): Promise<SyncState> {
   }
   if (!navigator.onLine) {
     const s: SyncState = { status: 'paused', reason: 'offline' };
+    setState(s);
+    return s;
+  }
+
+  if (!(await isConnected())) {
+    // Never signed in on this device, or signed out on purpose. Nothing is
+    // wrong and nothing is pending — there is just no account to sync with.
+    const s: SyncState = { status: 'paused', reason: 'signed-out' };
     setState(s);
     return s;
   }

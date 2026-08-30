@@ -18,6 +18,7 @@
   let sync = $state<SyncState>({ status: 'idle' });
   let connected = $state(false);
   let authError = $state<string | undefined>(undefined);
+  let silentFailed = $state(false);
   let apiKey = $state('');
   let keySaved = $state(false);
   let queued = $state(0);
@@ -62,7 +63,11 @@
     stop = onSyncState((s) => (sync = s));
     stopUpdate = onUpdateStatus((s) => (updateStatus = s));
     connected = await isConnected();
-    authError = (await db.settings.get('settings'))?.lastAuthError;
+    const st = await db.settings.get('settings');
+    authError = st?.lastAuthError;
+    // Set only when a silent renewal FAILED, and cleared the moment one
+    // succeeds — so it is a reliable "Google will not do this quietly".
+    silentFailed = !!st?.lastSilentAuthAt;
     apiKey = (await getApiKey()) ?? '';
     queued = await pendingAudioCount();
   });
@@ -74,12 +79,27 @@
 
   const configured = isGoogleConfigured();
 
+  /**
+   * Say which of these it is, and never promise a recovery that cannot happen.
+   *
+   * All three of the first cases have no token, and the old copy treated them
+   * as one — "Signed out of Google, will reconnect on next open" — which was
+   * true only in the middle case. A laptop that had never been connected was
+   * told to wait for something that would never come, and sat for days without
+   * any of the projects made on the phone. Same rule as the update check: a
+   * thing that could not happen reports that it did not happen.
+   */
   const statusLine = $derived.by(() => {
     if (sync.status === 'syncing') return 'Syncing…';
     if (sync.status === 'error') return `Last attempt failed: ${sync.message}`;
     if (sync.status === 'paused') {
       if (sync.reason === 'offline') return 'Offline — will catch up.';
-      if (sync.reason === 'no-token') return 'Signed out of Google — will reconnect on next open.';
+      if (sync.reason === 'signed-out')
+        return 'Not signed in on this device, so nothing is syncing to it.';
+      if (sync.reason === 'no-token')
+        return silentFailed
+          ? 'Google wants a fresh sign-in — it would not renew quietly.'
+          : 'Google session expired. It renews itself next time the app opens.';
       return 'Not set up.';
     }
     return sync.lastSyncAt ? `Last synced ${ago(sync.lastSyncAt)}.` : 'Not synced yet.';

@@ -62,9 +62,21 @@ function randomState(): string {
  * `silent` uses prompt=none: Google either returns a token straight away or
  * fails with an error, and never shows the user anything. Non-silent shows the
  * consent screen, and is only ever triggered by an explicit tap.
+ *
+ * A SILENT ATTEMPT IS STAMPED BEFORE WE LEAVE, not when it comes back failed.
+ * The backoff used to be armed in handleRedirect, which assumes Google always
+ * returns here with an error in the fragment. It does not: redirect_uri_mismatch
+ * renders Google's own error PAGE and never redirects at all, so nothing was
+ * ever recorded, the backoff never engaged, and the app bounced to Google on
+ * every single launch with no way back. Observed in dev, where the port is not
+ * a registered redirect URI — but any error Google chooses to render as a page
+ * would wedge a real install exactly the same way. Recording the attempt costs
+ * one write and cannot miss; handleRedirect clears it on success.
  */
-export function beginSignIn(silent = false): void {
+export async function beginSignIn(silent = false): Promise<void> {
   if (!isGoogleConfigured()) return;
+
+  if (silent) await patch({ lastSilentAuthAt: now() });
 
   const state = randomState();
   sessionStorage.setItem(STATE_KEY, state);
@@ -184,7 +196,7 @@ export async function needsSilentRenewal(): Promise<boolean> {
  * what they were doing, and no sync is worth that.
  */
 export async function renewIfSafe(): Promise<void> {
-  if (await needsSilentRenewal()) beginSignIn(true);
+  if (await needsSilentRenewal()) await beginSignIn(true);
 }
 
 /** Forgets the token locally. Does not revoke — the user can do that from
