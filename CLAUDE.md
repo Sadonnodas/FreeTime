@@ -302,6 +302,13 @@ one came close to a hard rule, the reasoning is recorded here.
   seeded projects. Same id on both devices means sync merges rather than stacks, and
   running it twice is a no-op. Asserted in [migrate.test.ts](src/lib/migrate.test.ts).
   `?section=inbox` and `?section=lists` still resolve, to Ideas.
+- **The buy list groups by shop or by project** ([BuyList.svelte](src/lib/components/BuyList.svelte)).
+  Grouping by shop is the one that earns its keep: five things across three projects that
+  all come from the same place are one order and one delivery charge, which a list sorted
+  by when you wrote them down hides completely. Each group carries the subtotal still to
+  buy, which is what answers "have I cleared free delivery". Groups sort fullest-basket
+  first, because that is where a combined order actually saves something; unbucketed
+  items go last, being a pile to sort rather than a destination.
 - **Buy items have a "needed" star, not a priority.** Toon asked for priority; the spec
   bans it. A scale is a second axis to maintain and feel bad about and it always rots,
   so this is binary: on or off, floats to the top, and never setting it costs nothing.

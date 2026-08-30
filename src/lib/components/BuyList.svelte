@@ -17,11 +17,13 @@
   let {
     items,
     projects = [],
-    showProject = true
+    showProject = true,
+    groupBy = 'none'
   }: {
     items: BuyItem[];
     projects?: Project[];
     showProject?: boolean;
+    groupBy?: GroupBy;
   } = $props();
 
   let openId = $state<string | null>(null);
@@ -52,6 +54,66 @@
 
   const href = (url: string) => (url.startsWith('http') ? url : `https://${url}`);
 
+  /**
+   * Grouping by shop is the one that earns its keep.
+   *
+   * Five things across three projects that all come from the same shop are one
+   * order and one delivery charge, not five — but that is invisible in a list
+   * sorted by when you wrote them down. Grouping by shop makes the basket
+   * obvious, and the subtotal beside it is what tells you whether you have
+   * cleared the free-delivery threshold.
+   *
+   * Grouping by project answers the other question: what is this campervan
+   * still going to cost me.
+   */
+  type GroupBy = 'none' | 'shop' | 'project';
+
+  interface Group {
+    key: string;
+    label: string;
+    items: BuyItem[];
+    outstanding: number;
+  }
+
+  const outstandingOf = (rows: BuyItem[]) =>
+    rows
+      .filter((b) => !b.purchasedAt && b.priceCents != null)
+      .reduce((sum, b) => sum + b.priceCents!, 0);
+
+  const grouped = $derived.by<Group[]>(() => {
+    if (groupBy === 'none') {
+      return [{ key: '', label: '', items, outstanding: 0 }];
+    }
+
+    const buckets = new Map<string, BuyItem[]>();
+    for (const item of items) {
+      const key =
+        groupBy === 'shop'
+          ? (host(item.url) ?? '')
+          : (projectName(item.projectId) ?? '');
+      const bucket = buckets.get(key);
+      if (bucket) bucket.push(item);
+      else buckets.set(key, [item]);
+    }
+
+    return [...buckets]
+      .map(([key, rows]) => ({
+        key,
+        label: key || (groupBy === 'shop' ? 'No shop yet' : 'No project'),
+        items: rows,
+        outstanding: outstandingOf(rows)
+      }))
+      .sort((a, b) => {
+        // Unbucketed last: it is the pile still to be sorted, not a destination.
+        if (!a.key !== !b.key) return a.key ? -1 : 1;
+        // Then the fullest basket first, because that is where a combined
+        // order actually saves something.
+        const left = a.items.filter((i) => !i.purchasedAt).length;
+        const right = b.items.filter((i) => !i.purchasedAt).length;
+        return right - left || a.label.localeCompare(b.label);
+      });
+  });
+
   let armed = $state<string | null>(null);
   async function remove(item: BuyItem) {
     if (armed !== item.id) {
@@ -65,8 +127,18 @@
   }
 </script>
 
-<ul class="space-y-1">
-  {#each items as item (item.id)}
+{#each grouped as group (group.key)}
+  {#if group.label}
+    <div class="mt-4 mb-2 flex items-baseline justify-between gap-3">
+      <h3 class="section-label truncate">{group.label}</h3>
+      {#if group.outstanding > 0}
+        <span class="footnote shrink-0 tabular-nums">{money(group.outstanding)}</span>
+      {/if}
+    </div>
+  {/if}
+
+  <ul class="space-y-1">
+    {#each group.items as item (item.id)}
     <li class="card-flat px-3 py-1">
       <div class="flex items-center gap-3">
         <button
@@ -179,7 +251,8 @@
             </button>
           </div>
         </div>
-      {/if}
-    </li>
-  {/each}
-</ul>
+        {/if}
+      </li>
+    {/each}
+  </ul>
+{/each}

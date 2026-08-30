@@ -176,6 +176,20 @@
    *  is where a new one lands, so filing is a side effect of where you are. */
   let fBuyProject = $state('');
 
+  /**
+   * How the buy list is arranged.
+   *
+   * By shop is the one worth having: five things across three projects that all
+   * come from the same place are one order and one delivery charge, which a
+   * list sorted by when you wrote them down hides completely.
+   */
+  let buyGroup = $state<'none' | 'shop' | 'project'>('none');
+  const BUY_GROUPS = [
+    { key: 'none', label: 'Recent' },
+    { key: 'shop', label: 'By shop' },
+    { key: 'project', label: 'By project' }
+  ] as const;
+
   async function addBuy(e: SubmitEvent) {
     e.preventDefault();
     const name = newBuyText.trim();
@@ -453,7 +467,7 @@
       <button class="btn btn-primary press" disabled={!newBuyText.trim()}>Add</button>
     </form>
 
-    <div class="mb-3">
+    <div class="mb-3 flex flex-wrap gap-2">
       <select bind:value={fBuyProject} class="field press">
         <option value="">All projects</option>
         {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
@@ -462,7 +476,22 @@
       </select>
     </div>
 
-    <BuyList items={filteredBuy} projects={($projectsQ as Project[] | undefined) ?? []} />
+    <div class="segmented mb-3">
+      {#each BUY_GROUPS as g (g.key)}
+        <button
+          class="press segment {buyGroup === g.key ? 'segment-on' : ''}"
+          onclick={() => (buyGroup = g.key)}
+        >
+          {g.label}
+        </button>
+      {/each}
+    </div>
+
+    <BuyList
+      items={filteredBuy}
+      projects={($projectsQ as Project[] | undefined) ?? []}
+      groupBy={buyGroup}
+    />
   {/if}
 </div>
 
