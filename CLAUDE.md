@@ -283,15 +283,27 @@ files, never inside the JSON); `Memo.place` is never filled in, deliberately —
 privacy note above; and lyrics-per-song would need `notes` to stop being one-per-project,
 since it has a `&projectId` unique index today.
 
-**One-time migration hazard, Aug 2026.** Switching `registerType` from `autoUpdate` to
-`'prompt'` leaves an ALREADY-INSTALLED home-screen app stuck. The old worker
-self-skip-waited; the new one only skips when messaged, and the old client code still
-running on that device never sends the message — so the new worker installs and sits in
-*waiting* indefinitely. It activates once the last controlled client goes away, i.e.
-when the app is force-quit from the iOS App Switcher. Every update after that one is
-handled by the new client and needs no ceremony. Do NOT tell anyone to delete and re-add
-the home-screen app to fix it: on iOS a home-screen web app has its own storage, so that
-wipes IndexedDB and everything not yet synced to Drive is gone.
+**A waiting service worker can wedge forever on an installed iOS app.** Cost a round
+trip to learn, so: a worker that does not `skipWaiting` stays in *waiting* until every
+client it would control has gone away, and on an iOS home-screen app that moment may
+never arrive. Force-quitting from the App Switcher does NOT reliably produce it — the
+launch afterwards is served by the old worker, which controls the new page before the
+waiting one is ever consulted. Confirmed on a real iPhone: an installed app stayed on an
+old build through repeated force-quits. Advice to "just force-quit it" is wrong; do not
+give it.
+
+The fix is `workbox: { skipWaiting: true, clientsClaim: true }` — the new worker
+activates the instant it installs, with no queue to get stuck in. The cost is that a
+running page can find itself on old JavaScript while the worker serves a newer build,
+and the old code-split chunks are gone from Pages after a deploy, so a navigation could
+404. [pwa.ts](src/lib/pwa.ts) closes that window by reloading on `controllerchange` at a
+safe moment, and SvelteKit turns a failed chunk import into a full page load anyway.
+Guard `controllerchange` against the first-ever control of a page, which is not an
+update and must not trigger a reload.
+
+**If an installed app is ever wedged anyway**, deleting and re-adding the home-screen
+icon always works — but on iOS a home-screen web app has its OWN storage, so it wipes
+IndexedDB. Connect Drive sync first, or the data is gone.
 
 ## Working style Toon has asked for
 

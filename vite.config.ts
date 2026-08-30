@@ -66,7 +66,29 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
         // The app shell is cached so a cold start with no network still boots.
         // Same file as the adapter's SPA fallback, for the same reason.
-        navigateFallback: `${BASE}/404.html`
+        navigateFallback: `${BASE}/404.html`,
+
+        /*
+         * A new worker takes over the moment it installs, rather than queueing
+         * behind the old one.
+         *
+         * WHY, having deliberately avoided this once already. Without it a new
+         * worker sits in "waiting" until every client it would control has gone
+         * away — and on an iOS home-screen app that moment may never arrive.
+         * Swiping the app out of the App Switcher does not reliably produce it:
+         * the launch after it is served by the OLD worker, which controls the
+         * new page before the waiting one is ever consulted. Observed on a real
+         * iPhone, where an installed app stayed weeks behind through repeated
+         * force-quits. An update mechanism that can wedge permanently on the
+         * one platform this app is mainly used on is not an update mechanism.
+         *
+         * skipWaiting alone would leave a running page on old JavaScript while
+         * the worker serves new assets, and the old code-split chunks are gone
+         * from Pages after a deploy — so a navigation could 404. pwa.ts closes
+         * that window by reloading on controllerchange, at a safe moment.
+         */
+        skipWaiting: true,
+        clientsClaim: true
       }
     })
   ]

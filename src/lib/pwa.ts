@@ -132,6 +132,19 @@ const LAUNCH_GRACE_MS = 6000;
  */
 let wasHidden = false;
 
+/**
+ * Whether a worker was already in charge when the page loaded.
+ *
+ * The worker claims its clients as soon as it activates, so `controllerchange`
+ * fires both for "a new build has taken over" and for the entirely ordinary
+ * "this page has a worker for the first time" on a first-ever visit. Only the
+ * first of those means the page is now running against assets from a build it
+ * is not itself part of.
+ */
+let hadControllerAtStart = false;
+
+const atLaunch = () => Date.now() - startedAt < LAUNCH_GRACE_MS;
+
 /** Installs the waiting build and reloads. Only called when nothing is at stake. */
 async function apply(): Promise<void> {
   if (status !== 'ready') return;
@@ -227,6 +240,27 @@ export async function checkAndApply(): Promise<void> {
 
 export function startUpdateWatch(): () => void {
   startedAt = Date.now();
+  hadControllerAtStart = !!navigator.serviceWorker?.controller;
+
+  /**
+   * The worker activates as soon as it installs (see vite.config.ts), so this
+   * is the moment a new build starts being served — while this page is still
+   * running the old one. The old build's code-split chunks no longer exist on
+   * Pages after a deploy, so a navigation from here could fail. SvelteKit turns
+   * a failed chunk import into a full page load, which papers over it, but the
+   * honest fix is to reload as soon as it costs nothing.
+   */
+  const onControllerChange = () => {
+    if (!hadControllerAtStart) {
+      // First worker this page has ever had. Nothing changed underneath it.
+      hadControllerAtStart = true;
+      return;
+    }
+    setStatus('ready');
+    if (document.visibilityState === 'hidden' || atLaunch()) void apply();
+  };
+  navigator.serviceWorker?.addEventListener('controllerchange', onControllerChange);
+
   applyUpdate = registerSW({
     immediate: true,
     onRegisteredSW(_url, r) {
@@ -241,8 +275,7 @@ export function startUpdateWatch(): () => void {
       // Two safe moments to take it right now: the app is in the background,
       // where nothing can be lost, or it has only just launched, where nothing
       // has been typed yet.
-      const atLaunch = Date.now() - startedAt < LAUNCH_GRACE_MS;
-      if (document.visibilityState === 'hidden' || atLaunch) void apply();
+      if (document.visibilityState === 'hidden' || atLaunch()) void apply();
     },
     onRegisterError() {
       // Deliberately nothing. A worker that will not register costs offline
@@ -274,6 +307,7 @@ export function startUpdateWatch(): () => void {
 
   return () => {
     document.removeEventListener('visibilitychange', onVisibility);
+    navigator.serviceWorker?.removeEventListener('controllerchange', onControllerChange);
     clearInterval(timer);
   };
 }
