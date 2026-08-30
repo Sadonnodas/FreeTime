@@ -11,7 +11,8 @@
   import { ago } from '$lib/format';
   import { getApiKey, setApiKey } from '$lib/gemini/client';
   import { pendingAudioCount, processQueue } from '$lib/gemini/commit';
-  import { getTheme, setTheme, THEME_LABELS, type ThemeChoice } from '$lib/theme';
+  import ThemePicker from '$lib/components/ThemePicker.svelte';
+  import InfoDot from '$lib/components/InfoDot.svelte';
   import { buildLabel, onUpdateStatus, checkAndApply, type UpdateStatus } from '$lib/pwa';
 
   let sync = $state<SyncState>({ status: 'idle' });
@@ -21,12 +22,6 @@
   let keySaved = $state(false);
   let queued = $state(0);
   let stop: (() => void) | undefined;
-
-  let theme = $state<ThemeChoice>(getTheme());
-  function pickTheme(next: ThemeChoice) {
-    theme = next;
-    setTheme(next);
-  }
 
   /**
    * Which build is running. It briefly lived on Me, because Settings used to be
@@ -53,7 +48,8 @@
       case 'failed':
         return "Couldn't check just now — you may be offline.";
       default:
-        return 'Tap to check for updates.';
+        // Nothing to say before it has been asked. The button below says it.
+        return '';
     }
   });
 
@@ -98,38 +94,45 @@
   <!-- First, because it is the one setting anybody actually goes looking for. -->
   <section class="mb-8">
     <h2 class="section-label mb-2">Appearance</h2>
-    <div class="segmented">
-      {#each THEME_LABELS as t (t.value)}
-        <button
-          class="press segment {theme === t.value ? 'segment-on' : ''}"
-          onclick={() => pickTheme(t.value)}
-        >
-          {t.label}
-        </button>
-      {/each}
-    </div>
-    <p class="footnote mt-2">
-      System follows your Mac or iPhone — including their automatic switch at sunset,
-      which already knows where you are.
-    </p>
+    <ThemePicker />
   </section>
 
   <section class="mb-8">
     <h2 class="section-label mb-2">Version</h2>
-    <button
-      class="list-group list-row press w-full text-left"
-      onclick={checkAndApply}
-      disabled={busyChecking}
-    >
-      <span class="min-w-0 flex-1">
-        <span class="block">Built {buildLabel()}</span>
-        <span class="footnote">{updateLine}</span>
-      </span>
-    </button>
+    <div class="card p-4">
+      <p class="text-sm">Built {buildLabel()}</p>
+      {#if updateLine}
+        <p class="footnote mt-1">{updateLine}</p>
+      {/if}
+      <!-- A button that looks like one. This was a tappable row, and a row that
+           happens to be tappable does not tell you it is the way to check. -->
+      <button
+        class="btn btn-secondary press mt-3 w-full text-sm"
+        onclick={checkAndApply}
+        disabled={busyChecking}
+      >
+        {busyChecking ? 'Checking…' : 'Check for updates'}
+      </button>
+    </div>
   </section>
 
   <section class="mb-8">
-    <h2 class="section-label mb-2">Google Drive</h2>
+    <h2 class="section-label mb-2">
+      Google Drive
+      <InfoDot title="Google Drive">
+        <p>
+          Sync keeps this app the same on your laptop and your phone. Your data lives in
+          a visible <b>{DRIVE_FOLDER}/</b> folder in your Drive, and project notes are
+          real .md files — readable and editable without this app, so nothing is trapped
+          in here.
+        </p>
+        <p>
+          Google will warn that the app is unverified when you connect. That is expected:
+          it is your own app, in testing mode, and the permission it asks for only lets it
+          see files it created itself. It cannot read the rest of your Drive.
+        </p>
+      </InfoDot>
+    </h2>
 
     {#if !configured}
       <!-- Sign-in is hidden rather than broken when there is no client ID.
@@ -149,10 +152,6 @@
       <div class="card p-4">
         <p class="text-sm">{statusLine}</p>
         {#if connected}
-          <p class="footnote mt-1">
-            Your data lives in a visible <b>{DRIVE_FOLDER}/</b> folder in your Drive. Notes are
-            real .md files — readable without this app.
-          </p>
           <div class="mt-3 flex gap-2">
             <button
               class="press tap rounded-xl bg-surface-2 px-4 text-sm text-ink-200"
@@ -169,10 +168,6 @@
             >
           </div>
         {:else}
-          <p class="footnote mt-1">
-            Google will warn that this app is unverified. That is expected — it is your own
-            app, in testing mode, and it can only see files it created itself.
-          </p>
           <button
             class="btn btn-primary press mt-3 text-sm"
             onclick={() => beginSignIn(false)}>Connect Google</button
@@ -225,15 +220,27 @@
   {/if}
 
   <section>
-    <h2 class="section-label mb-2">Gemini</h2>
+    <h2 class="section-label mb-2">
+      Gemini
+      <InfoDot title="Gemini">
+        <p>
+          A key turns on voice capture and the assistant. Everything else in the app works
+          without one, which is why they stay hidden until you add it rather than sitting
+          there broken.
+        </p>
+        <p>
+          Get one from
+          <a class="text-accent underline" href="https://aistudio.google.com/apikey"
+            target="_blank" rel="noreferrer">Google AI Studio</a>. It is stored in this
+          browser only — never in the repo, never in the build, never in Drive.
+        </p>
+        <p>
+          Worth doing once in the Cloud Console: restrict the key to the
+          <b>Generative Language API</b>, so a copied key can do nothing else.
+        </p>
+      </InfoDot>
+    </h2>
     <div class="card p-4">
-      <p class="footnote mb-3">
-        Turns on voice capture. Get a key from
-        <a class="text-accent underline" href="https://aistudio.google.com/apikey"
-          target="_blank" rel="noreferrer">Google AI Studio</a>. It is stored in this
-        browser only — never in the repo, never in the build. Everything else in the app
-        works without it.
-      </p>
       <form
         class="flex gap-2"
         onsubmit={async (e) => {
@@ -257,10 +264,6 @@
         </button>
       </form>
       {#if keySaved}<p class="mt-2 text-xs text-good">Saved.</p>{/if}
-      <p class="footnote mt-3">
-        Worth doing once in Google Cloud Console: restrict the key by HTTP referrer to
-        this site, so a copied key is useless anywhere else.
-      </p>
 
       {#if queued > 0}
         <div class="mt-4 border-t border-ink-800 pt-3">

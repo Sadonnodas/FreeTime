@@ -15,6 +15,7 @@
   import { pendingMonthlySummary, type MonthlySummary as Summary } from '$lib/monthly';
   import { onMount } from 'svelte';
   import FreeTime from '$lib/components/FreeTime.svelte';
+  import Dino from '$lib/components/Dino.svelte';
 
   /**
    * Dexie's liveQuery re-runs its callback whenever any table it touched
@@ -146,13 +147,24 @@
       <!-- The single prominent button when the day is empty (spec 4.1). It
            opens the full flow; the smaller picker below is only for adding one
            more to a day that already exists. -->
+      <!--
+        The dinosaur asks. It is the same animal as the icon on the home screen,
+        so the thing that got you here is the thing that greets you — and a
+        question is a friendlier prompt than a label, given the answer is
+        genuinely yours. It sits inside the circle as a silhouette rather than in
+        full colour: three greens on an orange gradient is a fight, and at this
+        size the shape is the recognisable part anyway.
+      -->
       <div class="mt-8 flex justify-center">
         <button
           class="btn-hero press flex aspect-square w-[64%] max-w-[264px] min-w-[200px]
-                 items-center justify-center rounded-full text-[1.375rem] font-semibold"
+                 flex-col items-center justify-center gap-1 rounded-full"
           onclick={() => (freeTime = true)}
         >
-          Free Time
+          <span class="text-[#1a0d06] opacity-80">
+            <Dino size={76} tone="mono" />
+          </span>
+          <span class="text-[1.375rem] font-semibold">Free time?</span>
         </button>
       </div>
       <button

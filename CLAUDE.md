@@ -367,6 +367,23 @@ one came close to a hard rule, the reasoning is recorded here.
   personal tab. `/settings` and `/settings/import` are top-level routes now; Me is
   habits and wins only. Five is the ceiling: six starts to crowd the bar on a phone,
   where each tab gets 75px.
+- **The dinosaur is a character, not just an icon** ([Dino.svelte](src/lib/components/Dino.svelte)).
+  Same Twemoji artwork as the icon, so the animal on the home screen is the animal inside
+  the app rather than two drawings that merely resemble each other. `tone="mono"` is a
+  currentColor silhouette, for surfaces where three greens would fight. It stands in the
+  Free Time circle asking "Free time?" — a question is a friendlier prompt than a label
+  when the answer is genuinely yours — and it walks between the sun and the moon in
+  Settings. More places to use it: the empty states.
+- **Appearance is a sun/moon toggle plus an Automatic checkbox**
+  ([ThemePicker.svelte](src/lib/components/ThemePicker.svelte)), not three radio buttons.
+  The thing being chosen is day or night; "who decides" is a separate question, which is
+  why it is a checkbox beside the toggle rather than a third position in it. With
+  Automatic on the dino still stands under whichever the phone chose, so the control
+  never goes blank, and tapping a side turns Automatic off — reaching for the sun means
+  you want the sun.
+- **Settings explanations live behind an ⓘ** ([InfoDot.svelte](src/lib/components/InfoDot.svelte)).
+  All of it was worth saying once and none of it worth reading again, so the screen is a
+  list of controls with the prose one tap away.
 - **Light and dark** ([theme.ts](src/lib/theme.ts), the token blocks at the top of
   [app.css](src/app.css)). The whole theme is eight ink values plus five surface tokens,
   redefined under `[data-theme='light']` and a `prefers-color-scheme` query. **The ink
