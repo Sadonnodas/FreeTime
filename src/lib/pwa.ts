@@ -172,7 +172,15 @@ function settle(r: ServiceWorkerRegistration): Promise<void> {
   });
 }
 
-export async function checkForUpdates(): Promise<void> {
+/**
+ * @param silent for the checks the app runs on its own — on launch, on
+ * foreground, on the timer. A background check that could not reach the server
+ * says nothing rather than leaving "couldn't check, you may be offline" sitting
+ * on a screen the user never asked to see. Opening the app on a train would
+ * otherwise plant a small complaint in Settings about a question nobody asked.
+ * A check the user tapped for always reports what happened.
+ */
+export async function checkForUpdates({ silent = false } = {}): Promise<void> {
   // An update already found and waiting must not be reported as "up to date".
   if (status === 'ready') return;
 
@@ -185,7 +193,7 @@ export async function checkForUpdates(): Promise<void> {
       return;
     }
   } catch {
-    setStatus('failed');
+    setStatus(silent ? 'idle' : 'failed');
     return;
   }
 
@@ -201,20 +209,11 @@ export async function checkForUpdates(): Promise<void> {
     await r.update();
     await settle(r);
   } catch {
-    /*
-     * A check that could not run is NOT a check that found nothing.
-     *
-     * Swallowing this and saying "this is the latest version" would be a
-     * confident lie in the case most likely to happen: tapping the button on a
-     * train with no signal. The whole reason this button exists is that an
-     * installed app gives you no other way to tell, so it has to be honest
-     * about not knowing.
-     */
-    if (status === 'checking') setStatus('failed');
+    // The server comparison above already succeeded and found nothing new, so
+    // a worker hiccup here does not change the answer.
+    if (status === 'checking') setStatus('current');
     return;
   }
-  // onNeedRefresh flips this to 'ready' if there was something. Nothing
-  // arriving means this really is the current build.
   if (status === 'checking') setStatus('current');
 }
 
@@ -234,7 +233,7 @@ export function startUpdateWatch(): () => void {
       registration = r;
       // Fires on load too, which is what catches the ordinary case of the app
       // having been closed properly.
-      void checkForUpdates();
+      void checkForUpdates({ silent: true });
     },
     onNeedRefresh() {
       workerWaiting = true;
@@ -265,12 +264,12 @@ export function startUpdateWatch(): () => void {
       void apply();
       return;
     }
-    void checkForUpdates();
+    void checkForUpdates({ silent: true });
   };
 
   document.addEventListener('visibilitychange', onVisibility);
   const timer = setInterval(() => {
-    if (document.visibilityState === 'visible') void checkForUpdates();
+    if (document.visibilityState === 'visible') void checkForUpdates({ silent: true });
   }, CHECK_EVERY_MS);
 
   return () => {
