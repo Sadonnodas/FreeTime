@@ -107,7 +107,7 @@
            two identical-looking record buttons would be a trap. -->
       <button
         type="button"
-        class="press tap-h w-11 shrink-0 rounded-xl bg-surface-2 text-ink-200"
+        class="press tap-h flex w-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-ink-200"
         onclick={() => (memoOpen = true)}
         aria-label="Record a voice memo"
       >
@@ -121,7 +121,7 @@
     {#if hasKey && !text.trim()}
       <button
         type="button"
-        class="press tap-h w-11 shrink-0 rounded-xl bg-surface-2 text-lg text-ink-200"
+        class="press tap-h flex w-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-lg text-ink-200"
         onclick={() => (assistantOpen = true)}
         aria-label="Ask the assistant"
       >

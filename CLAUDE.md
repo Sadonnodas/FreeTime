@@ -107,6 +107,16 @@ Do not "fix" these without talking to Toon first.
   Notion writes `Feb 3`, and `Date.parse('Mar 22')` succeeds anyway — importing them
   would file 43 stale rows as this year, all in the past, permanently occupying the
   obligation slot. Undated is correct; undated things wait.
+- **Ideas are filed into projects, never into their own collections.** The Ideas tab
+  once had free-form named groups (Books, Albums) with a "+" chip to invent more —
+  a second hierarchy running alongside projects, which is exactly the depth that
+  killed the previous system. Ideas now start unfiled and are filed by tapping the
+  row and picking a project, so an idea with no home yet is a valid resting state
+  rather than a prompt to invent a taxonomy. `Idea.group` still exists and still
+  shows as a footnote so migrated list items are not invisible, but nothing writes
+  one any more — the assistant's `create_idea` lost its `group` argument and the
+  voice extraction lost its `list_item` kind for the same reason.
+
 - **Import defaults every project name to "leave unassigned"**. Auto-creating a project
   per workstream is how the old system grew nine projects of boilerplate.
 - **The monthly summary is keyed on being *shown*, not acknowledged**

@@ -157,25 +157,23 @@ export async function createIdea(
   return i.id;
 }
 
-/** Move it between named collections, or out of one. */
-export async function setIdeaGroup(id: string, group?: string): Promise<void> {
-  await db.ideas.update(id, { group, updatedAt: now() });
+/**
+ * File an idea under a project, or take it back out.
+ *
+ * This is the axis that matters. An idea starts unfiled — you had it on a walk
+ * and there may be no project for it yet — and moves to a project when one
+ * exists to hold it. Projects are the app's only grouping anywhere else, and
+ * having a second, invented one just for ideas was a competing hierarchy of
+ * exactly the kind that killed the previous system.
+ */
+export async function setIdeaProject(id: string, projectId?: string): Promise<void> {
+  await db.ideas.update(id, { projectId, updatedAt: now() });
 }
 
 /** Read, watched, listened to. A want can be finished without ever having been
  *  a task, and finishing one is a win (spec 6). */
 export async function toggleIdeaDone(id: string, done = true): Promise<void> {
   await db.ideas.update(id, { doneAt: done ? now() : undefined, updatedAt: now() });
-}
-
-/** Renaming a collection carries its ideas with it, so a typo fix is not a
- *  scattering. Same contract as renaming a project's section. */
-export async function renameIdeaGroup(from: string, to: string): Promise<void> {
-  const next = to.trim();
-  if (!next || from === next) return;
-  const affected = (await db.ideas.toArray()).filter((i) => !i.deletedAt && i.group === from);
-  const at = now();
-  await Promise.all(affected.map((i) => db.ideas.update(i.id, { group: next, updatedAt: at })));
 }
 
 /** One tap, and the backlink survives so the idea is not orphaned. */

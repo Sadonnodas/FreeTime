@@ -2,7 +2,7 @@ import { db } from '../db';
 import {
   createTodo, createIdea, createBuyItem, capture, uid, now
 } from '../store';
-import { activeProjects, ideaGroups } from '../queries';
+import { activeProjects } from '../queries';
 import type { ExtractedItem } from './extract';
 import type { QueuedAudio } from '../types';
 import { extractFromAudio } from './extract';
@@ -26,16 +26,6 @@ async function resolveProjectId(name?: string): Promise<string | undefined> {
   return projects.find((p) => p.name.toLowerCase() === wanted)?.id;
 }
 
-async function resolveGroup(name?: string): Promise<string | undefined> {
-  if (!name?.trim()) return undefined;
-  const wanted = name.trim().toLowerCase();
-  // Match an existing collection case-insensitively so "books" and "Books" do
-  // not become two. A name nobody has used yet simply becomes one, since a
-  // group is just a label on an idea now — nothing has to be created first.
-  const groups = await ideaGroups();
-  return groups.find((g) => g.toLowerCase() === wanted) ?? name.trim();
-}
-
 export async function commitItems(items: ExtractedItem[]): Promise<number> {
   let written = 0;
 
@@ -54,13 +44,12 @@ export async function commitItems(items: ExtractedItem[]): Promise<number> {
       case 'buy':
         await createBuyItem(text, { url: item.url, projectId });
         break;
-      case 'list_item': {
-        // Lists folded into Ideas: a "book to read" is a want, and a want is a
-        // thought with no action attached. With no collection named it lands
-        // unfiled, which is a valid resting state rather than a loss.
-        await createIdea(text, { projectId, group: await resolveGroup(item.listName) });
+      default:
+        // Anything else — including 'list_item' from an older prompt still in
+        // flight — is a thought. A want is a thought with no action attached,
+        // and it lands unfiled, which is a resting state rather than a loss.
+        await createIdea(text, { projectId });
         break;
-      }
     }
     written++;
   }

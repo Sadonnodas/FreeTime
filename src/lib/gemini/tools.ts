@@ -77,8 +77,8 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       type: 'object',
       properties: {
         text: str('The thought.'),
-        projectId: str('Optional.'),
-        group: str('Optional named collection, e.g. Books. Reuse an existing name.')
+        projectId: str('Optional. A project, if one obviously fits. Ideas are ' +
+          'allowed to belong nowhere — leave it out rather than guessing.')
       },
       required: ['text']
     }
@@ -267,10 +267,8 @@ export async function describeWrite(name: WriteTool, args: Args): Promise<string
   switch (name) {
     case 'create_todo':
       return `To-do: ${s(args.title) ?? '?'}${inProject(s(args.projectId))}`;
-    case 'create_idea': {
-      const group = s(args.group);
-      return `Idea: ${s(args.text) ?? '?'}${group ? ` (${group})` : ''}`;
-    }
+    case 'create_idea':
+      return `Idea: ${s(args.text) ?? '?'}${inProject(s(args.projectId))}`;
     case 'create_buy_item':
       return `Buy: ${s(args.name) ?? '?'}`;
     case 'create_project':
@@ -304,7 +302,7 @@ export async function applyWrite(name: WriteTool, args: Args): Promise<void> {
       });
       break;
     case 'create_idea':
-      await createIdea(s(args.text) ?? '', { projectId: s(args.projectId), group: s(args.group) });
+      await createIdea(s(args.text) ?? '', { projectId: s(args.projectId) });
       break;
     case 'create_buy_item':
       await createBuyItem(s(args.name) ?? '', {

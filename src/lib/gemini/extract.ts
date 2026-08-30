@@ -11,7 +11,7 @@ import type { Energy } from '../types';
  * better job when it can see what it heard while it splits it up.
  */
 
-export type ExtractedKind = 'todo' | 'idea' | 'buy' | 'list_item';
+export type ExtractedKind = 'todo' | 'idea' | 'buy';
 
 export interface ExtractedItem {
   kind: ExtractedKind;
@@ -19,7 +19,6 @@ export interface ExtractedItem {
   projectName?: string;
   energy?: Energy;
   url?: string;
-  listName?: string;
 }
 
 export interface Extraction {
@@ -36,12 +35,11 @@ const SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          kind: { type: 'string', enum: ['todo', 'idea', 'buy', 'list_item'] },
+          kind: { type: 'string', enum: ['todo', 'idea', 'buy'] },
           text: { type: 'string' },
           projectName: { type: 'string' },
           energy: { type: 'string', enum: ['quick', 'moderate', 'focus'] },
-          url: { type: 'string' },
-          listName: { type: 'string' }
+          url: { type: 'string' }
         },
         required: ['kind', 'text']
       }
@@ -71,10 +69,9 @@ Rules:
   Leave it out unless the size is obvious.
 - kind:
   - todo: something to do
-  - idea: a thought with no action attached
+  - idea: a thought with no action attached, including a want such as a book
+    to read or an album to hear
   - buy: something to acquire (set url if they said one)
-  - list_item: something for a named collection, e.g. a book or an album
-    (set listName)
 - Keep text close to their own words. Tidy grammar, do not rewrite meaning.`;
 
 export interface ExtractOptions {

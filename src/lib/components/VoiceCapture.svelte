@@ -125,8 +125,7 @@
   const KIND_LABEL: Record<ExtractedItem['kind'], string> = {
     todo: 'To-do',
     idea: 'Idea',
-    buy: 'Buy',
-    list_item: 'List'
+    buy: 'Buy'
   };
 </script>
 
@@ -220,9 +219,9 @@
                 ×
               </button>
             </div>
-            {#if item.projectName || item.listName || item.energy}
+            {#if item.projectName || item.energy}
               <p class="footnote mt-1 pl-1">
-                {[item.projectName, item.listName, item.energy].filter(Boolean).join(' · ')}
+                {[item.projectName, item.energy].filter(Boolean).join(' · ')}
               </p>
             {/if}
           </div>

@@ -4,9 +4,9 @@
   import type { Todo, Idea, BuyItem, Project, Energy, Memo } from '$lib/types';
   import {
     promoteIdea, completeTodo, createTodo, createIdea, createBuyItem,
-    setIdeaGroup, toggleIdeaDone, renameIdeaGroup
+    setIdeaProject, toggleIdeaDone
   } from '$lib/store';
-  import { activeProjects, ideaGroups } from '$lib/queries';
+  import { activeProjects } from '$lib/queries';
   import { allMemos, storageUse, mb, type StorageUse } from '$lib/memos';
   import MemoList from '$lib/components/MemoList.svelte';
   import MemoRecorder from '$lib/components/MemoRecorder.svelte';
@@ -55,7 +55,6 @@
   const ideasQ = liveQuery(async () =>
     (await db.ideas.toArray()).filter((i) => !i.deletedAt)
   );
-  const groupsQ = liveQuery(() => ideaGroups());
   const buyQ = liveQuery(async () => (await db.buyItems.toArray()).filter((b) => !b.deletedAt));
   const projectsQ = liveQuery(() => activeProjects());
   const memosQ = liveQuery(() => allMemos());
@@ -97,47 +96,46 @@
     (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === id)?.name;
 
   /**
-   * The collection chips over Ideas — Books, Albums, Lyrics.
+   * Ideas are filed under PROJECTS, not under a taxonomy of their own.
    *
-   * Same mechanic as a project's sections: the chip is both the filter and the
-   * destination, so anything added while one is lit joins it. Groups are
-   * derived from the ideas themselves, so a collection nobody puts anything in
-   * simply stops existing — the old Lists tab could accumulate empty lists that
-   * had to be tidied by hand.
+   * They used to have free-form collections with a "+" to invent names, which
+   * was a second hierarchy sitting beside the one the rest of the app already
+   * uses — and it was reported as exactly that confusing. An idea starts
+   * unfiled, because you have the idea before you have anywhere to put it, and
+   * moves to a project when one exists to hold it.
+   *
+   * The lit chip is both the filter and the destination, so adding while a
+   * project is selected files it there, and an idea already on screen can be
+   * dropped into it with one tap.
    */
-  let activeGroup = $state<string | null>(null);
-  /** Distinct from "no group": null is All, '' is the unfiled ones. */
+  let activeProject = $state<string | null>(null);
+  /** Distinct from "no project selected": null is All, this is the unfiled ones. */
   let unfiledOnly = $state(false);
-  let namingGroup = $state(false);
-  let newGroupName = $state('');
 
-  const groups = $derived(($groupsQ as string[] | undefined) ?? []);
-
-  function useGroup(name: string | null, unfiled = false) {
-    activeGroup = name;
+  function useProject(id: string | null, unfiled = false) {
+    activeProject = id;
     unfiledOnly = unfiled;
-  }
-
-  function addGroup(e: SubmitEvent) {
-    e.preventDefault();
-    const name = newGroupName.trim();
-    if (!name) return;
-    newGroupName = '';
-    namingGroup = false;
-    // Nothing is created: a group is a label, so it exists as soon as the first
-    // idea carries it. Lighting it here means the next thing typed lands in it.
-    useGroup(name);
+    openIdea = null;
   }
 
   /**
-   * Every section can be added to directly. Only Lists could before, which made
-   * To-dos, Ideas and Buy read-only views of things you had to have captured
-   * somewhere else first.
+   * Which idea is expanded to show its project chips.
    *
-   * One field each, same as the capture box — no project picker, no date, no
-   * confirmation. The one bit of cleverness: if a project filter is active on
-   * the To-dos section, a new to-do joins that project, because that is
-   * unambiguously what you meant while looking at a filtered list.
+   * Filing had been a "File here" button that appeared on ideas belonging
+   * somewhere other than the lit project — which could never happen, because
+   * the lit project also filters them out of view. Moving an idea has to work
+   * from where you can actually see it, so it lives on the row: tap the text,
+   * pick a project. Same shape as a buy item.
+   */
+  let openIdea = $state<string | null>(null);
+
+  /**
+   * Every section can be added to directly. Only Lists could before, which made
+   * To-dos, Ideas and Buy read-only views of things captured somewhere else.
+   *
+   * One field each, same as the capture box — no required anything. The one bit
+   * of cleverness: whatever filter is active is where a new one lands, because
+   * that is unambiguously what you meant while looking at a filtered list.
    */
   let newTodoText = $state('');
   let newIdeaText = $state('');
@@ -159,13 +157,13 @@
     const text = newIdeaText.trim();
     if (!text) return;
     newIdeaText = '';
-    await createIdea(text, { group: activeGroup ?? undefined });
+    await createIdea(text, { projectId: activeProject ?? undefined });
   }
 
   const visibleIdeas = $derived(
     (($ideasQ as Idea[] | undefined) ?? [])
-      .filter((i) => (activeGroup ? i.group === activeGroup : true))
-      .filter((i) => (unfiledOnly ? !i.group : true))
+      .filter((i) => (activeProject ? i.projectId === activeProject : true))
+      .filter((i) => (unfiledOnly ? !i.projectId : true))
       // Finished wants stay — nothing here is ever deleted — but they sink.
       .sort(
         (a, b) =>
@@ -295,70 +293,39 @@
       {/each}
     </ul>
   {:else if section === 'ideas'}
-    <!-- Collections, over one flat list. Same mechanic as a project's sections:
-         the lit chip is both the filter and where the next one lands. -->
+    <!--
+      Projects, over one flat list. The lit chip is both the filter and the
+      destination, so adding while one is selected files it there.
+    -->
     <div class="no-bar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1">
       <button
-        class="chip press shrink-0 {activeGroup === null && !unfiledOnly ? 'chip-on' : ''}"
-        onclick={() => useGroup(null)}
+        class="chip press shrink-0 {activeProject === null && !unfiledOnly ? 'chip-on' : ''}"
+        onclick={() => useProject(null)}
       >
         All
       </button>
       <button
         class="chip press shrink-0 {unfiledOnly ? 'chip-on' : ''}"
-        onclick={() => useGroup(null, true)}
+        onclick={() => useProject(null, true)}
       >
         Unfiled
       </button>
-      {#each groups as g (g)}
+      {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
         <button
-          class="chip press shrink-0 {activeGroup === g ? 'chip-on' : ''}"
-          onclick={() => useGroup(activeGroup === g ? null : g)}
+          class="chip press shrink-0 {activeProject === p.id ? 'chip-on' : ''}"
+          onclick={() => useProject(activeProject === p.id ? null : p.id)}
         >
-          {g}
+          {p.name}
         </button>
       {/each}
-      <button class="chip press shrink-0" onclick={() => (namingGroup = !namingGroup)}>
-        {namingGroup ? 'Cancel' : '+'}
-      </button>
     </div>
-
-    {#if namingGroup}
-      <form onsubmit={addGroup} class="mb-3 flex gap-2">
-        <!-- svelte-ignore a11y_autofocus -->
-        <input
-          bind:value={newGroupName}
-          autofocus
-          placeholder="Books, Albums, Films…"
-          class="field min-w-0 flex-1 text-sm"
-        />
-        <button class="btn btn-secondary press shrink-0" disabled={!newGroupName.trim()}>
-          Use it
-        </button>
-      </form>
-    {/if}
-
-    {#if activeGroup}
-      {@const current = activeGroup}
-      <!-- Renaming carries the ideas with it, so fixing a typo is not a
-           scattering. Same contract as renaming a project's section. -->
-      <input
-        value={current}
-        onchange={(e) => {
-          const next = e.currentTarget.value.trim();
-          if (next && next !== current) {
-            renameIdeaGroup(current, next);
-            activeGroup = next;
-          }
-        }}
-        class="field mb-3 w-full text-sm"
-      />
-    {/if}
 
     <form onsubmit={addIdea} class="mb-3 flex gap-2">
       <input
         bind:value={newIdeaText}
-        placeholder={activeGroup ? `Add to ${activeGroup}` : 'A thought, no action attached'}
+        placeholder={activeProject
+          ? `An idea for ${projectName(activeProject)}`
+          : 'A thought, no action attached'}
         class="field min-w-0 flex-1"
       />
       <button class="btn btn-primary press" disabled={!newIdeaText.trim()}>Add</button>
@@ -366,7 +333,8 @@
 
     <ul class="space-y-1">
       {#each visibleIdeas as i (i.id)}
-        <li class="card-flat flex items-center gap-3 px-3">
+        <li class="card-flat px-3">
+          <div class="flex items-center gap-3">
           <!-- Finishing a want is a real thing — a book gets read — and it
                counts as a win without ever having been a task. -->
           <button
@@ -377,25 +345,28 @@
             {i.doneAt ? '✓' : '○'}
           </button>
 
-          <div class="min-w-0 flex-1 py-3">
+          <button
+            class="min-w-0 flex-1 py-3 text-left"
+            onclick={() => (openIdea = openIdea === i.id ? null : i.id)}
+          >
             <p class={i.doneAt ? 'text-ink-400 line-through' : ''}>{i.text}</p>
-            {#if (i.group && !activeGroup) || i.promotedToTodoId}
+            <!-- `group` exists only on ideas migrated from the old Lists tab.
+                 Shown so nothing from back then goes invisible; nothing creates
+                 one any more. -->
+            {#if (i.projectId && !activeProject) || i.group || i.promotedToTodoId}
               <p class="footnote">
-                {[i.group && !activeGroup ? i.group : null, i.promotedToTodoId ? '→ to-do' : null]
+                {[
+                  i.projectId && !activeProject ? projectName(i.projectId) : null,
+                  i.group,
+                  i.promotedToTodoId ? '→ to-do' : null
+                ]
                   .filter(Boolean)
                   .join(' · ')}
               </p>
             {/if}
-          </div>
+          </button>
 
-          {#if activeGroup && i.group !== activeGroup}
-            <button
-              class="press tap-h shrink-0 rounded-xl px-3 text-sm text-accent"
-              onclick={() => setIdeaGroup(i.id, activeGroup ?? undefined)}
-            >
-              File here
-            </button>
-          {:else if !i.promotedToTodoId && !i.doneAt}
+          {#if !i.promotedToTodoId && !i.doneAt}
             <!-- The one sorting action left. An unfiled thought is already an
                  idea; the only decision worth a button is "this is a task". -->
             <button
@@ -403,15 +374,43 @@
               onclick={() => promoteIdea(i.id)}>Make a to-do</button
             >
           {/if}
-        </li>
+        </div>
+
+        {#if openIdea === i.id}
+          <!-- Where it belongs, decided whenever you know — which is usually
+               not at the moment you had the thought. -->
+          <div class="mt-1 border-t border-line-1 pt-3 pb-2">
+            <p class="section-label mb-2">Belongs to</p>
+            <div class="flex flex-wrap gap-2">
+              <button
+                class="chip press {i.projectId ? '' : 'chip-on'}"
+                onclick={() => setIdeaProject(i.id, undefined)}
+              >
+                Nowhere yet
+              </button>
+              {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
+                <button
+                  class="chip press {i.projectId === p.id ? 'chip-on' : ''}"
+                  onclick={() => setIdeaProject(i.id, i.projectId === p.id ? undefined : p.id)}
+                >
+                  {p.name}
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </li>
       {:else}
         {#if unfiledOnly}
           <Empty
             line="Nothing unfiled. Anything you type into the box on Today lands here."
             quip="A tidy nest, for once."
           />
-        {:else if activeGroup}
-          <Empty line="Nothing in {activeGroup} yet." quip="Let the first one hatch." />
+        {:else if activeProject}
+          <Empty
+            line="No ideas for {projectName(activeProject)} yet."
+            quip="Let the first one hatch."
+          />
         {:else}
           <Empty
             line="Nothing yet. Anything you type into the box on Today lands here."
