@@ -163,7 +163,9 @@
               <MemoList {memos} grouped={false} showProject={false} />
             {:else}
               <p class="footnote">
-                {section ? `Nothing recorded for ${section} yet.` : 'Nothing filed here yet.'}
+                {section
+                  ? `Nothing recorded for ${section} yet. The tape is still blank.`
+                  : 'Nothing filed here yet.'}
               </p>
             {/if}
             {#if recordable}

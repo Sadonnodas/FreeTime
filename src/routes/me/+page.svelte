@@ -5,6 +5,7 @@
   import { createHabit } from '$lib/store';
   import { winsSince } from '$lib/queries';
   import ProjectShare from '$lib/components/ProjectShare.svelte';
+  import Empty from '$lib/components/Empty.svelte';
   import { base } from '$app/paths';
 
   const habitsQ = liveQuery(async () =>
@@ -71,7 +72,10 @@
                 <div class="flex-1">
                   <p>{h.name}</p>
                   <!-- No streak. No percentage. Just which cycle you're in. -->
-                  <p class="text-xs text-ink-400">{state} since {since(h.stateChangedAt)}</p>
+                  <Empty
+          line="Nothing closed yet. It fills itself in."
+          quip="Evolution is slow like that."
+        />
                 </div>
                 <span class="text-ink-400">›</span>
               </a>

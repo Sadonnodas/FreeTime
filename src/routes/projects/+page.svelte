@@ -5,6 +5,7 @@
   import { createProject, archiveProject } from '$lib/store';
   import type { Project } from '$lib/types';
   import { base } from '$app/paths';
+  import Dino from '$lib/components/Dino.svelte';
 
   const pulsesQ = liveQuery(() => projectPulses());
   const archivedQ = liveQuery(() => archivedProjects());
@@ -146,6 +147,7 @@
     <!-- A new install starts empty now; it used to arrive with ten projects
          belonging to somebody else. An empty grid needs to say what to do. -->
     <div class="card p-6 text-center">
+      <span class="mb-3 inline-block text-ink-600"><Dino size={68} tone="mono" /></span>
       <p class="title-2">Nothing here yet.</p>
       <p class="footnote mt-2">
         A project is a place things belong — a band, a van, a job. One tap and a name
@@ -154,6 +156,7 @@
       <button class="btn btn-primary press mt-4" onclick={() => (adding = true)}>
         New project
       </button>
+      <p class="footnote mt-3 italic opacity-70">Everything starts somewhere. Even the Jurassic.</p>
     </div>
   {/if}
 

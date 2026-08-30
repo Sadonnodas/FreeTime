@@ -121,6 +121,20 @@ Do not "fix" these without talking to Toon first.
 
 ## Traps, found the hard way
 
+- **A liveQuery only re-runs for the tables it actually read.** Today's three slots were
+  resolved in an `$effect` keyed on the day record, so completing a to-do — a write to
+  `todos`, leaving `days` untouched — re-ran nothing: no tick, no count change, until the
+  third completion happened to write `closedAt` and shake it loose. The app's central
+  interaction did nothing visible and it went unnoticed for weeks. If a derived view
+  spans two tables, read both inside one liveQuery.
+- **A modal rendered inside a styled heading inherits that heading's typography.**
+  `InfoDot` sits in an `<h2 class="section-label">`, so its sheet came out uppercase,
+  letter-spaced and grey no matter what classes the text carried — reported as "the text
+  is so aggressive". The fix is a reset on the overlay, not more classes on the content.
+- **Anything rendered above the page content needs its own `pt-safe`.** Every page sets
+  its own; a bar in the layout above `<main>` does not inherit one, so the update notice
+  slid under the iPhone's clock and battery where it could be neither read nor tapped.
+
 - **Anything seeded on an empty database duplicates itself across devices.** Seeding
   runs whenever the store is empty, which is true of every NEW DEVICE, and it runs
   BEFORE the first sync because sync cannot start until the store is open. So the second

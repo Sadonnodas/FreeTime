@@ -3,6 +3,7 @@
   import {
     onUpdateStatus, consumeJustUpdated, checkAndApply, buildLabel, type UpdateStatus
   } from '$lib/pwa';
+  import Dino from './Dino.svelte';
 
   /**
    * Telling you which version you are on, when it matters.
@@ -45,23 +46,35 @@
   const busy = $derived(status === 'updating');
 </script>
 
+<!--
+  pt-safe is load-bearing, not decoration. This bar sits above the page content,
+  and every page applies its own safe-area padding — so without it the bar slid
+  underneath the iPhone's clock and battery, where it could be neither read nor
+  tapped. Reported from an actual phone.
+-->
 {#if justUpdated}
-  <div class="hairline-b flex items-center gap-2 px-4 py-2" style="background: var(--color-surface-1)">
+  <div
+    class="hairline-b flex items-center gap-2 px-4 pt-safe pb-2"
+    style="background: var(--color-surface-1)"
+  >
     <span class="text-good">✓</span>
-    <p class="footnote min-w-0 flex-1 truncate">
-      Updated — built {buildLabel()}
-    </p>
+    <p class="footnote min-w-0 flex-1">Updated — built {buildLabel()}</p>
   </div>
 {:else if ready || busy}
   <div
-    class="hairline-b flex items-center gap-2 px-4 py-2"
-    style="background: color-mix(in srgb, var(--color-accent) 12%, transparent)"
+    class="hairline-b flex items-center gap-3 px-4 pt-safe pb-3"
+    style="background: color-mix(in srgb, var(--color-accent) 14%, transparent)"
   >
-    <p class="footnote min-w-0 flex-1 truncate text-accent">
+    <span class="shrink-0 text-accent"><Dino size={26} tone="mono" /></span>
+    <p class="min-w-0 flex-1 text-[15px] font-medium text-accent">
       {busy ? 'Updating…' : 'A newer version is ready.'}
     </p>
     {#if !busy}
-      <button class="press tap-h shrink-0 px-2 text-sm font-medium text-accent" onclick={checkAndApply}>
+      <button
+        class="btn btn-primary press shrink-0 px-4 text-sm"
+        style="min-height: 38px"
+        onclick={checkAndApply}
+      >
         Update
       </button>
     {/if}

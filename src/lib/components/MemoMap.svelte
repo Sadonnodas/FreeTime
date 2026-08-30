@@ -4,6 +4,7 @@
   import type { Memo, Project } from '$lib/types';
   import { clusterMemos, boundsOf, applyFilter, located, type Period } from '$lib/geo';
   import { displayTitle } from '$lib/memos';
+  import Empty from './Empty.svelte';
 
   /**
    * Every located recording, on one map.
@@ -152,10 +153,10 @@
 {#if failed}
   <p class="footnote py-8 text-center">The map couldn't load. It needs a connection.</p>
 {:else if !withPlace.length}
-  <p class="footnote py-8 text-center">
-    None of your recordings have a location yet. One is saved with each new recording,
-    if you let the app see where you are.
-  </p>
+  <Empty
+    line="None of your recordings have a location yet. One is saved with each new recording, if you let the app see where you are."
+    quip="Nothing has left the nest."
+  />
 {:else}
   <div
     bind:this={host}

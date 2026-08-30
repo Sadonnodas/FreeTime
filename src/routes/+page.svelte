@@ -32,7 +32,24 @@
   );
   const openQ = liveQuery(() => openTodos());
 
-  let slotTodos = $state<Todo[]>([]);
+  /**
+   * The day's three, resolved from their ids.
+   *
+   * This has to be a liveQuery that reads BOTH tables, not an effect keyed on
+   * the day. It was the latter, and the bug was as central as bugs get: ticking
+   * something off writes to `todos`, the day record does not change, so nothing
+   * re-ran and the screen sat there unchanged — no tick, no count — until the
+   * third completion happened to write `closedAt` and shake it loose. The one
+   * interaction the whole app is built around did nothing visible.
+   */
+  const slotTodosQ = liveQuery(async () => {
+    const day = await ensureDay();
+    const rows = await db.todos.bulkGet(day.slots);
+    return day.slots
+      .map((id) => rows.find((r) => r?.id === id))
+      .filter((t): t is Todo => !!t && !t.deletedAt);
+  });
+
   let showClose = $state(false);
   let unlockAvailable = $state(false);
   let picking = $state(false);
@@ -42,18 +59,6 @@
   let monthly = $state<Summary | null>(null);
   onMount(async () => {
     monthly = await pendingMonthlySummary();
-  });
-
-  // Resolve the day's slot ids into actual todos, in slot order.
-  $effect(() => {
-    const day = $dayQ as Day | undefined;
-    if (!day) return;
-    const ids = day.slots;
-    db.todos.bulkGet(ids).then((rows) => {
-      slotTodos = ids
-        .map((id) => rows.find((r) => r?.id === id))
-        .filter((t): t is Todo => !!t && !t.deletedAt);
-    });
   });
 
   $effect(() => {
@@ -79,6 +84,7 @@
     }
   }
 
+  const slotTodos = $derived(($slotTodosQ as Todo[] | undefined) ?? []);
   const day = $derived($dayQ as Day | undefined);
   const roomLeft = $derived(day ? day.unlockedCount - day.slots.length : 0);
   const doneCount = $derived(slotTodos.filter((t) => t.completedAt).length);
@@ -212,7 +218,7 @@
           </ul>
         {:else}
           <p class="px-2 py-3 text-sm text-ink-400">
-            Nothing open yet. Capture something below.
+            Nothing open yet. Capture something below — the box is always hungry.
           </p>
         {/if}
       </section>

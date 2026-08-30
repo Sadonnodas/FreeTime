@@ -2,6 +2,7 @@
   import { liveQuery } from 'dexie';
   import { activityByProject, monthsAgoIso, type ProjectShare } from '$lib/queries';
   import { base } from '$app/paths';
+  import Empty from './Empty.svelte';
 
   /**
    * Where the recorded work went, by project.
@@ -84,11 +85,11 @@
   </div>
 
   {#if total === 0}
-    <div class="card p-5 text-center">
-      <p class="footnote">
-        Nothing recorded in this stretch yet. Close a to-do, buy something, record a
-        memo — it fills itself in.
-      </p>
+    <div class="card">
+      <Empty
+        line="Nothing recorded in this stretch. Close a to-do, buy something, record a memo — it fills itself in."
+        quip="A quiet epoch."
+      />
     </div>
   {:else}
     <div class="card p-4">

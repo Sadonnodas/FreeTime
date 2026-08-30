@@ -12,6 +12,7 @@
   import MemoRecorder from '$lib/components/MemoRecorder.svelte';
   import MemoMap from '$lib/components/MemoMap.svelte';
   import BuyList from '$lib/components/BuyList.svelte';
+  import Empty from '$lib/components/Empty.svelte';
   import { canRecord } from '$lib/audio';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
@@ -267,6 +268,13 @@
       </button>
     </div>
 
+    {#if !filteredTodos.length}
+      <Empty
+        line={showClosed ? 'Nothing here yet.' : 'Nothing open right now.'}
+        quip={showClosed ? 'Not even a fossil.' : 'Suspiciously peaceful. No asteroid in sight.'}
+      />
+    {/if}
+
     <ul class="space-y-1">
       {#each filteredTodos as t (t.id)}
         <li class="card-flat flex items-center gap-3 px-3">
@@ -397,13 +405,19 @@
           {/if}
         </li>
       {:else}
-        <p class="py-8 text-center text-sm text-ink-400">
-          {unfiledOnly
-            ? 'Nothing unfiled. Anything you type into the box on Today lands here.'
-            : activeGroup
-              ? `Nothing in ${activeGroup} yet.`
-              : 'Nothing yet. Anything you type into the box on Today lands here.'}
-        </p>
+        {#if unfiledOnly}
+          <Empty
+            line="Nothing unfiled. Anything you type into the box on Today lands here."
+            quip="A tidy nest, for once."
+          />
+        {:else if activeGroup}
+          <Empty line="Nothing in {activeGroup} yet." quip="Let the first one hatch." />
+        {:else}
+          <Empty
+            line="Nothing yet. Anything you type into the box on Today lands here."
+            quip="Go on, plant a seed. These things take an era."
+          />
+        {/if}
       {/each}
     </ul>
   {:else if section === 'memos'}
@@ -451,9 +465,7 @@
         </p>
       {/if}
     {:else}
-      <p class="py-8 text-center text-sm text-ink-400">
-        Nothing recorded yet. Hum something.
-      </p>
+      <Empty line="Nothing recorded yet. Hum something." quip="Go on, give us a roar." />
     {/if}
   {:else}
     <form onsubmit={addBuy} class="mb-3 flex gap-2">
@@ -486,6 +498,10 @@
         </button>
       {/each}
     </div>
+
+    {#if !filteredBuy.length}
+      <Empty line="Nothing to buy." quip="Your wallet is safely fossilised." />
+    {/if}
 
     <BuyList
       items={filteredBuy}

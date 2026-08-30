@@ -93,7 +93,19 @@
 
   <!-- First, because it is the one setting anybody actually goes looking for. -->
   <section class="mb-8">
-    <h2 class="section-label mb-2">Appearance</h2>
+    <h2 class="section-label mb-2">
+      Appearance
+      <InfoDot title="Light and dark">
+        <p>
+          Tap the sun or the moon and the dinosaur walks over to it.
+        </p>
+        <p>
+          <b>Automatic</b> follows your Mac or iPhone instead, including their own switch
+          at sunset — which already knows where in the world you are, so it gets the time
+          right when you travel.
+        </p>
+      </InfoDot>
+    </h2>
     <ThemePicker />
   </section>
 
