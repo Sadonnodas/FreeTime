@@ -10,16 +10,14 @@
   import {
     createTodo, completeTodo, updateTodo, createBuyItem, markPurchased, saveNote, getNote,
     setProjectImage, setProjectTags, removeProjectTag, renameProjectTag,
-    archiveProject
+    archiveProject, projectTagColor
   } from '$lib/store';
   import { goto } from '$app/navigation';
   import { resizeImage, COVER_EDGE } from '$lib/images';
   import ProjectCover from '$lib/components/ProjectCover.svelte';
   import StickerPicker from '$lib/components/StickerPicker.svelte';
+  import Collapsible from '$lib/components/Collapsible.svelte';
 
-  // Exactly three tabs, and no fourth ever. Depth is what killed the last one.
-  type Tab = 'notes' | 'todos' | 'buy';
-  let tab = $state<Tab>('todos');
 
   const id = $derived(page.params.id!);
   const projectId = $derived(id);
@@ -61,16 +59,6 @@
   }
 
   /**
-   * Sections, as a row of chips over one flat list (see Project.tags).
-   *
-   * `activeTag` is both the filter and the destination: anything added while a
-   * chip is lit joins that section, so filing is a side effect of where you
-   * already are rather than a second decision. null means All, and adding from
-   * All files nothing — undecided stays a valid state here as everywhere else.
-   */
-  let activeTag = $state<string | null>(null);
-
-  /**
    * The to-do whose "belongs to" row is open.
    *
    * A to-do could only be given a project at the moment it was written, which
@@ -83,12 +71,8 @@
   let editingTags = $state(false);
   let newTagName = $state('');
 
-  // The chips belong to the project, so switching projects has to reset the
-  // selection — otherwise Music's "Mixing" filter silently follows you into
-  // Coding and the list looks mysteriously empty.
   $effect(() => {
     void id;
-    activeTag = null;
     editingTags = false;
   });
 
@@ -132,9 +116,8 @@
 
   $effect(() => {
     const pid = id;
-    const section = activeTag ?? undefined;
     noteLoaded = false;
-    getNote(pid, section).then((n) => {
+    getNote(pid).then((n) => {
       markdown = n?.markdown ?? '';
       noteLoaded = true;
     });
@@ -146,17 +129,15 @@
   function onNoteInput() {
     if (!noteLoaded) return;
     clearTimeout(saveTimer);
-    // Captured now, not read at fire time: switching section mid-debounce would
-    // otherwise write one song's lyrics onto another's.
+    // Captured now, not read at fire time: navigating away mid-debounce would
+    // otherwise write one era's note onto another's.
     const pid = id;
-    const section = activeTag ?? undefined;
     const text = markdown;
-    saveTimer = setTimeout(() => void saveNote(pid, text, section), 500);
+    saveTimer = setTimeout(() => void saveNote(pid, text), 500);
   }
 
   const buyItems = $derived(
     (($buyQ as BuyItem[] | undefined) ?? [])
-      .filter((b) => (activeTag ? b.tag === activeTag : true))
       .sort(
       (a, b) =>
         (a.purchasedAt ? 1 : 0) - (b.purchasedAt ? 1 : 0) ||
@@ -179,46 +160,24 @@
       .reduce((sum, b) => sum + b.priceCents!, 0)
   );
 
-  let buyGroup = $state<'none' | 'shop'>('none');
-
-  const inSection = (t: Todo) => (activeTag ? t.tag === activeTag : true);
 
   const open = $derived(
-    (($todosQ as Todo[] | undefined) ?? []).filter((t) => !t.completedAt).filter(inSection)
+    (($todosQ as Todo[] | undefined) ?? []).filter((t) => !t.completedAt)
   );
-  /**
-   * On All, the era's to-dos grouped under the project each belongs to.
-   *
-   * A flat list across an era is the thing Toon actually hit: Crafting with a
-   * trigger-pad build, a shelf and the garden in it reads as one undifferentiated
-   * pile, and which project a row belongs to was a grey footnote under it.
-   * Grouping is a heading per project and nothing else — no counts, no
-   * progress, and every project that has something open appears whether or not
-   * it is the one being worked on.
-   *
-   * Only on All. Inside a project the heading would be the chip already lit at
-   * the top of the screen, repeated once.
-   */
-  const openGrouped = $derived.by(() => {
-    const buckets = new Map<string, Todo[]>();
-    for (const t of open) {
-      const key = t.tag && tags.includes(t.tag) ? t.tag : '';
-      const bucket = buckets.get(key);
-      if (bucket) bucket.push(t);
-      else buckets.set(key, [t]);
-    }
-    return [...buckets]
-      .map(([tag, todos]) => ({ tag, todos }))
-      // Era-level to-dos last: they are the ones not yet belonging anywhere,
-      // which is a pile to sort rather than a project to work on.
-      .sort((a, b) => (!a.tag ? 1 : !b.tag ? -1 : tags.indexOf(a.tag) - tags.indexOf(b.tag)));
-  });
+  /** Open to-dos in one project inside this era. A count of what is waiting,
+   *  never of what is done: there is no target here to fall short of. */
+  const countFor = (t: string) => open.filter((todo) => todo.tag === t).length;
+
+  /** Everything still sitting on the era rather than in one of its projects. */
+  const looseTodos = $derived(open.filter((t) => !t.tag || !tags.includes(t.tag)));
+  const looseBuy = $derived(buyItems.filter((b) => !b.tag || !tags.includes(b.tag)));
 
   // Closed items are shown, always. Never deleted, never hidden (principle 2).
   const closed = $derived(
     (($todosQ as Todo[] | undefined) ?? [])
       .filter((t): t is Todo & { completedAt: string } => !!t.completedAt)
-      .filter(inSection)
+      // Era-level only: a project's own closed list lives on its own page.
+      .filter((t) => !t.tag || !tags.includes(t.tag))
       .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
   );
 </script>
@@ -280,182 +239,124 @@
   </header>
 
   <!--
-    The section chips, above the tabs rather than inside one.
+    The era's projects, as a list you go into rather than chips you filter with.
+    Each carries its own colour, which is the thing that stops you working on
+    the laser cutter thinking you are on the trigger pad.
 
-    A section is a view of the whole project, not a filter on its to-dos: pick a
-    song and you get that song's to-dos, that song's lyrics and that song's
-    recordings. That is what the original brief asked for — "a section for a
-    specific song where I can have my lyrics and my audio recordings" — and it
-    only works if the chips sit outside the tabs.
-
-    Still one row, still never a page you go into. It scrolls sideways only when
-    there are more sections than fit, which is the one honest use of that.
+    The counts are counts of open things, not progress: there is nothing to be
+    behind on, and a project with nothing in it shows a dash rather than a zero
+    dressed up as a failure.
   -->
-  {#if tags.length || editingTags}
-    <div class="no-bar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1">
-      <button
-        class="chip shrink-0 press {activeTag === null ? 'chip-on' : ''}"
-        onclick={() => (activeTag = null)}
-      >
-        All
-      </button>
+  <h2 class="section-label mb-2 flex items-center justify-between">
+    <span>Projects</span>
+    <button class="press tap-h px-2 text-[13px] text-accent" onclick={() => (editingTags = !editingTags)}>
+      {editingTags ? 'Done' : 'Edit'}
+    </button>
+  </h2>
+
+  {#if tags.length}
+    <ul class="mb-3 space-y-2">
       {#each tags as t (t)}
-        <button
-          class="chip shrink-0 press {activeTag === t ? 'chip-on' : ''}"
-          onclick={() => (activeTag = activeTag === t ? null : t)}
-        >
-          {t}
-        </button>
+        {@const c = projectTagColor($projectQ?.tags, $projectQ?.tagColors, t)}
+        <li>
+          <a
+            href="{base}/projects/{id}/{encodeURIComponent(t)}"
+            class="press rise flex items-center gap-3 rounded-[18px] px-4 py-3"
+            style="background: color-mix(in srgb, {c} 16%, transparent);
+                   border-left: 4px solid {c}"
+          >
+            <span class="min-w-0 flex-1 truncate text-[17px]">{t}</span>
+            <span class="footnote shrink-0 tabular-nums">{countFor(t) || '—'}</span>
+            <span class="shrink-0 text-ink-400">›</span>
+          </a>
+        </li>
       {/each}
-      <button
-        class="chip shrink-0 press {editingTags ? 'chip-on' : ''}"
-        onclick={() => (editingTags = !editingTags)}
-        aria-label="Edit projects"
-      >
-        {editingTags ? 'Done' : '+'}
-      </button>
-    </div>
+    </ul>
   {:else}
+    <p class="footnote mb-3">
+      No projects yet. A project is one build, one song, one job — the thing you
+      actually sit down to do.
+    </p>
+  {/if}
+
+  {#if !editingTags}
     <button
-      class="press footnote mb-3 rounded-xl border border-dashed border-line-2 px-3 py-2"
+      class="press tap mb-5 w-full rounded-xl border border-dashed border-line-2 text-sm text-ink-400"
       onclick={() => (editingTags = true)}
     >
-      + Projects
+      + New project
     </button>
   {/if}
 
-  {#if editingTags}
-    <div class="card mb-3 p-3">
-      <p class="footnote mb-2">
-        Projects live inside an era and split its to-dos, notes and recordings
-        without adding a screen. Removing one keeps its to-dos and unfiles them.
-      </p>
-      {#each tags as t (t)}
-        <div class="mb-1 flex items-center gap-2">
-          <input
-            value={t}
-            onchange={(e) => renameProjectTag(id, t, e.currentTarget.value)}
-            class="field min-w-0 flex-1 text-sm"
-          />
-          <button
-            class="press tap-h w-11 shrink-0 rounded-lg text-ink-400"
-            onclick={() => removeProjectTag(id, t)}
-            aria-label="Remove {t}">✕</button
-          >
-        </div>
-      {/each}
-      <form onsubmit={addTag} class="mt-2 flex gap-2">
-        <input
-          bind:value={newTagName}
-          placeholder="New project"
-          class="field min-w-0 flex-1 text-sm"
-        />
-        <button class="btn btn-secondary press shrink-0" disabled={!newTagName.trim()}>Add</button>
-      </form>
-    </div>
-  {/if}
+  <!--
+    Whatever is not in a project yet.
 
-  <WidgetBoard {projectId} section={activeTag ?? undefined} sections={tags} />
+    An era is mostly an index of its projects, but the app must never require
+    one before you can write something down (principle 1 has no required fields),
+    so era-level items have to live somewhere visible. Same folding language as
+    a project page rather than the tabs that used to be here: two different ways
+    of showing the same five kinds of thing on two screens was the actual source
+    of the chaos, not the amount of content.
+  -->
+  <h2 class="section-label mt-6 mb-2">Not in a project yet</h2>
 
-  <div class="segmented mb-4">
-    {#each [['notes', 'Notes'], ['todos', 'To-dos'], ['buy', 'Buy']] as const as [key, label]}
-      <button class="press segment {tab === key ? 'segment-on' : ''}" onclick={() => (tab = key)}>
-        {label}
-      </button>
-    {/each}
-  </div>
-
-  {#if tab === 'notes'}
-    <!-- Plain markdown. Syncs to Drive as a real .md file so the text is
-         readable and editable without this app. -->
-    <textarea
-      bind:value={markdown}
-      oninput={onNoteInput}
-      placeholder={activeTag ? `Notes and lyrics for ${activeTag}. Autosaves.` : 'Markdown. Autosaves.'}
-      class="field min-h-[60vh] w-full py-4 font-mono text-sm leading-relaxed"
-    ></textarea>
-  {:else if tab === 'todos'}
-
+  <Collapsible id="{id}/era/todo" title="To-dos" count={looseTodos.length}>
     <form
       onsubmit={async (e) => {
         e.preventDefault();
         if (!newTodo.trim()) return;
-        // Whatever chip is lit is where this lands. Still one field.
-        await createTodo(newTodo, { projectId: id, tag: activeTag ?? undefined });
+        await createTodo(newTodo, { projectId: id });
         newTodo = '';
       }}
-      class="mb-4 flex gap-2"
+      class="mb-2 flex gap-2"
     >
-      <input
-        bind:value={newTodo}
-        placeholder={activeTag ? `Add to ${activeTag}` : 'Add a to-do'}
-        class="field min-w-0 flex-1"
-      />
+      <input bind:value={newTodo} placeholder="Add a to-do" class="field min-w-0 flex-1" />
       <button class="btn btn-primary press">Add</button>
     </form>
 
-    {#snippet row(todo: Todo)}
-      <li class="card-flat px-3">
-        <div class="flex items-center gap-3">
-          <button
-            class="press tap shrink-0 text-ink-400"
-            onclick={() => completeTodo(todo.id)}
-            aria-label="Complete">○</button
-          >
-          <button
-            class="min-w-0 flex-1 py-3 text-left"
-            onclick={() => (openTodo = openTodo === todo.id ? null : todo.id)}
-          >
-            <p>{todo.title}</p>
-          </button>
-        </div>
-
-        {#if openTodo === todo.id && tags.length}
-          <div class="mt-1 border-t border-line-1 pt-3 pb-3">
-            <p class="section-label mb-2">Belongs to</p>
-            <div class="flex flex-wrap gap-2">
-              <button
-                class="chip press {todo.tag ? '' : 'chip-on'}"
-                onclick={() => updateTodo(todo.id, { tag: undefined })}
-              >
-                Whole era
-              </button>
-              {#each tags as t (t)}
-                <button
-                  class="chip press {todo.tag === t ? 'chip-on' : ''}"
-                  onclick={() => updateTodo(todo.id, { tag: todo.tag === t ? undefined : t })}
-                >
-                  {t}
-                </button>
-              {/each}
-            </div>
+    <ul class="space-y-1">
+      {#each looseTodos as todo (todo.id)}
+        <li class="card-flat px-3">
+          <div class="flex items-center gap-3">
+            <button
+              class="press tap shrink-0 text-ink-400"
+              onclick={() => completeTodo(todo.id)}
+              aria-label="Complete">○</button
+            >
+            <button
+              class="min-w-0 flex-1 py-3 text-left"
+              onclick={() => (openTodo = openTodo === todo.id ? null : todo.id)}
+            >
+              <p>{todo.title}</p>
+            </button>
           </div>
-        {/if}
-      </li>
-    {/snippet}
 
-    {#if !activeTag && tags.length}
-      <!-- Grouped under the project each belongs to. The heading replaces the
-           grey footnote that used to sit under every row, which said the same
-           thing once per to-do instead of once per group. -->
-      {#each openGrouped as group (group.tag)}
-        <h2 class="section-label mt-4 mb-2 first:mt-0">{group.tag || 'Rest of the era'}</h2>
-        <ul class="space-y-1">
-          {#each group.todos as todo (todo.id)}{@render row(todo)}{/each}
-        </ul>
+          {#if openTodo === todo.id && tags.length}
+            <div class="mt-1 border-t border-line-1 pt-3 pb-3">
+              <p class="section-label mb-2">Move into</p>
+              <div class="flex flex-wrap gap-2">
+                {#each tags as t (t)}
+                  <button
+                    class="chip press"
+                    onclick={() => {
+                      void updateTodo(todo.id, { tag: t });
+                      openTodo = null;
+                    }}
+                  >
+                    {t}
+                  </button>
+                {/each}
+              </div>
+            </div>
+          {/if}
+        </li>
       {/each}
-    {:else}
-      <ul class="space-y-1">
-        {#each open as todo (todo.id)}{@render row(todo)}{/each}
-      </ul>
-    {/if}
+    </ul>
 
     {#if closed.length}
-      <h2 class="section-label mb-2 mt-6">
-        Closed — {closed.length}
-      </h2>
+      <p class="footnote mt-3 mb-1">Closed — {closed.length}</p>
       <ul class="space-y-1">
-        {#each closed as todo (todo.id)}
+        {#each closed.slice(0, 20) as todo (todo.id)}
           <li class="flex items-center gap-3 rounded-2xl bg-surface-1 px-3 text-ink-400">
             <span class="shrink-0 text-good">✓</span>
             <span class="flex-1 py-3">{todo.title}</span>
@@ -463,47 +364,39 @@
         {/each}
       </ul>
     {/if}
-  {:else}
+  </Collapsible>
+
+  <Collapsible id="{id}/era/buy" title="To buy" count={looseBuy.length} defaultFolded={looseBuy.length === 0}>
     <form
       onsubmit={async (e) => {
         e.preventDefault();
         if (!newBuy.trim()) return;
-        await createBuyItem(newBuy, { projectId: id, tag: activeTag ?? undefined });
+        await createBuyItem(newBuy, { projectId: id });
         newBuy = '';
       }}
-      class="mb-4 flex gap-2"
+      class="mb-2 flex gap-2"
     >
-      <input
-        bind:value={newBuy}
-        placeholder={activeTag ? `Something to buy for ${activeTag}` : 'Something to buy'}
-        class="field min-w-0 flex-1"
-      />
+      <input bind:value={newBuy} placeholder="Something to buy" class="field min-w-0 flex-1" />
       <button class="btn btn-primary press">Add</button>
     </form>
-
-    <!-- Grouping by shop matters here too: a campervan's parts come from three
-         different places, and that is three deliveries or one. -->
-    <div class="segmented mb-3">
-      {#each [['none', 'Recent'], ['shop', 'By shop']] as const as [key, label]}
-        <button
-          class="press segment {buyGroup === key ? 'segment-on' : ''}"
-          onclick={() => (buyGroup = key)}
-        >
-          {label}
-        </button>
-      {/each}
-    </div>
-
-    <!-- No ERA chips here: everything on this tab already belongs to this era.
-         The per-item picker inside BuyList is for the project within it. -->
-    <BuyList items={buyItems} showProject={false} groupBy={buyGroup} sections={tags} />
-
+    <BuyList items={looseBuy} showProject={false} groupBy="shop" sections={tags} />
     {#if outstanding > 0}
-      <p class="footnote mt-3 text-right">
-        {money(outstanding)} still to buy
-      </p>
+      <p class="footnote mt-3 text-right">{money(outstanding)} still to buy</p>
     {/if}
-  {/if}
+  </Collapsible>
+
+  <Collapsible id="{id}/era/note" title="Notes" count={markdown.trim() ? 1 : 0} defaultFolded>
+    <textarea
+      bind:value={markdown}
+      oninput={onNoteInput}
+      placeholder="Markdown. Autosaves."
+      class="field min-h-[30vh] w-full py-4 font-mono leading-relaxed"
+    ></textarea>
+  </Collapsible>
+
+  <Collapsible id="{id}/era/blocks" title="Blocks" count={0} defaultFolded>
+    <WidgetBoard {projectId} sections={tags} />
+  </Collapsible>
 
   <!-- Right at the bottom, where a destructive-looking action belongs. -->
   <div class="mt-10 border-t border-line-1 pt-4">

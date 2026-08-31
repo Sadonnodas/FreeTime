@@ -19,6 +19,19 @@ export interface Project extends Base {
   name: string;
   color?: string;
   archived: boolean;
+  /**
+   * A colour per project inside this era, keyed by the project's name.
+   *
+   * Keyed by name rather than by an id because that is what `tags` already is,
+   * and what every `tag` field on a to-do, note, memo, block and buy item
+   * already points at. Introducing ids here would mean migrating five tables to
+   * fix a problem nobody has; renameProjectTag carries the colour across
+   * instead, which is the only place a name-key actually costs anything.
+   *
+   * Assigned automatically when a project is created, so making one is still
+   * one tap and one field, and changeable afterwards.
+   */
+  tagColors?: Record<string, string>;
   /** Cover photo, as a hard-resized data URL. See images.ts for the cap.
    *  Recognising a logo or a photo of the actual campervan is faster than
    *  reading a word, which is the whole point of the picture grid. */

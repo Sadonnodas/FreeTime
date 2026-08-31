@@ -56,8 +56,74 @@ export async function setProjectImage(id: string, image?: string): Promise<void>
 }
 
 /** The project's section chips, in the order they are shown. */
+/**
+ * The palette a new project inside an era is coloured from.
+ *
+ * Fixed hues rather than a random one, so two projects never come out as two
+ * shades of the same green — the colour exists to stop you thinking you are on
+ * the laser cutter when you are on the trigger pad, and that only works if
+ * neighbouring colours are clearly different. Ordered so the first few are as
+ * far apart as the wheel allows.
+ */
+export const PROJECT_COLORS = [
+  '#e8833a', // orange
+  '#4f9de8', // blue
+  '#68b06a', // green
+  '#c765c7', // violet
+  '#e0b13e', // gold
+  '#e2685f', // red
+  '#43b7ad', // teal
+  '#8f86e0' // indigo
+];
+
+/**
+ * The colour of one project inside an era.
+ *
+ * Falls back to its position in the era's list rather than to grey, so every
+ * project made before colours existed already has one and no migration had to
+ * run over anybody's data. Deterministic, so the same project is the same
+ * colour on every device without the colour ever being written down.
+ */
+export function projectTagColor(
+  tags: string[] | undefined,
+  colors: Record<string, string> | undefined,
+  tag: string
+): string {
+  const stored = colors?.[tag];
+  if (stored) return stored;
+  const i = (tags ?? []).indexOf(tag);
+  return PROJECT_COLORS[(i < 0 ? 0 : i) % PROJECT_COLORS.length];
+}
+
+/** The next colour not already used in this era, or the next in sequence. */
+function nextColor(taken: string[]): string {
+  return PROJECT_COLORS.find((c) => !taken.includes(c)) ?? PROJECT_COLORS[taken.length % PROJECT_COLORS.length];
+}
+
 export async function setProjectTags(id: string, tags: string[]): Promise<void> {
-  await db.projects.update(id, { tags, updatedAt: now() });
+  const project = await db.projects.get(id);
+  const colors = { ...(project?.tagColors ?? {}) };
+
+  // Colour anything new, and forget anything gone, so the map cannot grow
+  // forever with names nothing points at any more.
+  for (const tag of tags) {
+    if (!colors[tag]) colors[tag] = nextColor(Object.values(colors));
+  }
+  for (const tag of Object.keys(colors)) {
+    if (!tags.includes(tag)) delete colors[tag];
+  }
+
+  await db.projects.update(id, { tags, tagColors: colors, updatedAt: now() });
+}
+
+/** Recolour one project inside an era. */
+export async function setProjectTagColor(id: string, tag: string, color: string): Promise<void> {
+  const project = await db.projects.get(id);
+  if (!project) return;
+  await db.projects.update(id, {
+    tagColors: { ...(project.tagColors ?? {}), [tag]: color },
+    updatedAt: now()
+  });
 }
 
 /**
@@ -98,6 +164,16 @@ export async function renameProjectTag(
   const next = to.trim();
   const project = await db.projects.get(projectId);
   if (!project || !next || from === next) return;
+
+  // Carry the colour over BEFORE the tags change: setProjectTags drops colours
+  // for names that are gone, so doing it after would recolour the project at
+  // random on rename and undo the whole point of it having a colour.
+  const colors = { ...(project.tagColors ?? {}) };
+  if (colors[from]) {
+    colors[next] = colors[from];
+    delete colors[from];
+    await db.projects.update(projectId, { tagColors: colors, updatedAt: now() });
+  }
   await setProjectTags(projectId, (project.tags ?? []).map((t) => (t === from ? next : t)));
 
   const at = now();

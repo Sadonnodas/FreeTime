@@ -84,11 +84,15 @@ From spec §11 and the post-mortem that produced it. These are not preferences.
 - **A new project / habit / list is one tap and one field.**
 - **Every AI feature keeps a working non-AI path.** The app must be fully usable
   offline with no keys.
-- **An era has exactly three tabs** (Notes / To-dos / Buy). Widgets sit *above*
-  them rather than becoming a fourth. Depth is what killed the previous system.
-  **A project inside an era is a chip, never a page.** That is the whole reason
-  the rename was safe; giving one its own screen is the depth this rule exists
-  to prevent.
+- **Nothing is ever more than two levels deep: era, then project.** This replaced
+  the older "an era has exactly three tabs, and a project is a chip, never a page"
+  rule, which was overruled after Toon used the app on a phone with several builds
+  running at once and called it chaotic. **The rule was aimed at depth, and the
+  depth did not change** — era → project → folded sections is exactly as deep as
+  era → chip → tab was. What went was a whole concept: blocks lived above the tabs
+  and to-dos lived inside them, two parallel systems for the same five kinds of
+  thing, with nothing to tell you which one a photo belonged to. If a third level
+  is ever proposed, THAT is the thing this rule still forbids.
 
 If a change seems to need one of these, that is a signal to reread the spec's
 opening section, not to make an exception.
@@ -644,6 +648,35 @@ device; there is nothing to build. Memos are the exception, below.
   "it sits there, I can't remove it or do anything with it". The photo was not
   stuck; it had eaten the screen. Capped at 240px with the full picture one tap
   away, which is what the full-screen viewer is for.
+
+- **A project is a screen: one add button, everything folded**
+  ([[id]/[tag]/+page.svelte](src/routes/projects/[id]/[tag]/+page.svelte),
+  [Collapsible.svelte](src/lib/components/Collapsible.svelte)). One `+ Add` offers
+  every kind — to-do, buy, note, photo/block, recording — and picking one unfolds
+  that section and puts the cursor in its field rather than opening a form, so the
+  fast path is still type-and-Enter. **To-dos open, everything else folded to a
+  header with a count**, because fifteen to-dos used to bury the photograph under
+  them. The fold state is per section per project in localStorage, deliberately NOT
+  synced: which sections you left folded is a fact about this phone, and syncing it
+  would let a laptop refold things on the device you were reading them on.
+  **Opening a section from outside is a prop, not a localStorage write** — the
+  first attempt reached in and set the key directly and did nothing at all, since
+  the component only re-reads storage when the section changes.
+- **Each project inside an era has a colour** (`Project.tagColors`, keyed by name
+  because that is what every `tag` field already points at — ids here would mean
+  migrating five tables to fix the address bar). Assigned automatically on creation
+  from a fixed palette so making one is still one tap and one field, changeable
+  after. `projectTagColor()` falls back to the project's POSITION in the era, so
+  every project that predates colours already has one and no migration ran over
+  anyone's data. `renameProjectTag` carries the colour, and must do so BEFORE the
+  tags change: `setProjectTags` drops colours for names that are gone, so doing it
+  after recolours the project at random on rename.
+- **Energy can finally be set by hand.** It could not be, anywhere, before — not on
+  creation and not after, only via a filter trick in Brain, voice capture, the
+  importer or the assistant. It is on the to-do's expanded row as Not sure / Quick /
+  Moderate / Focus. **Still optional and still not required**: an unset energy
+  always PASSES the Free Time filter ([freetime.ts](src/lib/freetime.ts)), so
+  nothing was ever hidden from Free Time for lacking one.
 
 - **A project inside an era owns EVERYTHING, not just to-dos.** `Widget.tag` and
   `BuyItem.tag` were the two that were missing, and the gap showed the moment the app
