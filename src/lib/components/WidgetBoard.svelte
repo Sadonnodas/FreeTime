@@ -112,6 +112,24 @@
 
   /** The photo opened full-screen, if any. */
   let viewing = $state<Widget | null>(null);
+
+  /**
+   * The block whose Remove is armed.
+   *
+   * Same two-tap shape the buy list uses. A block can hold the only copy of a
+   * photograph, so a single mistaken tap should not take it, but a confirm
+   * dialog for something this small would be worse than the risk.
+   */
+  let armed = $state<string | null>(null);
+  function remove(id: string) {
+    if (armed !== id) {
+      armed = id;
+      setTimeout(() => (armed = armed === id ? null : armed), 4000);
+      return;
+    }
+    armed = null;
+    void removeWidget(id);
+  }
 </script>
 
 <section class="mb-5">
@@ -307,9 +325,19 @@
                   aria-label="Move up">↑</button>
                 <button class="press tap-h w-11 shrink-0 rounded-lg bg-surface-2" onclick={() => moveWidget(widget.id, 1)}
                   aria-label="Move down">↓</button>
-                <button class="press tap-h w-11 shrink-0 rounded-lg text-ink-400" onclick={() => removeWidget(widget.id)}
-                  aria-label="Remove">✕</button>
               </div>
+
+              <!-- Named, and on its own line. It used to be a bare ✕ at the end
+                   of a row of three other glyphs, which is how someone ends up
+                   asking how a photo is supposed to be removed at all. -->
+              <button
+                class="press tap w-full rounded-lg text-sm {armed === widget.id
+                  ? 'bg-surface-2 text-accent-2'
+                  : 'text-ink-400'}"
+                onclick={() => remove(widget.id)}
+              >
+                {armed === widget.id ? 'Really remove this block?' : 'Remove block'}
+              </button>
             </div>
           {/if}
         </div>
@@ -341,11 +369,16 @@
         + Add a block
       </button>
       {#if list.length}
+        <!-- "Edit" alone did not say what it edits, and as grey text beside a
+             big dashed button it read as page furniture rather than the way in
+             to the blocks above it. -->
         <button
-          class="press tap rounded-xl px-4 text-sm {editing ? 'text-accent' : 'text-ink-400'}"
+          class="press tap shrink-0 rounded-xl border border-dashed px-4 text-sm {editing
+            ? 'border-accent text-accent'
+            : 'border-line-2 text-ink-400'}"
           onclick={() => (editing = !editing)}
         >
-          {editing ? 'Done' : 'Edit'}
+          {editing ? 'Done' : 'Edit blocks'}
         </button>
       {/if}
     </div>

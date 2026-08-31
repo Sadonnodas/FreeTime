@@ -629,6 +629,15 @@ device; there is nothing to build. Memos are the exception, below.
   not: its project could only be set at the moment it was typed, so everything
   written before the first project existed was stuck on the era for good. Tapping a
   to-do now opens the same "Belongs to" row the ideas list and the buy list use.
+- **A control has to name what it acts on.** Removing a block meant finding "Edit" —
+  small grey text beside a big dashed button, below the blocks, saying nothing about
+  what it edits — and then a bare ✕ at the end of a row of three other unlabelled
+  glyphs. Asked outright how a photo was supposed to be removed at all, twice. It is
+  "Edit blocks" now, with the same weight as the button beside it, and "Remove
+  block" on its own line, armed two-tap like the buy list because a block can hold
+  the only copy of a photograph. Nothing about the capability changed; it was only
+  ever findable if you already knew.
+
 - **An uploaded photo had no height cap and swallowed the page.** A portrait shot
   off a phone rendered around 1300px tall, which pushed the block's own Edit and
   Remove controls, the three tabs and every to-do far below the fold — reported as
