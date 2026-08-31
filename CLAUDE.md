@@ -671,12 +671,29 @@ device; there is nothing to build. Memos are the exception, below.
   anyone's data. `renameProjectTag` carries the colour, and must do so BEFORE the
   tags change: `setProjectTags` drops colours for names that are gone, so doing it
   after recolours the project at random on rename.
-- **Energy can finally be set by hand.** It could not be, anywhere, before — not on
-  creation and not after, only via a filter trick in Brain, voice capture, the
-  importer or the assistant. It is on the to-do's expanded row as Not sure / Quick /
-  Moderate / Focus. **Still optional and still not required**: an unset energy
-  always PASSES the Free Time filter ([freetime.ts](src/lib/freetime.ts)), so
-  nothing was ever hidden from Free Time for lacking one.
+- **There are exactly two places a to-do can be written, and the era page is not
+  one of them.** Inside a project, where the era and project are already known;
+  or Brain → To-dos, where the size, the era, the project and the date are all on
+  the form. A to-do written at era level had no project and in practice no energy,
+  so it reached Free Time as an unknown size belonging nowhere — which is how
+  "I have twenty minutes" hands back half a day of work. **The era page is an
+  overview**: every to-do in the era, grouped under the project it belongs to with
+  that project's colour, showing its energy and date. Tapping one still sets those;
+  only creating moved.
+- **Energy is offered where to-dos are WRITTEN, not only where they are edited.**
+  It could not be set anywhere at all before — not at creation, not after — only via
+  a filter trick in Brain, voice capture, the importer or the assistant. The filter
+  is only as good as how many to-dos carry a size, and nobody goes back through a
+  list to add them. **Still optional**: an unset energy always PASSES the Free Time
+  filter ([freetime.ts](src/lib/freetime.ts)), so nothing was ever hidden for
+  lacking one — it just could not be ruled OUT of a short window, which is the
+  actual complaint.
+- **`type="button"` on every chip that lives inside a `<form>`, and it is
+  load-bearing** ([EnergyPicker.svelte](src/lib/components/EnergyPicker.svelte)). A
+  `<button>` in a form is `type="submit"` by default, so choosing a size in Brain's
+  add form SUBMITTED it: the to-do was written the instant you said how big it was,
+  before you could pick its era, project or date. Two ghost to-dos in testing before
+  it was spotted.
 
 - **A project inside an era owns EVERYTHING, not just to-dos.** `Widget.tag` and
   `BuyItem.tag` were the two that were missing, and the gap showed the moment the app

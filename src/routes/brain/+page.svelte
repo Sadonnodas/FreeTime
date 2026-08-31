@@ -13,6 +13,7 @@
   import MemoMap from '$lib/components/MemoMap.svelte';
   import BuyList from '$lib/components/BuyList.svelte';
   import Empty from '$lib/components/Empty.svelte';
+  import EnergyPicker from '$lib/components/EnergyPicker.svelte';
   import { canRecord } from '$lib/audio';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
@@ -141,15 +142,50 @@
   let newIdeaText = $state('');
   let newBuyText = $state('');
 
+  /**
+   * Where a to-do with everything on it gets written.
+   *
+   * The era page has no add field any more: a to-do written there had no
+   * project and in practice no energy, so it reached Free Time as an unknown
+   * size belonging nowhere, which is how "I have twenty minutes" hands back
+   * half a day of work. So there are exactly two ways in — inside a project,
+   * where the era and project are already known, and here, where all four are
+   * on the form.
+   *
+   * Every field except the title is optional and none of them blocks Enter.
+   * They appear once there is something to file, the same way the capture box
+   * shows its project chips.
+   */
+  let newEnergy = $state<Energy | undefined>(undefined);
+  let newEra = $state('');
+  let newTag = $state('');
+  let newDate = $state('');
+
+  /** The projects inside the chosen era, for the second picker. */
+  const eraTags = $derived(
+    (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === newEra)?.tags ?? []
+  );
+
+  // An era's projects are its own, so changing era has to drop a stale project
+  // or a to-do lands under a name that era has never heard of.
+  $effect(() => {
+    void newEra;
+    if (newTag && !eraTags.includes(newTag)) newTag = '';
+  });
+
   async function addTodo(e: SubmitEvent) {
     e.preventDefault();
     const title = newTodoText.trim();
     if (!title) return;
-    newTodoText = '';
     await createTodo(title, {
-      projectId: fProject || undefined,
-      energy: fEnergy || undefined
+      projectId: newEra || undefined,
+      tag: newTag || undefined,
+      energy: newEnergy,
+      date: newDate || undefined
     });
+    // The title clears; the destination does not. Writing five things for the
+    // same project should not mean setting the project five times.
+    newTodoText = '';
   }
 
   async function addIdea(e: SubmitEvent) {
@@ -224,9 +260,42 @@
   </div>
 
   {#if section === 'todos'}
-    <form onsubmit={addTodo} class="mb-3 flex gap-2">
-      <input bind:value={newTodoText} placeholder="Add a to-do" class="field min-w-0 flex-1" />
-      <button class="btn btn-primary press" disabled={!newTodoText.trim()}>Add</button>
+    <form onsubmit={addTodo} class="mb-3">
+      <div class="flex gap-2">
+        <input bind:value={newTodoText} placeholder="Add a to-do" class="field min-w-0 flex-1" />
+        <button class="btn btn-primary press" disabled={!newTodoText.trim()}>Add</button>
+      </div>
+
+      {#if newTodoText.trim()}
+        <!-- Shown only once there is something to file, so the fast path is
+             still type-and-Enter and none of this is in the way of it. -->
+        <div class="card mt-2 space-y-3 p-3">
+          <div>
+            <p class="section-label mb-2">How big is it?</p>
+            <EnergyPicker value={newEnergy} onpick={(v) => (newEnergy = v)} hint={false} />
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <select bind:value={newEra} class="field press min-w-0 flex-1 text-sm">
+              <option value="">No era</option>
+              {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
+                <option value={p.id}>{p.name}</option>
+              {/each}
+            </select>
+
+            {#if eraTags.length}
+              <select bind:value={newTag} class="field press min-w-0 flex-1 text-sm">
+                <option value="">No project</option>
+                {#each eraTags as t (t)}
+                  <option value={t}>{t}</option>
+                {/each}
+              </select>
+            {/if}
+          </div>
+
+          <input type="date" bind:value={newDate} class="field w-full text-sm" />
+        </div>
+      {/if}
     </form>
 
     <div class="mb-3 flex flex-wrap gap-2 text-sm">

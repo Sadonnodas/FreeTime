@@ -17,6 +17,7 @@
   import ProjectCover from '$lib/components/ProjectCover.svelte';
   import StickerPicker from '$lib/components/StickerPicker.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
+  import EnergyPicker from '$lib/components/EnergyPicker.svelte';
 
 
   const id = $derived(page.params.id!);
@@ -168,16 +169,32 @@
    *  never of what is done: there is no target here to fall short of. */
   const countFor = (t: string) => open.filter((todo) => todo.tag === t).length;
 
-  /** Everything still sitting on the era rather than in one of its projects. */
-  const looseTodos = $derived(open.filter((t) => !t.tag || !tags.includes(t.tag)));
-  const looseBuy = $derived(buyItems.filter((b) => !b.tag || !tags.includes(b.tag)));
+  /**
+   * The era's to-dos, grouped under the project each belongs to.
+   *
+   * Every project with something open gets a heading, and the ones belonging to
+   * no project come last — they are a pile to file rather than a project to
+   * work on. This is the whole point of the era page now: one place to see what
+   * is outstanding across a build, a shelf and the garden at once.
+   */
+  const openGrouped = $derived.by(() => {
+    const buckets = new Map<string, Todo[]>();
+    for (const t of open) {
+      const key = t.tag && tags.includes(t.tag) ? t.tag : '';
+      const bucket = buckets.get(key);
+      if (bucket) bucket.push(t);
+      else buckets.set(key, [t]);
+    }
+    return [...buckets]
+      .map(([tag, todos]) => ({ tag, todos }))
+      .sort((a, b) => (!a.tag ? 1 : !b.tag ? -1 : tags.indexOf(a.tag) - tags.indexOf(b.tag)));
+  });
+
 
   // Closed items are shown, always. Never deleted, never hidden (principle 2).
   const closed = $derived(
     (($todosQ as Todo[] | undefined) ?? [])
       .filter((t): t is Todo & { completedAt: string } => !!t.completedAt)
-      // Era-level only: a project's own closed list lives on its own page.
-      .filter((t) => !t.tag || !tags.includes(t.tag))
       .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
   );
 </script>
@@ -298,60 +315,103 @@
     of showing the same five kinds of thing on two screens was the actual source
     of the chaos, not the amount of content.
   -->
-  <h2 class="section-label mt-6 mb-2">Not in a project yet</h2>
+  <!-- Everything in the era, whichever project it sits in. The heading here
+       used to say "not in a project yet", which stopped being true the moment
+       the to-do section became an overview of all of them. -->
+  <h2 class="section-label mt-6 mb-2">Everything in {$projectQ?.name ?? 'this era'}</h2>
 
-  <Collapsible id="{id}/era/todo" title="To-dos" count={looseTodos.length}>
-    <form
-      onsubmit={async (e) => {
-        e.preventDefault();
-        if (!newTodo.trim()) return;
-        await createTodo(newTodo, { projectId: id });
-        newTodo = '';
-      }}
-      class="mb-2 flex gap-2"
-    >
-      <input bind:value={newTodo} placeholder="Add a to-do" class="field min-w-0 flex-1" />
-      <button class="btn btn-primary press">Add</button>
-    </form>
+  <!--
+    Every to-do in the era, grouped under the project it belongs to, and READ
+    ONLY as far as creating goes.
 
-    <ul class="space-y-1">
-      {#each looseTodos as todo (todo.id)}
-        <li class="card-flat px-3">
-          <div class="flex items-center gap-3">
-            <button
-              class="press tap shrink-0 text-ink-400"
-              onclick={() => completeTodo(todo.id)}
-              aria-label="Complete">○</button
-            >
-            <button
-              class="min-w-0 flex-1 py-3 text-left"
-              onclick={() => (openTodo = openTodo === todo.id ? null : todo.id)}
-            >
-              <p>{todo.title}</p>
-            </button>
-          </div>
+    There is deliberately no add field here. A to-do written at era level had no
+    project, and in practice no energy either, so it arrived in Free Time as an
+    unknown size belonging nowhere — which is exactly the thing that makes "I
+    have twenty minutes" hand you back half a day of work. To-dos are written
+    inside a project, or from Brain where the era, the project, the size and the
+    date are all on the form. This screen is the overview.
+  -->
+  <Collapsible id="{id}/era/todo" title="To-dos" count={open.length} defaultFolded={open.length === 0}>
+    {#if open.length === 0}
+      <p class="footnote">
+        Nothing open. To-dos are written inside a project, or from Brain.
+      </p>
+    {/if}
 
-          {#if openTodo === todo.id && tags.length}
-            <div class="mt-1 border-t border-line-1 pt-3 pb-3">
-              <p class="section-label mb-2">Move into</p>
-              <div class="flex flex-wrap gap-2">
-                {#each tags as t (t)}
-                  <button
-                    class="chip press"
-                    onclick={() => {
-                      void updateTodo(todo.id, { tag: t });
-                      openTodo = null;
-                    }}
-                  >
-                    {t}
-                  </button>
-                {/each}
-              </div>
+    {#each openGrouped as group (group.tag)}
+      {#if group.tag}
+        <a
+          href="{base}/projects/{id}/{encodeURIComponent(group.tag)}"
+          class="press mt-3 mb-1 flex items-center gap-2 first:mt-0"
+        >
+          <span
+            class="h-2.5 w-2.5 shrink-0 rounded-full"
+            style="background: {projectTagColor($projectQ?.tags, $projectQ?.tagColors, group.tag)}"
+          ></span>
+          <span class="section-label">{group.tag}</span>
+          <span class="text-ink-400">›</span>
+        </a>
+      {:else}
+        <p class="section-label mt-3 mb-1 first:mt-0">Not in a project yet</p>
+      {/if}
+
+      <ul class="space-y-1">
+        {#each group.todos as todo (todo.id)}
+          <li class="card-flat px-3">
+            <div class="flex items-center gap-3">
+              <button
+                class="press tap shrink-0 text-ink-400"
+                onclick={() => completeTodo(todo.id)}
+                aria-label="Complete">○</button
+              >
+              <button
+                class="min-w-0 flex-1 py-3 text-left"
+                onclick={() => (openTodo = openTodo === todo.id ? null : todo.id)}
+              >
+                <p>{todo.title}</p>
+                {#if todo.energy || todo.date}
+                  <p class="footnote">{[todo.energy, todo.date].filter(Boolean).join(' · ')}</p>
+                {/if}
+              </button>
             </div>
-          {/if}
-        </li>
-      {/each}
-    </ul>
+
+            {#if openTodo === todo.id}
+              <div class="mt-1 space-y-3 border-t border-line-1 pt-3 pb-3">
+                <div>
+                  <p class="section-label mb-2">How big is it?</p>
+                  <EnergyPicker
+                    value={todo.energy}
+                    onpick={(energy) => updateTodo(todo.id, { energy })}
+                  />
+                </div>
+
+                {#if tags.length}
+                  <div>
+                    <p class="section-label mb-2">Belongs to</p>
+                    <div class="flex flex-wrap gap-2">
+                      <button
+                        class="chip press {todo.tag ? '' : 'chip-on'}"
+                        onclick={() => updateTodo(todo.id, { tag: undefined })}
+                      >
+                        No project
+                      </button>
+                      {#each tags as t (t)}
+                        <button
+                          class="chip press {todo.tag === t ? 'chip-on' : ''}"
+                          onclick={() => updateTodo(todo.id, { tag: todo.tag === t ? undefined : t })}
+                        >
+                          {t}
+                        </button>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/each}
 
     {#if closed.length}
       <p class="footnote mt-3 mb-1">Closed — {closed.length}</p>
@@ -366,7 +426,7 @@
     {/if}
   </Collapsible>
 
-  <Collapsible id="{id}/era/buy" title="To buy" count={looseBuy.length} defaultFolded={looseBuy.length === 0}>
+  <Collapsible id="{id}/era/buy" title="To buy" count={buyItems.length} defaultFolded={buyItems.length === 0}>
     <form
       onsubmit={async (e) => {
         e.preventDefault();
@@ -379,7 +439,7 @@
       <input bind:value={newBuy} placeholder="Something to buy" class="field min-w-0 flex-1" />
       <button class="btn btn-primary press">Add</button>
     </form>
-    <BuyList items={looseBuy} showProject={false} groupBy="shop" sections={tags} />
+    <BuyList items={buyItems} showProject={false} groupBy="shop" sections={tags} />
     {#if outstanding > 0}
       <p class="footnote mt-3 text-right">{money(outstanding)} still to buy</p>
     {/if}
