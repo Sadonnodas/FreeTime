@@ -621,6 +621,21 @@ device; there is nothing to build. Memos are the exception, below.
   without a `blob` means "not here yet", which the UI must not show as "gone". Asserted
   in [memos.test.ts](src/lib/memos.test.ts).
 
+- **An era never requires a project first, and everything can be filed afterwards.**
+  Asked directly: should writing anything into an empty era prompt you to make a
+  project? No — that is a required field, and spec principle 1 has none, ever. An
+  era-level to-do is a valid resting state exactly like an unfiled idea. **But that
+  only holds if it can be moved later**, and a to-do was the one thing that could
+  not: its project could only be set at the moment it was typed, so everything
+  written before the first project existed was stuck on the era for good. Tapping a
+  to-do now opens the same "Belongs to" row the ideas list and the buy list use.
+- **An uploaded photo had no height cap and swallowed the page.** A portrait shot
+  off a phone rendered around 1300px tall, which pushed the block's own Edit and
+  Remove controls, the three tabs and every to-do far below the fold — reported as
+  "it sits there, I can't remove it or do anything with it". The photo was not
+  stuck; it had eaten the screen. Capped at 240px with the full picture one tap
+  away, which is what the full-screen viewer is for.
+
 - **A project inside an era owns EVERYTHING, not just to-dos.** `Widget.tag` and
   `BuyItem.tag` were the two that were missing, and the gap showed the moment the app
   was used for real: a schematic photographed for one build sat on the era itself,

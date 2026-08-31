@@ -8,7 +8,7 @@
   import { money } from '$lib/format';
   import type { Todo, BuyItem } from '$lib/types';
   import {
-    createTodo, completeTodo, createBuyItem, markPurchased, saveNote, getNote,
+    createTodo, completeTodo, updateTodo, createBuyItem, markPurchased, saveNote, getNote,
     setProjectImage, setProjectTags, removeProjectTag, renameProjectTag,
     archiveProject
   } from '$lib/store';
@@ -69,6 +69,17 @@
    * All files nothing — undecided stays a valid state here as everywhere else.
    */
   let activeTag = $state<string | null>(null);
+
+  /**
+   * The to-do whose "belongs to" row is open.
+   *
+   * A to-do could only be given a project at the moment it was written, which
+   * made an era with no projects yet a trap: everything typed before the first
+   * project existed stayed on the era for good. Blocks and shopping could both
+   * be moved afterwards; this was the one that could not, and it is the one
+   * there is most of.
+   */
+  let openTodo = $state<string | null>(null);
   let editingTags = $state(false);
   let newTagName = $state('');
 
@@ -384,13 +395,42 @@
     </form>
 
     {#snippet row(todo: Todo)}
-      <li class="card-flat flex items-center gap-3 px-3">
-        <button
-          class="press tap shrink-0 text-ink-400"
-          onclick={() => completeTodo(todo.id)}
-          aria-label="Complete">○</button
-        >
-        <div class="min-w-0 flex-1 py-3"><p>{todo.title}</p></div>
+      <li class="card-flat px-3">
+        <div class="flex items-center gap-3">
+          <button
+            class="press tap shrink-0 text-ink-400"
+            onclick={() => completeTodo(todo.id)}
+            aria-label="Complete">○</button
+          >
+          <button
+            class="min-w-0 flex-1 py-3 text-left"
+            onclick={() => (openTodo = openTodo === todo.id ? null : todo.id)}
+          >
+            <p>{todo.title}</p>
+          </button>
+        </div>
+
+        {#if openTodo === todo.id && tags.length}
+          <div class="mt-1 border-t border-line-1 pt-3 pb-3">
+            <p class="section-label mb-2">Belongs to</p>
+            <div class="flex flex-wrap gap-2">
+              <button
+                class="chip press {todo.tag ? '' : 'chip-on'}"
+                onclick={() => updateTodo(todo.id, { tag: undefined })}
+              >
+                Whole era
+              </button>
+              {#each tags as t (t)}
+                <button
+                  class="chip press {todo.tag === t ? 'chip-on' : ''}"
+                  onclick={() => updateTodo(todo.id, { tag: todo.tag === t ? undefined : t })}
+                >
+                  {t}
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
       </li>
     {/snippet}
 
@@ -471,7 +511,7 @@
       class="press tap w-full rounded-xl text-sm {confirmArchive ? 'text-accent-2' : 'text-ink-400'}"
       onclick={archive}
     >
-      {confirmArchive ? 'Archive it — tap again' : 'Archive this project'}
+      {confirmArchive ? 'Archive it — tap again' : 'Archive this era'}
     </button>
     <p class="footnote mt-1 text-center">
       Keeps everything in it. You can bring it back from Eras.

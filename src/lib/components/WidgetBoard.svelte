@@ -206,6 +206,18 @@
               <!-- Tappable, because a schematic is the one block whose whole
                    point is the detail in it, and a card on a phone is 170px
                    wide. -->
+              <!--
+                CAPPED, and that is not cosmetic.
+
+                An uncropped photo block had no height limit at all, so a
+                portrait photo off a phone rendered about 1300px tall: it filled
+                the screen, and the block's own Edit and Remove controls, the
+                three tabs and every to-do underneath it were pushed far below
+                the fold. Reported as "it sits there, I can't remove it or do
+                anything with it" — the photo was not stuck, it had swallowed
+                the page. The full picture is one tap away, which is what the
+                viewer is for.
+              -->
               <button
                 class="press -m-4 mt-0 block w-[calc(100%+2rem)]"
                 onclick={() => (viewing = widget)}
@@ -214,7 +226,7 @@
                 <img
                   src={widget.image}
                   alt={widget.title ?? 'Photo'}
-                  class="w-full rounded-b-[20px] object-cover"
+                  class="max-h-[240px] w-full rounded-b-[20px] object-cover"
                 />
               </button>
             {:else}
