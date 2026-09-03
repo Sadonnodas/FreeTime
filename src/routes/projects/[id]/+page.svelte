@@ -5,7 +5,6 @@
   import { base } from '$app/paths';
   import WidgetBoard from '$lib/components/WidgetBoard.svelte';
   import BuyList from '$lib/components/BuyList.svelte';
-  import { money } from '$lib/format';
   import type { Todo, BuyItem } from '$lib/types';
   import {
     createTodo, completeTodo, updateTodo, createBuyItem, markPurchased, saveNote, getNote,
@@ -178,19 +177,6 @@
     )
   );
 
-  /**
-   * What the rest of this project would cost, for the items that have a price.
-   *
-   * A plain sum, not a budget: there is no target to be over or under, which is
-   * the same reason there are no progress bars anywhere. "The campervan needs
-   * another 340 euros of parts" is a useful thing to know; "you are 40% through
-   * your allowance" is the thing this app exists to avoid.
-   */
-  const outstanding = $derived(
-    buyItems
-      .filter((b) => !b.purchasedAt && b.priceCents != null)
-      .reduce((sum, b) => sum + b.priceCents!, 0)
-  );
 
 
   const open = $derived(
@@ -571,9 +557,6 @@
       <button class="btn btn-primary press">Add</button>
     </form>
     <BuyList items={buyItems} showProject={false} groupBy="shop" sections={tags} />
-    {#if outstanding > 0}
-      <p class="footnote mt-3 text-right">{money(outstanding)} still to buy</p>
-    {/if}
   </Collapsible>
 
   <Collapsible id="{id}/era/note" title="Notes" count={markdown.trim() ? 1 : 0} defaultFolded>

@@ -320,6 +320,8 @@ export async function createBuyItem(
     projectId?: string;
     /** The project inside the era, as Todo.tag. */
     tag?: string;
+    qty?: number;
+    image?: string;
   } = {}
 ): Promise<string> {
   const b: BuyItem = stamp({ name: name.trim(), currency: 'EUR', ...opts });

@@ -114,7 +114,22 @@ export interface BuyItem extends Base {
   /** The project inside the era, exactly as Todo.tag. */
   tag?: string;
   url?: string;
+  /**
+   * How many. Undefined means one — a quantity nobody set should not read as
+   * "1 ×" on every row of a list where most things are singular.
+   */
+  qty?: number;
+  /**
+   * Price of ONE of them, in cents. The line total is qty × this, and the
+   * list's total is the sum of those; storing the line total instead would make
+   * changing the quantity silently wrong.
+   */
   priceCents?: number;
+  /**
+   * What it looks like, resized hard (THUMB_EDGE). For the bracket you found
+   * once and would not recognise again from its part number.
+   */
+  image?: string;
   currency?: string;
   projectId?: string;
   purchasedAt?: string;

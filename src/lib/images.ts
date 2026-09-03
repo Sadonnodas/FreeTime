@@ -11,6 +11,9 @@
  */
 
 export const COVER_EDGE = 640;
+/** A part in a shopping list, shown as a thumbnail and at most full width in
+ *  the viewer. Small: it is a reminder of which bracket you meant, not art. */
+export const THUMB_EDGE = 480;
 export const WIDGET_EDGE = 1000;
 const QUALITY = 0.72;
 

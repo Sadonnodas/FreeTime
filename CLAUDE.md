@@ -419,6 +419,16 @@ one came close to a hard rule, the reasoning is recorded here.
   bans it. A scale is a second axis to maintain and feel bad about and it always rots,
   so this is binary: on or off, floats to the top, and never setting it costs nothing.
   If a priority scale is ever asked for again, this is the argument to make first.
+- **A buy item stores the price of ONE, never the line total** (`BuyItem.qty`,
+  `priceCents`, [buy.test.ts](src/lib/buy.test.ts)). Storing the total was the
+  alternative and it is a quiet trap: changing the quantity afterwards would leave
+  the total saying whatever it said before, and nothing on screen would look wrong.
+  A row shows the line total with the unit price under it only when there is more
+  than one, and the list foots a "Still to buy" sum of everything unbought —
+  a plain sum, never a budget, for the same reason there are no progress bars.
+  `BuyItem.image` is a thumbnail capped at THUMB_EDGE, because "the bracket" and
+  "the other bracket" are the same six words and not the same part.
+
 - **Buy items carry a price, a shop and a project** ([BuyList.svelte](src/lib/components/BuyList.svelte)).
   All three fields existed in `BuyItem` from the start and nothing could enter them. One
   component now serves both Brain and a project's Buy tab so they cannot drift.

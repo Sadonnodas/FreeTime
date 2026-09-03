@@ -2,6 +2,8 @@
   import type { BuyItem, Project } from '$lib/types';
   import { markPurchased, updateBuyItem, softDelete, toggleBuyNeeded } from '$lib/store';
   import { money } from '$lib/format';
+  import { resizeImage, THUMB_EDGE } from '$lib/images';
+  import RemoveButton from './RemoveButton.svelte';
 
   /**
    * The buy list, shared by Brain and by a project's Buy tab so the two cannot
@@ -44,6 +46,30 @@
 
   const priceText = (cents?: number) => (cents == null ? '' : (cents / 100).toFixed(2));
 
+  function parseQty(raw: string): number | undefined {
+    const n = Number.parseInt(raw.replace(/[^0-9]/g, ''), 10);
+    return Number.isFinite(n) && n > 1 ? n : undefined;
+  }
+
+  let uploadError = $state('');
+  async function onPhoto(item: BuyItem, e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    uploadError = '';
+    try {
+      await updateBuyItem(item.id, { image: await resizeImage(file, THUMB_EDGE) });
+    } catch (err) {
+      uploadError = (err as Error).message;
+    }
+    // Lets the same file be picked twice running, which otherwise fires no
+    // change event and looks like the app ignored the tap.
+    input.value = '';
+  }
+
+  /** The photo opened full size. */
+  let viewing = $state<BuyItem | null>(null);
+
   /** The shop, shown as its domain — "bol.com" is more use at a glance than
    *  eighty characters of tracking parameters. */
   function host(url?: string): string | null {
@@ -78,10 +104,20 @@
     outstanding: number;
   }
 
+  /**
+   * What one line costs: the price of one, times how many.
+   *
+   * Storing the line total instead of the unit price was the alternative and it
+   * is a trap — changing the quantity afterwards would leave the total saying
+   * whatever it said before, and nothing on screen would look wrong.
+   */
+  export const lineTotal = (b: BuyItem) => (b.priceCents ?? 0) * (b.qty ?? 1);
+
   const outstandingOf = (rows: BuyItem[]) =>
-    rows
-      .filter((b) => !b.purchasedAt && b.priceCents != null)
-      .reduce((sum, b) => sum + b.priceCents!, 0);
+    rows.filter((b) => !b.purchasedAt).reduce((sum, b) => sum + lineTotal(b), 0);
+
+  /** Everything still to buy, across every group. */
+  const total = $derived(outstandingOf(items));
 
   const grouped = $derived.by<Group[]>(() => {
     if (groupBy === 'none') {
@@ -117,17 +153,6 @@
       });
   });
 
-  let armed = $state<string | null>(null);
-  async function remove(item: BuyItem) {
-    if (armed !== item.id) {
-      armed = item.id;
-      setTimeout(() => (armed = armed === item.id ? null : armed), 4000);
-      return;
-    }
-    armed = null;
-    if (openId === item.id) openId = null;
-    await softDelete('buyItems', item.id);
-  }
 </script>
 
 {#each grouped as group (group.key)}
@@ -152,11 +177,25 @@
           {item.purchasedAt ? '✓' : '○'}
         </button>
 
+        {#if item.image}
+          <!-- A thumbnail, because "the bracket" and "the other bracket" are
+               the same six words and not the same part. -->
+          <button
+            class="press h-10 w-10 shrink-0 overflow-hidden rounded-lg"
+            onclick={() => (viewing = item)}
+            aria-label="View photo of {item.name}"
+          >
+            <img src={item.image} alt="" class="h-full w-full object-cover" />
+          </button>
+        {/if}
+
         <button
           class="min-w-0 flex-1 py-2 text-left"
           onclick={() => (openId = openId === item.id ? null : item.id)}
         >
-          <p class={item.purchasedAt ? 'text-ink-400 line-through' : ''}>{item.name}</p>
+          <p class={item.purchasedAt ? 'text-ink-400 line-through' : ''}>
+            {item.name}{#if (item.qty ?? 1) > 1}<span class="text-ink-400">&nbsp;×{item.qty}</span>{/if}
+          </p>
           {#if showProject ? projectName(item.projectId) || host(item.url) : host(item.url)}
             <p class="footnote truncate">
               {[showProject ? projectName(item.projectId) : null, host(item.url)]
@@ -167,8 +206,13 @@
         </button>
 
         {#if item.priceCents != null}
-          <span class="shrink-0 text-sm tabular-nums text-ink-400">
-            {money(item.priceCents, item.currency)}
+          <!-- The LINE total, with the unit price under it only when there is
+               more than one — otherwise the same number twice. -->
+          <span class="shrink-0 text-right text-sm tabular-nums text-ink-400">
+            {money(lineTotal(item), item.currency)}
+            {#if (item.qty ?? 1) > 1}
+              <span class="footnote block">{money(item.priceCents, item.currency)} ea</span>
+            {/if}
           </span>
         {/if}
 
@@ -194,21 +238,48 @@
         <div class="mt-1 space-y-2 border-t border-line-1 pt-3 pb-2">
           <div class="flex gap-2">
             <input
+              inputmode="numeric"
+              value={item.qty && item.qty > 1 ? String(item.qty) : ''}
+              onchange={(e) => updateBuyItem(item.id, { qty: parseQty(e.currentTarget.value) })}
+              placeholder="Qty"
+              class="field w-20 shrink-0 text-sm"
+            />
+            <input
               inputmode="decimal"
               value={priceText(item.priceCents)}
               onchange={(e) =>
                 updateBuyItem(item.id, { priceCents: parsePrice(e.currentTarget.value) })}
-              placeholder="Price"
-              class="field w-28 shrink-0 text-sm"
-            />
-            <input
-              value={item.url ?? ''}
-              onchange={(e) =>
-                updateBuyItem(item.id, { url: e.currentTarget.value.trim() || undefined })}
-              placeholder="Where from — a link"
+              placeholder="Price each"
               class="field min-w-0 flex-1 text-sm"
             />
           </div>
+
+          <input
+            value={item.url ?? ''}
+            onchange={(e) =>
+              updateBuyItem(item.id, { url: e.currentTarget.value.trim() || undefined })}
+            placeholder="Where from — a link"
+            class="field w-full text-sm"
+          />
+
+          <div class="flex items-center gap-2">
+            <label class="press tap flex flex-1 items-center justify-center rounded-xl bg-surface-2 text-sm">
+              <input type="file" accept="image/*" class="hidden" onchange={(e) => onPhoto(item, e)} />
+              <span class="text-accent">{item.image ? 'Change photo' : 'Add a photo'}</span>
+            </label>
+            {#if item.image}
+              <button
+                type="button"
+                class="press tap-h rounded-lg px-3 text-sm text-ink-400"
+                onclick={() => updateBuyItem(item.id, { image: undefined })}
+              >
+                Remove photo
+              </button>
+            {/if}
+          </div>
+          {#if uploadError}
+            <p class="footnote text-accent-2">{uploadError}</p>
+          {/if}
 
           {#if showProject}
             <div class="flex flex-wrap gap-2">
@@ -244,14 +315,12 @@
               </a>
             {/if}
             <span class="flex-1"></span>
-            <button
-              class="press tap-h rounded-lg px-3 text-sm {armed === item.id
-                ? 'text-accent-2'
-                : 'text-ink-400'}"
-              onclick={() => remove(item)}
-            >
-              {armed === item.id ? 'Really remove?' : 'Remove'}
-            </button>
+            <RemoveButton
+              onremove={() => {
+                if (openId === item.id) openId = null;
+                void softDelete('buyItems', item.id);
+              }}
+            />
           </div>
         </div>
         {/if}
@@ -259,3 +328,34 @@
     {/each}
   </ul>
 {/each}
+
+{#if total > 0}
+  <!-- What the rest of this costs. A plain sum and never a budget: there is no
+       target to be over, which is the same reason there are no progress bars
+       anywhere in the app. -->
+  <div class="mt-3 flex items-baseline justify-between gap-3 border-t border-line-1 pt-3">
+    <span class="section-label">Still to buy</span>
+    <span class="tabular-nums">{money(total)}</span>
+  </div>
+{/if}
+
+{#if viewing?.image}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="glass-strong rise fixed inset-0 z-50 flex flex-col"
+    onclick={() => (viewing = null)}
+  >
+    <div class="flex items-center justify-between gap-3 px-4 pt-safe">
+      <p class="section-label truncate py-3">{viewing.name}</p>
+      <button
+        class="press tap-h px-2 text-[22px] leading-none text-ink-400"
+        onclick={() => (viewing = null)}
+        aria-label="Close">×</button
+      >
+    </div>
+    <div class="flex min-h-0 flex-1 items-center justify-center p-3 pb-safe">
+      <img src={viewing.image} alt={viewing.name} class="max-h-full max-w-full object-contain" />
+    </div>
+  </div>
+{/if}
