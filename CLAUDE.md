@@ -419,6 +419,22 @@ one came close to a hard rule, the reasoning is recorded here.
   bans it. A scale is a second axis to maintain and feel bad about and it always rots,
   so this is binary: on or off, floats to the top, and never setting it costs nothing.
   If a priority scale is ever asked for again, this is the argument to make first.
+- **Notes render, and a pasted link is clickable** ([markdown.ts](src/lib/markdown.ts),
+  [NoteEditor.svelte](src/lib/components/NoteEditor.svelte)). Reading is the
+  default and Edit is a toggle; the toolbar inserts the syntax so nobody has to
+  know it is Markdown. **Stored text stays plain Markdown** — it syncs as JSON, the
+  importer and the assistant both write it, and it has to survive a merge, so a
+  contenteditable rich editor was the wrong shape however much easier it looks.
+  **No markdown library**: tens of kilobytes on every page load for headings,
+  bullets, bold and a link. The renderer is ~120 lines and tested.
+  **It escapes BEFORE parsing, which bites twice.** Once for safety — a note syncs,
+  so `[click](javascript:…)` would follow you between devices, hence the scheme
+  allowlist. And once as a bug: the blockquote rule matched `>` when by that point
+  the line already said `&gt;`, so every quote silently rendered as a paragraph.
+  Line-level syntax involving an escaped character must match the ENTITY.
+  Bare URLs are linkified because that is how links actually arrive — nobody types
+  the brackets — with trailing punctuation left outside the href.
+
 - **A buy item stores the price of ONE, never the line total** (`BuyItem.qty`,
   `priceCents`, [buy.test.ts](src/lib/buy.test.ts)). Storing the total was the
   alternative and it is a quiet trap: changing the quantity afterwards would leave

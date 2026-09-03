@@ -582,6 +582,81 @@ body {
 }
 
 /*
+ * A rendered note.
+ *
+ * Plain descendant selectors and no :global(), which is Svelte syntax and is
+ * INVALID here — the browser silently discards every rule containing one, which
+ * is how the map pins vanished once already.
+ *
+ * The vertical rhythm is deliberately tight: these are working notes read on a
+ * phone, not an article, and the default browser margins on h2 and p turn a
+ * short list of measurements into a page of scrolling.
+ */
+.note-body {
+  line-height: 1.55;
+}
+.note-body > :first-child {
+  margin-top: 0;
+}
+.note-body h2,
+.note-body h3,
+.note-body h4,
+.note-body h5 {
+  margin: 1.1em 0 0.4em;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.note-body h2 { font-size: 1.35rem; letter-spacing: -0.02em; }
+.note-body h3 { font-size: 1.15rem; letter-spacing: -0.01em; }
+.note-body h4,
+.note-body h5 { font-size: 1rem; color: var(--color-ink-200); }
+.note-body p {
+  margin: 0.6em 0;
+}
+.note-body ul,
+.note-body ol {
+  margin: 0.5em 0;
+  padding-left: 1.35em;
+}
+.note-body ul { list-style: disc; }
+.note-body ol { list-style: decimal; }
+.note-body li { margin: 0.2em 0; }
+/* A nested list is the indent, so it should not also be a gap. */
+.note-body li > ul,
+.note-body li > ol,
+.note-body ul ul,
+.note-body ol ol,
+.note-body ul ol,
+.note-body ol ul {
+  margin: 0.15em 0;
+}
+.note-body a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  /* A pasted share link is longer than a phone is wide. */
+  overflow-wrap: anywhere;
+}
+.note-body code {
+  padding: 0.1em 0.35em;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  font-size: 0.9em;
+}
+.note-body blockquote {
+  margin: 0.6em 0;
+  padding-left: 0.9em;
+  border-left: 3px solid var(--color-line-2);
+  color: var(--color-ink-200);
+}
+.note-body hr {
+  margin: 1.1em 0;
+  border: 0;
+  border-top: 1px solid var(--color-line-1);
+}
+.note-body strong { font-weight: 600; }
+
+/*
  * The map.
  *
  * Lives here rather than scoped inside MemoMap.svelte because it has to react

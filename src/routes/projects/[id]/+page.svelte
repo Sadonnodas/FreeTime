@@ -19,6 +19,7 @@
   import Collapsible from '$lib/components/Collapsible.svelte';
   import EnergyPicker from '$lib/components/EnergyPicker.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
+  import NoteEditor from '$lib/components/NoteEditor.svelte';
 
 
   const id = $derived(page.params.id!);
@@ -560,12 +561,14 @@
   </Collapsible>
 
   <Collapsible id="{id}/era/note" title="Notes" count={markdown.trim() ? 1 : 0} defaultFolded>
-    <textarea
-      bind:value={markdown}
-      oninput={onNoteInput}
-      placeholder="Markdown. Autosaves."
-      class="field min-h-[30vh] w-full py-4 font-mono leading-relaxed"
-    ></textarea>
+    <NoteEditor
+      value={markdown}
+      placeholder="Notes for this era. Autosaves."
+      onchange={(text) => {
+        markdown = text;
+        onNoteInput();
+      }}
+    />
   </Collapsible>
 
   <Collapsible id="{id}/era/blocks" title="Blocks" count={0} defaultFolded>

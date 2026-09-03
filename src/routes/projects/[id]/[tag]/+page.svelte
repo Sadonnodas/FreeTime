@@ -18,6 +18,7 @@
   import MemoRecorder from '$lib/components/MemoRecorder.svelte';
   import Empty from '$lib/components/Empty.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
+  import NoteEditor from '$lib/components/NoteEditor.svelte';
 
   /**
    * A project inside an era: everything it holds, on one screen.
@@ -339,12 +340,11 @@
 
     <!-- ------------------------------------------------------------------ note -->
     <Collapsible id={sectionId('note')} title="Notes" count={noteText.trim() ? 1 : 0} {color} defaultFolded open={adding === 'note'}>
-      <textarea
+      <NoteEditor
         value={noteText}
-        oninput={(e) => onNote(e.currentTarget.value)}
         placeholder="Notes for {tag}. Autosaves."
-        class="field min-h-[30vh] w-full py-4 font-mono leading-relaxed"
-      ></textarea>
+        onchange={onNote}
+      />
     </Collapsible>
 
     <!-- ---------------------------------------------------------------- blocks -->
