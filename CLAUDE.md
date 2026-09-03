@@ -668,15 +668,23 @@ device; there is nothing to build. Memos are the exception, below.
   **Opening a section from outside is a prop, not a localStorage write** — the
   first attempt reached in and set the key directly and did nothing at all, since
   the component only re-reads storage when the section changes.
-- **Each project inside an era has a colour** (`Project.tagColors`, keyed by name
+- **A project inside an era has a name, a description and a colour**
+  (`Project.tagColors` and `Project.tagDescriptions`, both keyed by name
   because that is what every `tag` field already points at — ids here would mean
   migrating five tables to fix the address bar). Assigned automatically on creation
   from a fixed palette so making one is still one tap and one field, changeable
-  after. `projectTagColor()` falls back to the project's POSITION in the era, so
-  every project that predates colours already has one and no migration ran over
-  anyone's data. `renameProjectTag` carries the colour, and must do so BEFORE the
-  tags change: `setProjectTags` drops colours for names that are gone, so doing it
-  after recolours the project at random on rename.
+  after; the description is optional and shows under the name on the era list and
+  under the title on the project screen. `projectTagColor()` falls back to the
+  project's POSITION in the era, so every project that predates colours already has
+  one and no migration ran over anyone's data. **`renameProjectTag` carries both,
+  and must do so BEFORE the tags change**: `setProjectTags` drops entries for names
+  that are gone, so doing it after recolours the project at random on rename.
+  Pinned by [notes.test.ts](src/lib/notes.test.ts).
+  **The "+ New project" button was dead for two days** and nobody could have known
+  why: the redesign that turned the era page into an index deleted the panel the
+  button opened, while leaving the button and its `editingTags` flag behind, so it
+  set a variable that rendered nothing. If a control does nothing, check that what
+  it opens still exists before looking anywhere else.
 - **There are exactly two places a to-do can be written, and the era page is not
   one of them.** Inside a project, where the era and project are already known;
   or Brain → To-dos, where the size, the era, the project and the date are all on

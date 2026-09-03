@@ -32,6 +32,13 @@ export interface Project extends Base {
    * one tap and one field, and changeable afterwards.
    */
   tagColors?: Record<string, string>;
+  /**
+   * A line of description per project inside this era, keyed by name like
+   * tagColors. Optional everywhere — a project is still one tap and one field,
+   * and this is the sentence you write when the name alone will not remind you
+   * in three weeks what it was for.
+   */
+  tagDescriptions?: Record<string, string>;
   /** Cover photo, as a hard-resized data URL. See images.ts for the cap.
    *  Recognising a logo or a photo of the actual campervan is faster than
    *  reading a word, which is the whole point of the picture grid. */

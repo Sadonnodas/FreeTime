@@ -149,7 +149,12 @@
       style="background: color-mix(in srgb, {color} 22%, transparent);
              border-left: 4px solid {color}"
     >
-      <h1 class="large-title min-w-0 truncate">{tag}</h1>
+      <div class="min-w-0 flex-1">
+        <h1 class="large-title truncate">{tag}</h1>
+        {#if era?.tagDescriptions?.[tag]}
+          <p class="footnote">{era.tagDescriptions[tag]}</p>
+        {/if}
+      </div>
       <button
         class="press tap-h shrink-0 rounded-full px-2 text-[13px]"
         style="color: {color}"

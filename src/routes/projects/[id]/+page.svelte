@@ -10,6 +10,7 @@
   import {
     createTodo, completeTodo, updateTodo, createBuyItem, markPurchased, saveNote, getNote,
     setProjectImage, setProjectTags, removeProjectTag, renameProjectTag,
+    setProjectTagColor, setProjectTagDescription, PROJECT_COLORS,
     archiveProject, projectTagColor, softDelete
   } from '$lib/store';
   import { goto } from '$app/navigation';
@@ -70,22 +71,51 @@
    * there is most of.
    */
   let openTodo = $state<string | null>(null);
-  let editingTags = $state(false);
   let newTagName = $state('');
 
+  // Switching era closes whatever was open, or a panel from the last one
+  // reappears over a project this era has never heard of.
   $effect(() => {
     void id;
-    editingTags = false;
+    adding = false;
+    editingTag = null;
+    openTodo = null;
   });
 
   const tags = $derived($projectQ?.tags ?? []);
+
+  /**
+   * Making a project inside an era.
+   *
+   * The name is the only thing needed — the description and the colour are
+   * both optional, and a colour is assigned automatically if none is picked, so
+   * this is still one field and one tap if that is all you want it to be.
+   */
+  let adding = $state(false);
+  let newTagDesc = $state('');
+  let newTagColor = $state<string | undefined>(undefined);
+  let editingTag = $state<string | null>(null);
+
+  /** The next colour the palette would hand out, shown pre-selected so the
+   *  swatch row is never blank and picking one is a change, not a chore. */
+  const suggestedColor = $derived(
+    PROJECT_COLORS.find((c) => !Object.values($projectQ?.tagColors ?? {}).includes(c)) ??
+      PROJECT_COLORS[tags.length % PROJECT_COLORS.length]
+  );
 
   async function addTag(e: SubmitEvent) {
     e.preventDefault();
     const name = newTagName.trim();
     if (!name || tags.includes(name)) return;
-    newTagName = '';
+
     await setProjectTags(id, [...tags, name]);
+    if (newTagColor) await setProjectTagColor(id, name, newTagColor);
+    if (newTagDesc.trim()) await setProjectTagDescription(id, name, newTagDesc);
+
+    newTagName = '';
+    newTagDesc = '';
+    newTagColor = undefined;
+    adding = false;
   }
 
   /**
@@ -265,57 +295,145 @@
     behind on, and a project with nothing in it shows a dash rather than a zero
     dressed up as a failure.
   -->
-  <h2 class="section-label mb-2 flex items-center justify-between">
-    <span>Projects</span>
-    <button class="press tap-h px-2 text-[13px] text-accent" onclick={() => (editingTags = !editingTags)}>
-      {editingTags ? 'Done' : 'Edit'}
-    </button>
-  </h2>
+  <h2 class="section-label mb-2">Projects</h2>
 
   {#if tags.length}
     <ul class="mb-3 space-y-2">
       {#each tags as t (t)}
         {@const c = projectTagColor($projectQ?.tags, $projectQ?.tagColors, t)}
+        {@const desc = $projectQ?.tagDescriptions?.[t]}
         <li>
-          <a
-            href="{base}/projects/{id}/{encodeURIComponent(t)}"
-            class="press rise flex items-center gap-3 rounded-[18px] px-4 py-3"
+          <div
+            class="rise overflow-hidden rounded-[18px]"
             style="background: color-mix(in srgb, {c} 16%, transparent);
                    border-left: 4px solid {c}"
           >
-            <span class="min-w-0 flex-1 truncate text-[17px]">{t}</span>
-            <span class="footnote shrink-0 tabular-nums">{countFor(t) || '—'}</span>
-            <span class="shrink-0 text-ink-400">›</span>
-          </a>
+            <div class="flex items-center gap-1 pr-2">
+              <a
+                href="{base}/projects/{id}/{encodeURIComponent(t)}"
+                class="press min-w-0 flex-1 px-4 py-3"
+              >
+                <span class="block truncate text-[17px]">{t}</span>
+                {#if desc}<span class="footnote block truncate">{desc}</span>{/if}
+              </a>
+              <span class="footnote shrink-0 tabular-nums">{countFor(t) || '—'}</span>
+              <button
+                class="press tap-h w-9 shrink-0 text-center text-[13px] text-ink-400"
+                onclick={() => (editingTag = editingTag === t ? null : t)}
+                aria-label="Edit {t}">⋯</button
+              >
+            </div>
+
+            {#if editingTag === t}
+              <!-- Name, description and colour, in the same order as the form
+                   that made it, so editing one is not a different screen. -->
+              <div class="space-y-3 px-4 pt-1 pb-4">
+                <input
+                  value={t}
+                  onchange={(e) => renameProjectTag(id, t, e.currentTarget.value)}
+                  placeholder="Name"
+                  class="field w-full"
+                />
+                <input
+                  value={desc ?? ''}
+                  onchange={(e) => setProjectTagDescription(id, t, e.currentTarget.value)}
+                  placeholder="What is it, in a line? (optional)"
+                  class="field w-full"
+                />
+                <div class="flex flex-wrap gap-2">
+                  {#each PROJECT_COLORS as swatch (swatch)}
+                    <button
+                      type="button"
+                      class="press h-8 w-8 rounded-full border-2 {c === swatch
+                        ? 'border-ink-50'
+                        : 'border-transparent'}"
+                      style="background: {swatch}"
+                      onclick={() => setProjectTagColor(id, t, swatch)}
+                      aria-label="Use this colour"
+                    ></button>
+                  {/each}
+                </div>
+                <div class="flex">
+                  <span class="flex-1"></span>
+                  <RemoveButton
+                    label="Remove project"
+                    confirm="Remove it? Its things stay."
+                    onremove={() => {
+                      editingTag = null;
+                      void removeProjectTag(id, t);
+                    }}
+                  />
+                </div>
+              </div>
+            {/if}
+          </div>
         </li>
       {/each}
     </ul>
-  {:else}
+  {:else if !adding}
     <p class="footnote mb-3">
       No projects yet. A project is one build, one song, one job — the thing you
       actually sit down to do.
     </p>
   {/if}
 
-  {#if !editingTags}
+  {#if adding}
+    <form onsubmit={addTag} class="card mb-5 space-y-3 p-4">
+      <!-- svelte-ignore a11y_autofocus -->
+      <input
+        bind:value={newTagName}
+        autofocus
+        placeholder="Name of the project"
+        class="field w-full"
+      />
+      <input
+        bind:value={newTagDesc}
+        placeholder="What is it, in a line? (optional)"
+        class="field w-full"
+      />
+
+      <div>
+        <p class="section-label mb-2">Colour</p>
+        <div class="flex flex-wrap gap-2">
+          {#each PROJECT_COLORS as swatch (swatch)}
+            <button
+              type="button"
+              class="press h-8 w-8 rounded-full border-2 {(newTagColor ?? suggestedColor) === swatch
+                ? 'border-ink-50'
+                : 'border-transparent'}"
+              style="background: {swatch}"
+              onclick={() => (newTagColor = swatch)}
+              aria-label="Use this colour"
+            ></button>
+          {/each}
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button class="btn btn-primary press flex-1" disabled={!newTagName.trim()}>Add</button>
+        <button
+          type="button"
+          class="press tap rounded-xl px-4 text-sm text-ink-400"
+          onclick={() => {
+            adding = false;
+            newTagName = '';
+            newTagDesc = '';
+            newTagColor = undefined;
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  {:else}
     <button
       class="press tap mb-5 w-full rounded-xl border border-dashed border-line-2 text-sm text-ink-400"
-      onclick={() => (editingTags = true)}
+      onclick={() => (adding = true)}
     >
       + New project
     </button>
   {/if}
 
-  <!--
-    Whatever is not in a project yet.
-
-    An era is mostly an index of its projects, but the app must never require
-    one before you can write something down (principle 1 has no required fields),
-    so era-level items have to live somewhere visible. Same folding language as
-    a project page rather than the tabs that used to be here: two different ways
-    of showing the same five kinds of thing on two screens was the actual source
-    of the chaos, not the amount of content.
-  -->
   <!-- Everything in the era, whichever project it sits in. The heading here
        used to say "not in a project yet", which stopped being true the moment
        the to-do section became an overview of all of them. -->

@@ -113,7 +113,34 @@ export async function setProjectTags(id: string, tags: string[]): Promise<void> 
     if (!tags.includes(tag)) delete colors[tag];
   }
 
-  await db.projects.update(id, { tags, tagColors: colors, updatedAt: now() });
+  // Descriptions follow the same rule: forget the ones whose project is gone,
+  // so the map cannot fill up with names nothing points at.
+  const descriptions = { ...(project?.tagDescriptions ?? {}) };
+  for (const tag of Object.keys(descriptions)) {
+    if (!tags.includes(tag)) delete descriptions[tag];
+  }
+
+  await db.projects.update(id, {
+    tags,
+    tagColors: colors,
+    tagDescriptions: descriptions,
+    updatedAt: now()
+  });
+}
+
+/** Describe one project inside an era, or clear the description. */
+export async function setProjectTagDescription(
+  id: string,
+  tag: string,
+  text: string
+): Promise<void> {
+  const project = await db.projects.get(id);
+  if (!project) return;
+  const next = { ...(project.tagDescriptions ?? {}) };
+  const trimmed = text.trim();
+  if (trimmed) next[tag] = trimmed;
+  else delete next[tag];
+  await db.projects.update(id, { tagDescriptions: next, updatedAt: now() });
 }
 
 /** Recolour one project inside an era. */
@@ -169,10 +196,21 @@ export async function renameProjectTag(
   // for names that are gone, so doing it after would recolour the project at
   // random on rename and undo the whole point of it having a colour.
   const colors = { ...(project.tagColors ?? {}) };
-  if (colors[from]) {
-    colors[next] = colors[from];
-    delete colors[from];
-    await db.projects.update(projectId, { tagColors: colors, updatedAt: now() });
+  const notes = { ...(project.tagDescriptions ?? {}) };
+  if (colors[from] || notes[from]) {
+    if (colors[from]) {
+      colors[next] = colors[from];
+      delete colors[from];
+    }
+    if (notes[from]) {
+      notes[next] = notes[from];
+      delete notes[from];
+    }
+    await db.projects.update(projectId, {
+      tagColors: colors,
+      tagDescriptions: notes,
+      updatedAt: now()
+    });
   }
   await setProjectTags(projectId, (project.tags ?? []).map((t) => (t === from ? next : t)));
 

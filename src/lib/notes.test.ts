@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from './db';
 import {
   createProject, setProjectTags, getNote, saveNote, renameProjectTag, removeProjectTag,
-  createTodo, updateTodo, createBuyItem, updateBuyItem
+  createTodo, updateTodo, createBuyItem, updateBuyItem,
+  setProjectTagColor, setProjectTagDescription, projectTagColor
 } from './store';
 import { addWidget, setWidgetTag, widgetsFor } from './widgets';
 
@@ -120,6 +121,44 @@ describe('renaming a section', () => {
 
     expect((await db.widgets.get(block))!.tag).toBeUndefined();
     expect((await widgetsFor(p)).length).toBe(1);
+  });
+
+  it('carries a colour and a description through a rename', async () => {
+    // Both are keyed by NAME, which is the one place that choice costs
+    // anything. Miss either and renaming a project silently recolours it or
+    // drops the line explaining what it was for.
+    const p = await createProject('Bearfeet');
+    await setProjectTags(p, ['Shoe last']);
+    await setProjectTagColor(p, 'Shoe last', '#c765c7');
+    await setProjectTagDescription(p, 'Shoe last', 'Carving a wooden last');
+
+    await renameProjectTag(p, 'Shoe last', 'Left last');
+
+    const era = (await db.projects.get(p))!;
+    expect(era.tagColors?.['Left last']).toBe('#c765c7');
+    expect(era.tagColors?.['Shoe last']).toBeUndefined();
+    expect(era.tagDescriptions?.['Left last']).toBe('Carving a wooden last');
+  });
+
+  it('forgets a colour and description once the project is gone', async () => {
+    const p = await createProject('Bearfeet');
+    await setProjectTags(p, ['Shoe last']);
+    await setProjectTagDescription(p, 'Shoe last', 'Carving a wooden last');
+
+    await removeProjectTag(p, 'Shoe last');
+
+    const era = (await db.projects.get(p))!;
+    expect(era.tagDescriptions?.['Shoe last']).toBeUndefined();
+    expect(era.tagColors?.['Shoe last']).toBeUndefined();
+  });
+
+  it('colours a project that predates colours by its position', async () => {
+    // No migration ever ran over anyone's data, so this fallback is what makes
+    // every project made before colours existed still look deliberate.
+    expect(projectTagColor(['A', 'B'], undefined, 'B')).not.toBe(
+      projectTagColor(['A', 'B'], undefined, 'A')
+    );
+    expect(projectTagColor(['A'], { A: '#123456' }, 'A')).toBe('#123456');
   });
 
   it('leaves a block behind when its project is removed, rather than deleting it', async () => {
