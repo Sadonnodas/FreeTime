@@ -7,7 +7,7 @@
   import { widgetsFor } from '$lib/widgets';
   import {
     createTodo, completeTodo, updateTodo, createBuyItem, saveNote, getNote,
-    setProjectTagColor, projectTagColor, PROJECT_COLORS
+    setProjectTagColor, projectTagColor, PROJECT_COLORS, softDelete
   } from '$lib/store';
   import { memosForProject } from '$lib/memos';
   import { canRecord } from '$lib/audio';
@@ -17,6 +17,7 @@
   import MemoList from '$lib/components/MemoList.svelte';
   import MemoRecorder from '$lib/components/MemoRecorder.svelte';
   import Empty from '$lib/components/Empty.svelte';
+  import RemoveButton from '$lib/components/RemoveButton.svelte';
 
   /**
    * A project inside an era: everything it holds, on one screen.
@@ -270,12 +271,23 @@
                     'Left unset it still shows up in Free Time.'}
                 </p>
 
-                <button
-                  class="press tap-h mt-2 rounded-lg text-sm text-ink-400"
-                  onclick={() => updateTodo(todo.id, { tag: undefined })}
-                >
-                  Move out to {era?.name ?? 'the era'}
-                </button>
+                <div class="mt-2 flex items-center gap-1">
+                  <button
+                    class="press tap-h rounded-lg px-3 text-sm text-ink-400"
+                    onclick={() => updateTodo(todo.id, { tag: undefined })}
+                  >
+                    Move out to {era?.name ?? 'the era'}
+                  </button>
+                  <span class="flex-1"></span>
+                  <RemoveButton
+                    label="Delete"
+                    confirm="Really delete it?"
+                    onremove={() => {
+                      openTodo = null;
+                      void softDelete('todos', todo.id);
+                    }}
+                  />
+                </div>
               </div>
             {/if}
           </li>

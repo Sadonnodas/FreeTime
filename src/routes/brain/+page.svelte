@@ -4,7 +4,7 @@
   import type { Todo, Idea, BuyItem, Project, Energy, Memo } from '$lib/types';
   import {
     promoteIdea, completeTodo, createTodo, createIdea, createBuyItem,
-    setIdeaProject, toggleIdeaDone
+    setIdeaProject, toggleIdeaDone, updateTodo, softDelete
   } from '$lib/store';
   import { activeProjects } from '$lib/queries';
   import { allMemos, storageUse, mb, type StorageUse } from '$lib/memos';
@@ -14,6 +14,7 @@
   import BuyList from '$lib/components/BuyList.svelte';
   import Empty from '$lib/components/Empty.svelte';
   import EnergyPicker from '$lib/components/EnergyPicker.svelte';
+  import RemoveButton from '$lib/components/RemoveButton.svelte';
   import { canRecord } from '$lib/audio';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
@@ -156,6 +157,9 @@
    * They appear once there is something to file, the same way the capture box
    * shows its project chips.
    */
+  /** The to-do whose row is expanded, for setting a size or deleting it. */
+  let openTodo = $state<string | null>(null);
+
   let newEnergy = $state<Energy | undefined>(undefined);
   let newEra = $state('');
   let newTag = $state('');
@@ -344,20 +348,54 @@
 
     <ul class="space-y-1">
       {#each filteredTodos as t (t.id)}
-        <li class="card-flat flex items-center gap-3 px-3">
-          <button
-            class="press tap shrink-0 {t.completedAt ? 'text-good' : 'text-ink-400'}"
-            onclick={() => !t.completedAt && completeTodo(t.id)}
-            aria-label="Complete">{t.completedAt ? '✓' : '○'}</button
-          >
-          <div class="flex-1 py-3">
-            <p class={t.completedAt ? 'text-ink-400 line-through' : ''}>{t.title}</p>
-            {#if projectName(t.projectId) || t.tag || t.energy || t.date}
-              <p class="text-xs text-ink-400">
-                {[projectName(t.projectId), t.tag, t.energy, t.date].filter(Boolean).join(' · ')}
-              </p>
-            {/if}
+        <li class="card-flat px-3">
+          <div class="flex items-center gap-3">
+            <button
+              class="press tap shrink-0 {t.completedAt ? 'text-good' : 'text-ink-400'}"
+              onclick={() => !t.completedAt && completeTodo(t.id)}
+              aria-label="Complete">{t.completedAt ? '✓' : '○'}</button
+            >
+            <button
+              class="min-w-0 flex-1 py-3 text-left"
+              onclick={() => (openTodo = openTodo === t.id ? null : t.id)}
+            >
+              <p class={t.completedAt ? 'text-ink-400 line-through' : ''}>{t.title}</p>
+              {#if projectName(t.projectId) || t.tag || t.energy || t.date}
+                <p class="text-xs text-ink-400">
+                  {[projectName(t.projectId), t.tag, t.energy, t.date].filter(Boolean).join(' · ')}
+                </p>
+              {/if}
+            </button>
           </div>
+
+          {#if openTodo === t.id}
+            <!--
+              Brain is the one list that shows every to-do in the app, open and
+              closed, so it is where a pile of things that should never have
+              existed actually gets cleared. Deleting is per row and deliberate;
+              there is no "clear completed", because finished work is what the
+              wins feed is made of.
+            -->
+            <div class="mt-1 space-y-3 border-t border-line-1 pt-3 pb-3">
+              {#if !t.completedAt}
+                <div>
+                  <p class="section-label mb-2">How big is it?</p>
+                  <EnergyPicker value={t.energy} onpick={(energy) => updateTodo(t.id, { energy })} />
+                </div>
+              {/if}
+              <div class="flex">
+                <span class="flex-1"></span>
+                <RemoveButton
+                  label="Delete"
+                  confirm="Really delete it?"
+                  onremove={() => {
+                    openTodo = null;
+                    void softDelete('todos', t.id);
+                  }}
+                />
+              </div>
+            </div>
+          {/if}
         </li>
       {/each}
     </ul>

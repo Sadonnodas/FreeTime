@@ -10,7 +10,7 @@
   import {
     createTodo, completeTodo, updateTodo, createBuyItem, markPurchased, saveNote, getNote,
     setProjectImage, setProjectTags, removeProjectTag, renameProjectTag,
-    archiveProject, projectTagColor
+    archiveProject, projectTagColor, softDelete
   } from '$lib/store';
   import { goto } from '$app/navigation';
   import { resizeImage, COVER_EDGE } from '$lib/images';
@@ -18,6 +18,7 @@
   import StickerPicker from '$lib/components/StickerPicker.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import EnergyPicker from '$lib/components/EnergyPicker.svelte';
+  import RemoveButton from '$lib/components/RemoveButton.svelte';
 
 
   const id = $derived(page.params.id!);
@@ -382,6 +383,18 @@
                   <EnergyPicker
                     value={todo.energy}
                     onpick={(energy) => updateTodo(todo.id, { energy })}
+                  />
+                </div>
+
+                <div class="flex">
+                  <span class="flex-1"></span>
+                  <RemoveButton
+                    label="Delete"
+                    confirm="Really delete it?"
+                    onremove={() => {
+                      openTodo = null;
+                      void softDelete('todos', todo.id);
+                    }}
                   />
                 </div>
 

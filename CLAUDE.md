@@ -79,7 +79,13 @@ From spec §11 and the post-mortem that produced it. These are not preferences.
 
 - **No streaks. No completion percentages. No progress bars. No "overdue" state, red
   badge, or nag.** No weekly/monthly planning views. No priority field. No analytics.
-- **Completed items are never deleted and never hidden.**
+- **Completed items are never deleted and never hidden** *by the app*. Deleting one
+  row by hand is a different thing and is allowed: there is a per-row two-tap
+  Delete on to-dos and buy items ([RemoveButton.svelte](src/lib/components/RemoveButton.svelte)),
+  because a to-do typed while testing is not an achievement and living with it
+  forever is its own kind of nag. What stays banned is the app doing it: no
+  auto-archiving, no hiding closed work, and **no "clear completed"** — the wins
+  feed is made of exactly that.
 - **Capture takes one field and no required fields, ever.**
 - **A new project / habit / list is one tap and one field.**
 - **Every AI feature keeps a working non-AI path.** The app must be fully usable
