@@ -95,7 +95,7 @@
    * Grouping by project answers the other question: what is this campervan
    * still going to cost me.
    */
-  type GroupBy = 'none' | 'shop' | 'project';
+  type GroupBy = 'none' | 'shop' | 'project' | 'tag';
 
   interface Group {
     key: string;
@@ -129,7 +129,9 @@
       const key =
         groupBy === 'shop'
           ? (host(item.url) ?? '')
-          : (projectName(item.projectId) ?? '');
+          : groupBy === 'tag'
+            ? (item.tag ?? '')
+            : (projectName(item.projectId) ?? '');
       const bucket = buckets.get(key);
       if (bucket) bucket.push(item);
       else buckets.set(key, [item]);

@@ -5,7 +5,7 @@
   import { base } from '$app/paths';
   import WidgetBoard from '$lib/components/WidgetBoard.svelte';
   import BuyList from '$lib/components/BuyList.svelte';
-  import type { Todo, BuyItem } from '$lib/types';
+  import type { Todo, BuyItem, Note } from '$lib/types';
   import {
     createTodo, completeTodo, updateTodo, createBuyItem, markPurchased, saveNote, getNote,
     setProjectImage, setProjectTags, removeProjectTag, renameProjectTag,
@@ -183,6 +183,35 @@
   const open = $derived(
     (($todosQ as Todo[] | undefined) ?? []).filter((t) => !t.completedAt)
   );
+  /**
+   * Every note in the era, including each project's.
+   *
+   * The section used to show the era's OWN note and nothing else while sitting
+   * under a heading that said "Everything in Crafting" — so looking here for a
+   * note written inside a project found nothing, and the page gave no hint that
+   * it was not showing everything. That is the whole bug: not a missing label,
+   * a missing list.
+   */
+  const notesQ = $derived(
+    liveQuery(async () =>
+      (await db.notes.where('projectId').equals(id).toArray()).filter(
+        (n) => !n.deletedAt && n.markdown.trim()
+      )
+    )
+  );
+  const projectNotes = $derived(
+    (($notesQ as Note[] | undefined) ?? [])
+      .filter((n) => n.tag && tags.includes(n.tag))
+      .sort((a, b) => tags.indexOf(a.tag!) - tags.indexOf(b.tag!))
+  );
+
+  /** The first line worth showing, for a note you are deciding whether to open. */
+  const firstLine = (markdown: string) =>
+    markdown
+      .split('\n')
+      .map((l) => l.replace(/^[#>\-*\s]+/, '').trim())
+      .find(Boolean) ?? '';
+
   /** Open to-dos in one project inside this era. A count of what is waiting,
    *  never of what is done: there is no target here to fall short of. */
   const countFor = (t: string) => open.filter((todo) => todo.tag === t).length;
@@ -421,10 +450,20 @@
     </button>
   {/if}
 
-  <!-- Everything in the era, whichever project it sits in. The heading here
-       used to say "not in a project yet", which stopped being true the moment
-       the to-do section became an overview of all of them. -->
-  <h2 class="section-label mt-6 mb-2">Everything in {$projectQ?.name ?? 'this era'}</h2>
+  <!--
+    The overview, and it has to be honest about being one.
+
+    "Everything in Crafting" was read literally, which is fair, and it was not
+    true: to-dos and shopping listed every project's, while Notes showed only
+    the era's own. Looking here for a note written inside a project found an
+    empty box that looked like the answer. Every section below now spans the
+    whole era, and every row says which project it belongs to.
+  -->
+  <h2 class="section-label mt-6 mb-1">Across every project</h2>
+  <p class="footnote mb-3">
+    Everything in {$projectQ?.name ?? 'this era'}, wherever it lives. Tap a
+    project above to work inside one.
+  </p>
 
   <!--
     Every to-do in the era, grouped under the project it belongs to, and READ
@@ -557,13 +596,45 @@
       <input bind:value={newBuy} placeholder="Something to buy" class="field min-w-0 flex-1" />
       <button class="btn btn-primary press">Add</button>
     </form>
-    <BuyList items={buyItems} showProject={false} groupBy="shop" sections={tags} />
+    <!-- Grouped by the project it is for, not by shop. On the era page the
+         question is "what does this build still need", and a part with no
+         project shown is the thing that made the whole overview ambiguous. -->
+    <BuyList items={buyItems} showProject={false} groupBy="tag" sections={tags} />
   </Collapsible>
 
-  <Collapsible id="{id}/era/note" title="Notes" count={markdown.trim() ? 1 : 0} defaultFolded>
+  <Collapsible
+    id="{id}/era/note"
+    title="Notes"
+    count={(markdown.trim() ? 1 : 0) + projectNotes.length}
+    defaultFolded
+  >
+    {#if projectNotes.length}
+      <!-- Each project's note, so looking for one here finds it instead of
+           finding an empty box that looked like the answer. -->
+      <ul class="mb-3 space-y-1">
+        {#each projectNotes as n (n.id)}
+          {@const c = projectTagColor($projectQ?.tags, $projectQ?.tagColors, n.tag!)}
+          <li>
+            <a
+              href="{base}/projects/{id}/{encodeURIComponent(n.tag!)}"
+              class="press card-flat flex items-center gap-3 px-3 py-3"
+            >
+              <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background: {c}"></span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-[15px]">{n.tag}</span>
+                <span class="footnote block truncate">{firstLine(n.markdown)}</span>
+              </span>
+              <span class="shrink-0 text-ink-400">›</span>
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    <p class="section-label mb-2">Not in a project</p>
     <NoteEditor
       value={markdown}
-      placeholder="Notes for this era. Autosaves."
+      placeholder="Notes for the era itself. Autosaves."
       onchange={(text) => {
         markdown = text;
         onNoteInput();

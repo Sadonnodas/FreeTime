@@ -142,8 +142,15 @@
              fixes that and gives the label and text fields room to be typed in.
              The two-column grid comes back the moment you tap Done. -->
         <div class="card rise p-4 {widget.size === 'wide' || editing ? 'col-span-2' : ''}">
-          {#if widget.title || editing}
-            <p class="section-label mb-2 truncate">{widget.title || 'Untitled'}</p>
+          {#if widget.title || editing || (!section && widget.tag)}
+            <p class="section-label mb-2 truncate">
+              {#if !section && widget.tag}
+                <!-- Which project it belongs to, shown only from the era, where
+                     otherwise a schematic gives no clue which build it is for. -->
+                <span style="color: var(--color-accent)">{widget.tag}</span>
+                {#if widget.title}<span class="text-ink-400"> · </span>{/if}
+              {/if}{widget.title || (!section && widget.tag ? '' : 'Untitled')}
+            </p>
           {/if}
 
           {#if widget.kind === 'countdown'}

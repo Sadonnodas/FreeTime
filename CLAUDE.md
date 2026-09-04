@@ -694,6 +694,19 @@ device; there is nothing to build. Memos are the exception, below.
   stuck; it had eaten the screen. Capped at 240px with the full picture one tap
   away, which is what the full-screen viewer is for.
 
+- **An era's overview must be honest about being one, or it is worse than absent.**
+  The heading said "Everything in Crafting" and was read literally — fairly, since
+  to-dos and shopping really did list every project's. But Notes showed only the
+  era's OWN note, so looking there for a note written inside a project found an
+  empty box that looked like the answer, with nothing on screen saying the list was
+  partial. Toon offered to have the whole overview removed; the fix is the other
+  way round. **Every section spans the whole era and every row names its project**:
+  to-dos grouped under theirs, shopping grouped by project with a subtotal each,
+  notes listed per project with a snippet and a link, blocks labelled. The heading
+  is "Across every project" with a line under it saying to tap a project to work
+  inside one. A partial list under a total-sounding heading is a lie the app tells
+  once and gets believed.
+
 - **A project is a screen: one add button, everything folded**
   ([[id]/[tag]/+page.svelte](src/routes/projects/[id]/[tag]/+page.svelte),
   [Collapsible.svelte](src/lib/components/Collapsible.svelte)). One `+ Add` offers
