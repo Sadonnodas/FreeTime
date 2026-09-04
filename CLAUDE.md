@@ -645,6 +645,19 @@ one came close to a hard rule, the reasoning is recorded here.
 client ID is in [config.ts](src/lib/config.ts). It needs signing in to Google on each
 device; there is nothing to build. Memos are the exception, below.
 
+- **Notes sync as JSON first and .md second, and it used to be only the .md**
+  ([sync.ts](src/lib/sync.ts) `syncNotes`, [sync.test.ts](src/lib/sync.test.ts)).
+  Two failures at once, both of which look like nothing happening. `syncNotes`
+  walks the LOCAL notes, so a note written on the laptop was never even looked at
+  by a phone that had no row for it — nothing pulled it down, ever. And the file
+  was named after the project alone, so once a project could hold a note per
+  section, an era's note and every one of its projects' notes wrote to
+  `crafting.md` and overwrote each other on every sync. Notes now go through the
+  generic per-record merge like every other table; the .md files are the readable
+  copy in Drive (spec 8.2) and are **export only** — the database decides which
+  version wins before they are written. A file edited in Drive directly is still
+  never destroyed: it is parked under a "(conflict <date>)" name first.
+
 - **Memo sync** ([sync.ts](src/lib/sync.ts) `syncMemos`). Metadata rides in
   `memos/memos.json`; the audio goes up as real audio files in the same folder, so a
   recording can be played and shared straight from Drive by someone who has never heard

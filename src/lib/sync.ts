@@ -32,7 +32,24 @@ const FILES: { table: keyof typeof db & string; file: string }[] = [
   { table: 'days', file: 'days.json' },
   { table: 'captures', file: 'captures.json' },
   { table: 'habitStateChanges', file: 'habit-state-changes.json' },
-  { table: 'widgets', file: 'widgets.json' }
+  { table: 'widgets', file: 'widgets.json' },
+  /*
+   * Notes go through the generic per-record merge like everything else, and
+   * that is a FIX, not a duplication of syncNotes below.
+   *
+   * syncNotes writes one readable .md per note into Drive (spec 8.2) and used
+   * to be the whole mechanism, which failed in two ways at once. It walks the
+   * LOCAL notes, so a note written on the laptop and never seen by the phone
+   * was never looked at there — nothing pulled it down, which is exactly the
+   * "I added a note on my laptop and it is not on my phone" report. And it
+   * named files after the project alone, so once a project could hold a note
+   * per section, an era's note and all of its projects' notes wrote to one
+   * filename and overwrote each other.
+   *
+   * The JSON file is now what makes notes correct; the .md files are the
+   * readable copy in Drive.
+   */
+  { table: 'notes', file: 'notes.json' }
 ];
 
 export type SyncState =
@@ -94,11 +111,19 @@ async function logOverwrites(table: string, overwrites: { overwritten: Base }[])
 }
 
 /**
- * Project notes, as real .md files (spec 8.2).
+ * Project notes, as real .md files in Drive (spec 8.2) — readable and editable
+ * by someone who has never heard of this app.
  *
- * File-level last-write-wins, because prose does not merge by field. On a real
- * clash both versions survive — one under a "(conflict <date>)" name. Losing a
- * paragraph someone wrote is far worse than leaving two files to reconcile.
+ * EXPORT ONLY. Which version of a note wins is settled by the JSON merge before
+ * this runs, so this no longer reads anything back into the database. It used
+ * to, and that was the mechanism by which a note could not arrive on a second
+ * device at all: this loop walks local notes, and a device that had never seen
+ * the note had none to walk.
+ *
+ * It still refuses to destroy prose. If the file in Drive differs from what we
+ * are about to write and was touched more recently than our note, the remote
+ * text is parked under a "(conflict <date>)" name first. Losing a paragraph
+ * someone wrote is far worse than leaving two files to reconcile.
  */
 async function syncNotes(token: string, notesFolderId: string): Promise<void> {
   const [notes, projects, remote] = await Promise.all([
@@ -114,7 +139,12 @@ async function syncNotes(token: string, notesFolderId: string): Promise<void> {
     const project = projects.find((p) => p.id === note.projectId);
     if (!project) continue;
 
-    const fileName = `${slug(project.name)}.md`;
+    // The project inside the era belongs in the name. Without it, an era's own
+    // note and every one of its projects' notes are all "crafting.md" and
+    // silently overwrite one another on every sync.
+    const fileName = note.tag
+      ? `${slug(project.name)}--${slug(note.tag)}.md`
+      : `${slug(project.name)}.md`;
     const existing = remote.find((f) => f.name === fileName);
 
     if (!existing) {
@@ -130,28 +160,26 @@ async function syncNotes(token: string, notesFolderId: string): Promise<void> {
     const remoteText = await readFile(token, existing.id);
     if (remoteText === note.markdown) continue;
 
-    const remoteNewer =
-      !!existing.modifiedTime && existing.modifiedTime > note.updatedAt;
-
+    // Someone edited the .md in Drive directly since we last wrote it. The
+    // database has already decided which note wins, so this keeps their text
+    // rather than adopting it.
+    const remoteNewer = !!existing.modifiedTime && existing.modifiedTime > note.updatedAt;
     if (remoteNewer && remoteText !== null) {
-      // Their copy is newer and differs. Take it locally, but park ours beside
-      // it rather than dropping the text.
       await writeFile(token, {
         name: conflictFileName(fileName),
         parentId: notesFolderId,
-        content: note.markdown,
-        mimeType: 'text/markdown'
-      });
-      await db.notes.update(note.id, { markdown: remoteText, updatedAt: now() });
-    } else {
-      await writeFile(token, {
-        id: existing.id,
-        name: fileName,
-        parentId: notesFolderId,
-        content: note.markdown,
+        content: remoteText,
         mimeType: 'text/markdown'
       });
     }
+
+    await writeFile(token, {
+      id: existing.id,
+      name: fileName,
+      parentId: notesFolderId,
+      content: note.markdown,
+      mimeType: 'text/markdown'
+    });
   }
 }
 
