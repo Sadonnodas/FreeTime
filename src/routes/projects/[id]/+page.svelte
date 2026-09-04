@@ -18,6 +18,7 @@
   import StickerPicker from '$lib/components/StickerPicker.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import EnergyPicker from '$lib/components/EnergyPicker.svelte';
+  import DurationPicker from '$lib/components/DurationPicker.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
 
@@ -515,7 +516,7 @@
               >
                 <p>{todo.title}</p>
                 {#if todo.energy || todo.date}
-                  <p class="footnote">{[todo.energy, todo.date].filter(Boolean).join(' · ')}</p>
+                  <p class="footnote">{[todo.takes, todo.energy, todo.date].filter(Boolean).join(' · ')}</p>
                 {/if}
               </button>
             </div>
@@ -523,7 +524,15 @@
             {#if openTodo === todo.id}
               <div class="mt-1 space-y-3 border-t border-line-1 pt-3 pb-3">
                 <div>
-                  <p class="section-label mb-2">How big is it?</p>
+                  <p class="section-label mb-2">How long will it take?</p>
+                  <DurationPicker
+                    value={todo.takes}
+                    onpick={(takes) => updateTodo(todo.id, { takes })}
+                  />
+                </div>
+
+                <div>
+                  <p class="section-label mb-2">How much head does it need?</p>
                   <EnergyPicker
                     value={todo.energy}
                     onpick={(energy) => updateTodo(todo.id, { energy })}

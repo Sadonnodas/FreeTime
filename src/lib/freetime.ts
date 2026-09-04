@@ -20,40 +20,47 @@ import { ago, shortDate } from './format';
 const ENERGY_ORDER: Energy[] = ['quick', 'moderate', 'focus'];
 const rank = (e: Energy) => ENERGY_ORDER.indexOf(e);
 
-/** How big a thing you could physically fit in the window you have. */
-const TIME_CEILING: Record<TimeBucket, Energy> = {
-  '20min': 'quick',
-  '1-2h': 'moderate',
-  'half day': 'focus',
-  'all day': 'focus'
-};
+/**
+ * TIME AND EFFORT ARE TWO AXES, and this used to treat them as one.
+ *
+ * There was a TIME_CEILING mapping the window you have onto an effort ceiling —
+ * twenty minutes free meant "quick wins only" — and it is simply wrong. In
+ * Toon's words: "a quick win means it doesn't take much effort, but it doesn't
+ * mean it can't take much time. You can spend a whole day on quick wins."
+ * Sanding a board is easy and takes an afternoon; a decision you have been
+ * avoiding is twenty minutes of hard thinking.
+ *
+ * So there are two independent filters now. How your head is bounds the EFFORT
+ * (Todo.energy); how much clock you have bounds the DURATION (Todo.takes).
+ */
+const TIME_ORDER: TimeBucket[] = ['20min', '1-2h', 'half day', 'all day'];
+const timeRank = (t: TimeBucket) => TIME_ORDER.indexOf(t);
 
-/** How big a thing your head can take, regardless of the clock. */
+/** How much of your head a job may take, given how your head is. */
 const BRAIN_CEILING: Record<BrainState, Energy> = {
   fried: 'quick',
   normal: 'moderate',
   sharp: 'focus'
 };
 
-/** Whichever constraint binds harder wins. An hour free while fried is still
- *  only good for quick wins. */
-export function energyCeiling(time: TimeBucket, brain: BrainState): Energy {
-  return rank(TIME_CEILING[time]) <= rank(BRAIN_CEILING[brain])
-    ? TIME_CEILING[time]
-    : BRAIN_CEILING[brain];
-}
+export const effortCeiling = (brain: BrainState): Energy => BRAIN_CEILING[brain];
 
 /**
- * Untagged items always pass.
+ * Untagged items always pass, on BOTH axes.
  *
- * This matters more than it looks: capture sets no energy (that is the point of
- * a 5-second capture), so in normal use most to-dos have `energy` undefined.
- * Excluding unknowns would leave the pool empty and the whole flow would return
- * nothing — the filter would be technically correct and practically useless.
- * An unknown size is not a large size.
+ * This matters more than it looks: capture sets neither field (that is the
+ * point of a 5-second capture), so in normal use most to-dos have both
+ * undefined. Excluding unknowns would leave the pool empty and the whole flow
+ * would return nothing — the filter would be technically correct and
+ * practically useless. An unknown size is not a large size.
  */
-function fitsEnergy(todo: Todo, ceiling: Energy): boolean {
+function fitsEffort(todo: Todo, ceiling: Energy): boolean {
   return !todo.energy || rank(todo.energy) <= rank(ceiling);
+}
+
+/** Whether it fits the clock. A job with no estimate is not assumed to be long. */
+export function fitsTime(todo: Todo, available: TimeBucket): boolean {
+  return !todo.takes || timeRank(todo.takes) <= timeRank(available);
 }
 
 export interface Planner {
@@ -72,10 +79,14 @@ export interface Planner {
 export async function createPlanner(answers: FreeTimeAnswers): Promise<Planner> {
   const [open, pulses, day] = await Promise.all([openTodos(), projectPulses(), getDay()]);
 
-  const ceiling = energyCeiling(answers.time, answers.brain);
+  const ceiling = effortCeiling(answers.brain);
   const alreadyToday = new Set(day?.slots ?? []);
 
-  const pool = open.filter((t) => !alreadyToday.has(t.id) && fitsEnergy(t, ceiling));
+  // Both constraints, independently: your head bounds the effort, the clock
+  // bounds the duration. Neither implies the other.
+  const pool = open.filter(
+    (t) => !alreadyToday.has(t.id) && fitsEffort(t, ceiling) && fitsTime(t, answers.time)
+  );
 
   // Quietest first: never-touched projects lead, then oldest last-touch.
   const byQuietest = [...pulses].sort((a, b) => {

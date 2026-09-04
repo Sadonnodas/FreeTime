@@ -76,7 +76,16 @@ export interface Todo extends Base {
    *  that is in three sections at once is how a filter row stops being a
    *  glance and becomes a query builder. Nothing requires it. */
   tag?: string;
+  /**
+   * How much of your head it takes. NOT how long it takes — those are two
+   * different things and were conflated here for months. Sanding a board for
+   * two hours is a quick win that eats an afternoon; a decision you have been
+   * avoiding is twenty minutes of hard thinking. One is filtered by how your
+   * head is, the other by how much clock you have.
+   */
   energy?: Energy;
+  /** How long it takes, in the same buckets Free Time asks about. */
+  takes?: TimeBucket;
   date?: string; // YYYY-MM-DD
   completedAt?: string;
 }

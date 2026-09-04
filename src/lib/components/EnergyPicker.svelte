@@ -2,14 +2,14 @@
   import type { Energy } from '$lib/types';
 
   /**
-   * How big a job this is — what Free Time matches against the time you have.
+   * How much of your head a job takes — matched against how your head is when
+   * Free Time asks. Not how long it takes; that is DurationPicker.
    *
-   * An unset energy always PASSES the Free Time filter (freetime.ts), so a
-   * to-do without one is never hidden. It is also never ruled out, which is the
-   * real cost: with twenty minutes free you can be handed something that takes
-   * half a day. The filter is only as good as how many to-dos carry a size, and
-   * nobody goes back through a list to add them afterwards — so this is offered
-   * where to-dos are written, not only where they are edited.
+   * An unset effort always PASSES the Free Time filter (freetime.ts), so a
+   * to-do without one is never hidden — it just cannot be held back on a day
+   * when you are fried. The filter is only as good as how many to-dos carry
+   * one, and nobody goes back through a list to add them, so it is offered
+   * where to-dos are written and not only where they are edited.
    *
    * Still optional. Ignoring it writes the to-do anyway.
    */
@@ -64,6 +64,6 @@
 {#if hint}
   <p class="footnote mt-2">
     {ENERGIES.find((e) => e.key === value)?.hint ??
-      'Left unset it still shows in Free Time — it just cannot be ruled out of a short window.'}
+      'Left unset it still shows in Free Time — it just cannot be held back on a fried day.'}
   </p>
 {/if}

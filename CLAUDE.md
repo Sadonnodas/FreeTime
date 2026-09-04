@@ -110,9 +110,9 @@ Do not "fix" these without talking to Toon first.
 - **A tombstone beats a newer edit** ([merge.ts](src/lib/merge.ts)). Delete at 10:00,
   edit at 10:05, and the record stays deleted. Nothing ever clears a tombstone, so the
   alternative lets deleted records resurrect — the exact failure sync exists to prevent.
-- **Untagged to-dos always pass the energy filter** ([freetime.ts](src/lib/freetime.ts)).
-  Capture sets no energy by design, so most to-dos have none. Excluding unknowns would
-  empty the pool and the Free Time flow would return nothing.
+- **Untagged to-dos always pass BOTH Free Time filters** ([freetime.ts](src/lib/freetime.ts)).
+  Capture sets neither field by design, so most to-dos have neither. Excluding unknowns
+  would empty the pool and the Free Time flow would return nothing.
 - **Free Time slots fill most-constrained-first** (obligation → pull → neglected) but
   **display in spec order**. Filling in display order let the pull swallow the only
   dated item, leaving the obligation slot empty.
@@ -746,14 +746,27 @@ device; there is nothing to build. Memos are the exception, below.
   overview**: every to-do in the era, grouped under the project it belongs to with
   that project's colour, showing its energy and date. Tapping one still sets those;
   only creating moved.
-- **Energy is offered where to-dos are WRITTEN, not only where they are edited.**
-  It could not be set anywhere at all before — not at creation, not after — only via
-  a filter trick in Brain, voice capture, the importer or the assistant. The filter
-  is only as good as how many to-dos carry a size, and nobody goes back through a
-  list to add them. **Still optional**: an unset energy always PASSES the Free Time
-  filter ([freetime.ts](src/lib/freetime.ts)), so nothing was ever hidden for
-  lacking one — it just could not be ruled OUT of a short window, which is the
-  actual complaint.
+- **EFFORT AND DURATION ARE TWO AXES. Do not collapse them again.** `Todo.energy` is
+  how much of your head a job takes; `Todo.takes` is how long it takes, in the same
+  buckets Free Time asks about. Free Time filters on both, independently: how your
+  head is bounds the effort, how much clock you have bounds the duration. There used
+  to be a `TIME_CEILING` mapping a time window onto an effort ceiling — twenty minutes
+  free meant "quick wins only" — and it is simply wrong. Toon's words: *"a quick win
+  means it doesn't take much effort, but it doesn't mean it can't take much time. You
+  can spend a whole day on quick wins."* Sanding a board is easy and takes an
+  afternoon; a decision you have been avoiding is twenty minutes of hard thinking.
+  I had it wrong twice — first by conflating them in the planner, then by relabelling
+  the effort chips as durations, which deleted the effort axis entirely.
+  **Both stay optional** and unset passes either filter, for the reason above.
+- **Nothing in the Free Time flow may await the network with the screen unchanged.**
+  Choosing a head state awaited `generateQuestions()` — a Gemini round trip — with no
+  busy state and no guard, so the tap appeared to do nothing, got repeated, and each
+  repeat fired another request until one returned and the flow lurched forward.
+  Reported as *"I pressed many buttons but it didn't move on, and then suddenly it
+  did."* The buttons now disable on the first tap, the step says what it is waiting
+  for, and the call has a 6-second deadline after which the static questions run —
+  which are not a degraded mode, they are what runs with no key at all.
+
 - **`type="button"` on every chip that lives inside a `<form>`, and it is
   load-bearing** ([EnergyPicker.svelte](src/lib/components/EnergyPicker.svelte)). A
   `<button>` in a form is `type="submit"` by default, so choosing a size in Brain's

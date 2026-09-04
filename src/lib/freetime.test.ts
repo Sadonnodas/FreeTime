@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from './db';
 import { createProject, createTodo, completeTodo, today } from './store';
-import { energyCeiling, createPlanner, planDay } from './freetime';
+import { effortCeiling, fitsTime, createPlanner, planDay } from './freetime';
 import type { FreeTimeAnswers } from './types';
 
 async function reset() {
@@ -14,14 +14,72 @@ const ask = (over: Partial<FreeTimeAnswers> = {}): FreeTimeAnswers => ({
   ...over
 });
 
-describe('energy ceiling', () => {
-  it('takes whichever constraint binds harder', () => {
-    // An hour free, but fried: still only quick wins.
-    expect(energyCeiling('1-2h', 'fried')).toBe('quick');
-    // Sharp, but only twenty minutes: still only quick wins.
-    expect(energyCeiling('20min', 'sharp')).toBe('quick');
-    expect(energyCeiling('all day', 'sharp')).toBe('focus');
-    expect(energyCeiling('half day', 'normal')).toBe('moderate');
+describe('effort and time are separate axes', () => {
+  it('bounds effort by how your head is, and nothing else', () => {
+    expect(effortCeiling('fried')).toBe('quick');
+    expect(effortCeiling('normal')).toBe('moderate');
+    expect(effortCeiling('sharp')).toBe('focus');
+  });
+
+  it('does not let a short window rule out an easy job', () => {
+    // The old model mapped "20 minutes free" onto "quick wins only", which
+    // conflated the two: a quick win is LOW EFFORT, and you can spend a whole
+    // day on quick wins. Twenty minutes should rule out long jobs, not
+    // demanding ones.
+    const short = { id: 'a', title: 'hard but short', energy: 'focus' } as never;
+    expect(fitsTime(short, '20min')).toBe(true);
+  });
+
+  it('rules a long job out of a short window', () => {
+    const long = { id: 'b', title: 'sanding', takes: 'half day' } as never;
+    expect(fitsTime(long, '20min')).toBe(false);
+    expect(fitsTime(long, 'half day')).toBe(true);
+    expect(fitsTime(long, 'all day')).toBe(true);
+  });
+
+  it('keeps a job with no estimate, rather than assuming it is long', () => {
+    const unknown = { id: 'c', title: 'no estimate' } as never;
+    expect(fitsTime(unknown, '20min')).toBe(true);
+  });
+});
+
+describe('the two filters together', () => {
+  beforeEach(reset);
+
+  it('offers a long easy job when there is all day, even while fried', async () => {
+    await createTodo('sand the boards', { energy: 'quick', takes: 'half day' });
+    const planner = await createPlanner(ask({ time: 'all day', brain: 'fried' }));
+    expect(planner.pool.map((t) => t.title)).toEqual(['sand the boards']);
+  });
+
+  it('offers a short demanding job in twenty minutes when sharp', async () => {
+    await createTodo('decide the layout', { energy: 'focus', takes: '20min' });
+    const planner = await createPlanner(ask({ time: '20min', brain: 'sharp' }));
+    expect(planner.pool.map((t) => t.title)).toEqual(['decide the layout']);
+  });
+
+  it('withholds that same demanding job when fried, however short it is', async () => {
+    await createTodo('decide the layout', { energy: 'focus', takes: '20min' });
+    const planner = await createPlanner(ask({ time: '20min', brain: 'fried' }));
+    expect(planner.pool).toEqual([]);
+  });
+
+  it('plans the short demanding job into a twenty-minute window', async () => {
+    // End to end, not just the pool: the two-axis filter has to survive slot
+    // selection, or the fix is invisible where it matters.
+    const p = await createProject('Woodwork');
+    await createTodo('Sand the boards', { projectId: p, energy: 'quick', takes: 'half day' });
+    await createTodo('Decide the joinery', { projectId: p, energy: 'focus', takes: '20min' });
+
+    const slots = await planDay(ask({ time: '20min', brain: 'sharp' }));
+    expect(slots.map((s) => s.todo.title)).toContain('Decide the joinery');
+    expect(slots.map((s) => s.todo.title)).not.toContain('Sand the boards');
+  });
+
+  it('withholds a long job in a short window, however easy it is', async () => {
+    await createTodo('sand the boards', { energy: 'quick', takes: 'half day' });
+    const planner = await createPlanner(ask({ time: '20min', brain: 'sharp' }));
+    expect(planner.pool).toEqual([]);
   });
 });
 

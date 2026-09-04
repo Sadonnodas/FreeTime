@@ -3,7 +3,7 @@
   import { base } from '$app/paths';
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
-  import type { Project, Todo, BuyItem, Memo, Widget, Energy } from '$lib/types';
+  import type { Project, Todo, BuyItem, Memo, Widget, Energy, TimeBucket } from '$lib/types';
   import { widgetsFor } from '$lib/widgets';
   import {
     createTodo, completeTodo, updateTodo, createBuyItem, saveNote, getNote,
@@ -18,6 +18,8 @@
   import MemoRecorder from '$lib/components/MemoRecorder.svelte';
   import Empty from '$lib/components/Empty.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
+  import EnergyPicker from '$lib/components/EnergyPicker.svelte';
+  import DurationPicker from '$lib/components/DurationPicker.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
 
   /**
@@ -115,6 +117,8 @@
   const recordable = canRecord();
 
   let newTodo = $state('');
+  let newEnergy = $state<Energy | undefined>(undefined);
+  let newTakes = $state<TimeBucket | undefined>(undefined);
   let newBuy = $state('');
 
   function choose(kind: AddKind) {
@@ -200,16 +204,18 @@
 
     <!-- ---------------------------------------------------------------- to-dos -->
     <Collapsible id={sectionId('todo')} title="To-dos" count={open.length} {color} open={adding === 'todo'}>
-      {#if adding === 'todo' || open.length === 0}
-        <form
-          onsubmit={async (e) => {
-            e.preventDefault();
-            if (!newTodo.trim()) return;
-            await createTodo(newTodo, { projectId: eraId, tag });
-            newTodo = '';
-          }}
-          class="mb-2 flex gap-2"
-        >
+      <!-- Always shown, never only while the list is empty. Writing one to-do
+           and having the field disappear is the opposite of "type and Enter". -->
+      <form
+        onsubmit={async (e) => {
+          e.preventDefault();
+          if (!newTodo.trim()) return;
+          await createTodo(newTodo, { projectId: eraId, tag, energy: newEnergy, takes: newTakes });
+          newTodo = '';
+        }}
+        class="mb-2"
+      >
+        <div class="flex gap-2">
           <!-- svelte-ignore a11y_autofocus -->
           <input
             bind:value={newTodo}
@@ -218,8 +224,29 @@
             class="field min-w-0 flex-1"
           />
           <button class="btn btn-primary press">Add</button>
-        </form>
-      {/if}
+        </div>
+
+        {#if newTodo.trim()}
+          <!-- How long it will take, offered while writing it rather than only
+               afterwards. Free Time can only rule a job out of a short window
+               if the job says how long it is. -->
+          <div class="card mt-2 space-y-3 p-3">
+            <div>
+              <p class="section-label mb-2">How long will it take?</p>
+              <DurationPicker value={newTakes} onpick={(v) => (newTakes = v)} unset={false} />
+            </div>
+            <div>
+              <p class="section-label mb-2">How much head does it need?</p>
+              <EnergyPicker
+                value={newEnergy}
+                onpick={(v) => (newEnergy = v)}
+                unset={false}
+                hint={false}
+              />
+            </div>
+          </div>
+        {/if}
+      </form>
 
       <ul class="space-y-1">
         {#each open as todo (todo.id)}
@@ -244,38 +271,27 @@
             {#if openTodo === todo.id}
               <div class="mt-1 border-t border-line-1 pt-3 pb-3">
                 <!--
-                  How big a job this is, which is what Free Time matches against
-                  a window of time. It could not be set anywhere in the app
-                  before — not on creation, not afterwards — so every to-do was
-                  an unknown size.
+                  TWO QUESTIONS, because they are two different things. How long
+                  it takes is matched against the clock you have; how much head
+                  it needs is matched against how your head is. A quick win can
+                  eat an afternoon, and a twenty-minute decision can be the
+                  hardest thing on the list.
 
-                  Optional, and it stays optional: an unset energy always PASSES
-                  the Free Time filter (see freetime.ts). An unknown size is not
-                  a large size, and making this required would be a required
-                  field, which principle 1 does not allow.
+                  Both optional, and both stay optional: unset PASSES either
+                  filter (see freetime.ts). Making one required would be a
+                  required field, which principle 1 does not allow.
                 -->
-                <p class="section-label mb-2">How big is it?</p>
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    class="chip press {todo.energy ? '' : 'chip-on'}"
-                    onclick={() => updateTodo(todo.id, { energy: undefined })}
-                  >
-                    Not sure
-                  </button>
-                  {#each ENERGIES as e (e.key)}
-                    <button
-                      class="chip press {todo.energy === e.key ? 'chip-on' : ''}"
-                      onclick={() =>
-                        updateTodo(todo.id, { energy: todo.energy === e.key ? undefined : e.key })}
-                    >
-                      {e.label}
-                    </button>
-                  {/each}
-                </div>
-                <p class="footnote mt-2">
-                  {ENERGIES.find((e) => e.key === todo.energy)?.hint ??
-                    'Left unset it still shows up in Free Time.'}
-                </p>
+                <p class="section-label mb-2">How long will it take?</p>
+                <DurationPicker
+                  value={todo.takes}
+                  onpick={(takes) => updateTodo(todo.id, { takes })}
+                />
+
+                <p class="section-label mt-3 mb-2">How much head does it need?</p>
+                <EnergyPicker
+                  value={todo.energy}
+                  onpick={(energy) => updateTodo(todo.id, { energy })}
+                />
 
                 <div class="mt-2 flex items-center gap-1">
                   <button
@@ -315,26 +331,24 @@
 
     <!-- ------------------------------------------------------------------- buy -->
     <Collapsible id={sectionId('buy')} title="To buy" count={buyItems.length} {color} defaultFolded={buyItems.length === 0} open={adding === 'buy'}>
-      {#if adding === 'buy' || buyItems.length === 0}
-        <form
-          onsubmit={async (e) => {
-            e.preventDefault();
-            if (!newBuy.trim()) return;
-            await createBuyItem(newBuy, { projectId: eraId, tag });
-            newBuy = '';
-          }}
-          class="mb-2 flex gap-2"
-        >
-          <!-- svelte-ignore a11y_autofocus -->
-          <input
-            bind:value={newBuy}
-            autofocus={adding === 'buy'}
-            placeholder="Something for {tag}"
-            class="field min-w-0 flex-1"
-          />
-          <button class="btn btn-primary press">Add</button>
-        </form>
-      {/if}
+      <form
+        onsubmit={async (e) => {
+          e.preventDefault();
+          if (!newBuy.trim()) return;
+          await createBuyItem(newBuy, { projectId: eraId, tag });
+          newBuy = '';
+        }}
+        class="mb-2 flex gap-2"
+      >
+        <!-- svelte-ignore a11y_autofocus -->
+        <input
+          bind:value={newBuy}
+          autofocus={adding === 'buy'}
+          placeholder="Something for {tag}"
+          class="field min-w-0 flex-1"
+        />
+        <button class="btn btn-primary press">Add</button>
+      </form>
       <BuyList items={buyItems} showProject={false} groupBy="none" />
     </Collapsible>
 

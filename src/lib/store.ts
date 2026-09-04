@@ -1,7 +1,7 @@
 import { db } from './db';
 import type {
   Base, Project, Todo, Idea, BuyItem, List, ListItem,
-  Habit, HabitLog, Capture, Note, Energy, ListItemState, HabitState,
+  Habit, HabitLog, Capture, Note, Energy, TimeBucket, ListItemState, HabitState,
   HabitStateChange
 } from './types';
 
@@ -247,7 +247,8 @@ export async function renameProjectTag(
 export async function createTodo(
   title: string,
   opts: {
-    projectId?: string; tag?: string; energy?: Energy; date?: string; notes?: string;
+    projectId?: string; tag?: string; energy?: Energy; takes?: TimeBucket;
+    date?: string; notes?: string;
   } = {}
 ): Promise<string> {
   const t: Todo = stamp({ title: title.trim(), ...opts });

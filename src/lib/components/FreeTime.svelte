@@ -32,6 +32,32 @@
   let planner = $state<Planner | null>(null);
   let building = $state(false);
 
+  /**
+   * Waiting on the rotating questions, which is a network round trip to Gemini.
+   *
+   * This step used to await that call with nothing on screen changing: tapping
+   * "Normal" appeared to do nothing, so it got tapped again, and again, each
+   * tap firing another request — until one returned and the flow lurched
+   * forward. Reported exactly that way: "I pressed many buttons but it didn't
+   * move on, and then suddenly it did."
+   */
+  let asking = $state(false);
+
+  /**
+   * Nothing in this flow may wait on the network indefinitely.
+   *
+   * generateQuestions has no deadline of its own, so a request that hangs would
+   * hang the whole questionnaire. The static questions are not a degraded mode
+   * — they are what runs with no key and no signal — so falling back to them
+   * after a few seconds costs nothing.
+   */
+  function withTimeout<T>(work: Promise<T>, ms: number): Promise<T | null> {
+    return Promise.race([
+      work.catch(() => null),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))
+    ]);
+  }
+
   const TIMES: { value: TimeBucket; label: string }[] = [
     { value: '20min', label: '20 minutes' },
     { value: '1-2h', label: 'An hour or two' },
@@ -52,13 +78,21 @@
   }
 
   async function chooseBrain(v: BrainState) {
+    // A second tap while the first is in flight would start another request
+    // and race it. Ignoring it is right: the answer is already recorded.
+    if (asking) return;
     brain = v;
-    // Gemini first, static set if it is unavailable or returns anything we
-    // don't trust. The static path is not a degraded mode — it is what runs
-    // with no key, no signal, or a bad generation.
-    rotating = (await generateQuestions()) ?? (await pickRotating());
-    rotatingIndex = 0;
-    step = rotating.length ? 'rotating' : 'plan';
+    asking = true;
+    try {
+      // Gemini first, static set if it is unavailable, slow, or returns
+      // anything we don't trust. The static path is not a degraded mode — it is
+      // what runs with no key, no signal, or a bad generation.
+      rotating = (await withTimeout(generateQuestions(), 6000)) ?? (await pickRotating());
+      rotatingIndex = 0;
+      step = rotating.length ? 'rotating' : 'plan';
+    } finally {
+      asking = false;
+    }
     if (step === 'plan') await build();
   }
 
@@ -147,14 +181,21 @@
       <div class="space-y-3">
         {#each BRAINS as b (b.value)}
           <button
-            class="card press tap w-full px-5 py-4 text-left"
+            class="card press tap w-full px-5 py-4 text-left transition-opacity
+                   {asking && brain !== b.value ? 'opacity-40' : ''}"
             onclick={() => chooseBrain(b.value)}
+            disabled={asking}
           >
             <span class="block text-[17px]">{b.label}</span>
             <span class="footnote block">{b.hint}</span>
           </button>
         {/each}
       </div>
+      {#if asking}
+        <!-- The answer is taken the moment it is tapped; this only says that
+             the next question is being fetched. -->
+        <p class="footnote mt-4 text-center">Thinking of a question…</p>
+      {/if}
     {:else if step === 'rotating'}
       {@const q = rotating[rotatingIndex]}
       {#if q}

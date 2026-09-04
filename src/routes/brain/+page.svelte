@@ -1,7 +1,7 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
-  import type { Todo, Idea, BuyItem, Project, Energy, Memo } from '$lib/types';
+  import type { Todo, Idea, BuyItem, Project, Energy, TimeBucket, Memo } from '$lib/types';
   import {
     promoteIdea, completeTodo, createTodo, createIdea, createBuyItem,
     setIdeaProject, toggleIdeaDone, updateTodo, softDelete
@@ -14,6 +14,7 @@
   import BuyList from '$lib/components/BuyList.svelte';
   import Empty from '$lib/components/Empty.svelte';
   import EnergyPicker from '$lib/components/EnergyPicker.svelte';
+  import DurationPicker from '$lib/components/DurationPicker.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
   import { canRecord } from '$lib/audio';
   import { onMount } from 'svelte';
@@ -161,6 +162,7 @@
   let openTodo = $state<string | null>(null);
 
   let newEnergy = $state<Energy | undefined>(undefined);
+  let newTakes = $state<TimeBucket | undefined>(undefined);
   let newEra = $state('');
   let newTag = $state('');
   let newDate = $state('');
@@ -185,6 +187,7 @@
       projectId: newEra || undefined,
       tag: newTag || undefined,
       energy: newEnergy,
+      takes: newTakes,
       date: newDate || undefined
     });
     // The title clears; the destination does not. Writing five things for the
@@ -275,26 +278,50 @@
              still type-and-Enter and none of this is in the way of it. -->
         <div class="card mt-2 space-y-3 p-3">
           <div>
-            <p class="section-label mb-2">How big is it?</p>
-            <EnergyPicker value={newEnergy} onpick={(v) => (newEnergy = v)} hint={false} />
+            <p class="section-label mb-2">How long will it take?</p>
+            <DurationPicker value={newTakes} onpick={(v) => (newTakes = v)} unset={false} />
           </div>
 
-          <div class="flex flex-wrap gap-2">
-            <select bind:value={newEra} class="field press min-w-0 flex-1 text-sm">
-              <option value="">No era</option>
-              {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
-                <option value={p.id}>{p.name}</option>
-              {/each}
-            </select>
+          <div>
+            <p class="section-label mb-2">How much head does it need?</p>
+            <EnergyPicker
+              value={newEnergy}
+              onpick={(v) => (newEnergy = v)}
+              unset={false}
+              hint={false}
+            />
+          </div>
 
-            {#if eraTags.length}
-              <select bind:value={newTag} class="field press min-w-0 flex-1 text-sm">
-                <option value="">No project</option>
+          <!-- Labelled, and the project one always present. It used to appear
+               only once an era with projects was chosen, so "it asks the era
+               but not the project" was a fair reading of a control that was
+               not there yet. -->
+          <div class="flex flex-wrap gap-2">
+            <label class="min-w-0 flex-1">
+              <span class="section-label mb-1 block">Era</span>
+              <select bind:value={newEra} class="field press w-full text-sm">
+                <option value="">No era</option>
+                {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
+                  <option value={p.id}>{p.name}</option>
+                {/each}
+              </select>
+            </label>
+
+            <label class="min-w-0 flex-1">
+              <span class="section-label mb-1 block">Project</span>
+              <select
+                bind:value={newTag}
+                class="field press w-full text-sm"
+                disabled={!eraTags.length}
+              >
+                <option value="">
+                  {newEra ? (eraTags.length ? 'No project' : 'None in this era') : 'Pick an era first'}
+                </option>
                 {#each eraTags as t (t)}
                   <option value={t}>{t}</option>
                 {/each}
               </select>
-            {/if}
+            </label>
           </div>
 
           <input type="date" bind:value={newDate} class="field w-full text-sm" />
@@ -362,7 +389,7 @@
               <p class={t.completedAt ? 'text-ink-400 line-through' : ''}>{t.title}</p>
               {#if projectName(t.projectId) || t.tag || t.energy || t.date}
                 <p class="text-xs text-ink-400">
-                  {[projectName(t.projectId), t.tag, t.energy, t.date].filter(Boolean).join(' · ')}
+                  {[projectName(t.projectId), t.tag, t.takes, t.energy, t.date].filter(Boolean).join(' · ')}
                 </p>
               {/if}
             </button>
@@ -379,7 +406,11 @@
             <div class="mt-1 space-y-3 border-t border-line-1 pt-3 pb-3">
               {#if !t.completedAt}
                 <div>
-                  <p class="section-label mb-2">How big is it?</p>
+                  <p class="section-label mb-2">How long will it take?</p>
+                  <DurationPicker value={t.takes} onpick={(takes) => updateTodo(t.id, { takes })} />
+                </div>
+                <div>
+                  <p class="section-label mb-2">How much head does it need?</p>
                   <EnergyPicker value={t.energy} onpick={(energy) => updateTodo(t.id, { energy })} />
                 </div>
               {/if}
