@@ -1,7 +1,8 @@
 import type {
   Todo, Energy, TimeBucket, BrainState, FreeTimeAnswers, SlotKind, PlannedSlot
 } from './types';
-import { openTodos, projectPulses, type ProjectPulse } from './queries';
+import { openTodos, allTodos, projectPulses, type ProjectPulse } from './queries';
+import { indexById, isBlocked } from './order';
 import { getDay } from './day';
 import { today } from './store';
 import { ago, shortDate } from './format';
@@ -77,15 +78,31 @@ export interface Planner {
  * every pick after that is synchronous, so reshuffling a slot is instant.
  */
 export async function createPlanner(answers: FreeTimeAnswers): Promise<Planner> {
-  const [open, pulses, day] = await Promise.all([openTodos(), projectPulses(), getDay()]);
+  const [open, all, pulses, day] = await Promise.all([
+    openTodos(), allTodos(), projectPulses(), getDay()
+  ]);
 
   const ceiling = effortCeiling(answers.brain);
   const alreadyToday = new Set(day?.slots ?? []);
+  const byId = indexById(all);
 
-  // Both constraints, independently: your head bounds the effort, the clock
-  // bounds the duration. Neither implies the other.
+  /*
+   * Three constraints. The first two are independent axes: your head bounds
+   * the effort, the clock bounds the duration, and neither implies the other.
+   *
+   * The third is whether it can be started at all. Offering "sow the grass"
+   * while the garden is still full of bamboo is the worst kind of suggestion —
+   * it looks like a plan and it is not one — and it is exactly what this flow
+   * exists to avoid. Note the asymmetry, which is deliberate: the app will not
+   * OFFER a blocked to-do, but nothing stops you choosing or ticking one.
+   * Suggestion is the app's job; permission is not.
+   */
   const pool = open.filter(
-    (t) => !alreadyToday.has(t.id) && fitsEffort(t, ceiling) && fitsTime(t, answers.time)
+    (t) =>
+      !alreadyToday.has(t.id) &&
+      !isBlocked(t, byId) &&
+      fitsEffort(t, ceiling) &&
+      fitsTime(t, answers.time)
   );
 
   // Quietest first: never-touched projects lead, then oldest last-touch.

@@ -4,8 +4,9 @@
   import type { Todo, Idea, BuyItem, Project, Energy, TimeBucket, Memo } from '$lib/types';
   import {
     promoteIdea, completeTodo, createTodo, createIdea, createBuyItem,
-    setIdeaProject, toggleIdeaDone, updateTodo, softDelete, today
+    setIdeaProject, toggleIdeaDone, updateTodo, setTodoAfter, softDelete, today, updateIdea
   } from '$lib/store';
+  import { indexById, blockerOf, possibleBlockers } from '$lib/order';
   import { tomorrow, dayLabel, dayPhrase } from '$lib/days';
   import { activeProjects } from '$lib/queries';
   import { allMemos, storageUse, mb, type StorageUse } from '$lib/memos';
@@ -17,6 +18,8 @@
   import EnergyPicker from '$lib/components/EnergyPicker.svelte';
   import DurationPicker from '$lib/components/DurationPicker.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
+  import RenameField from '$lib/components/RenameField.svelte';
+  import AfterPicker from '$lib/components/AfterPicker.svelte';
   import { canRecord } from '$lib/audio';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
@@ -129,6 +132,29 @@
       )
   );
 
+  const allTodos = $derived(($todosQ as Todo[] | undefined) ?? []);
+  const byId = $derived(indexById(allTodos));
+
+  /**
+   * What a to-do could be told to wait for: the ones it shares a list with.
+   *
+   * Brain shows every to-do in the app at once, and offering all of them would
+   * be a scroll through other people's problems. A link is only meaningful
+   * between two things you would see side by side, which is the same era and
+   * the same project — including "no era and no project", where two loose
+   * to-dos can still be sequenced.
+   *
+   * Deliberately NOT reordered here the way a project's list is: Brain is the
+   * index of everything, not the plan for one thing, and re-sorting a
+   * cross-cutting list by chains nobody can see the ends of would just look
+   * like the order was wrong.
+   */
+  const siblingsOf = (t: Todo): Todo[] =>
+    possibleBlockers(
+      t,
+      allTodos.filter((o) => o.projectId === t.projectId && o.tag === t.tag)
+    );
+
   const projectName = (id?: string) =>
     (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === id)?.name;
 
@@ -141,6 +167,7 @@
    */
   const footnote = (t: Todo): string =>
     [
+      blockerOf(t, byId) ? `after ${blockerOf(t, byId)!.title}` : null,
       projectName(t.projectId),
       t.tag,
       t.takes,
@@ -504,7 +531,15 @@
               class="min-w-0 flex-1 py-3 text-left"
               onclick={() => (openTodo = openTodo === t.id ? null : t.id)}
             >
-              <p class={t.completedAt ? 'text-ink-400 line-through' : ''}>{t.title}</p>
+              <p
+                class={t.completedAt
+                  ? 'text-ink-400 line-through'
+                  : blockerOf(t, byId)
+                    ? 'text-ink-400'
+                    : ''}
+              >
+                {t.title}
+              </p>
               {#if footnote(t)}
                 <p class="text-xs text-ink-400">{footnote(t)}</p>
               {/if}
@@ -520,7 +555,23 @@
               wins feed is made of.
             -->
             <div class="mt-1 space-y-3 border-t border-line-1 pt-3 pb-3">
+              <div>
+                <p class="section-label mb-2">What it is</p>
+                <RenameField
+                  value={t.title}
+                  label="What it is"
+                  onrename={(title) => updateTodo(t.id, { title })}
+                />
+              </div>
               {#if !t.completedAt}
+                <div>
+                  <p class="section-label mb-2">Comes after</p>
+                  <AfterPicker
+                    value={t.after}
+                    options={siblingsOf(t)}
+                    onpick={(after) => setTodoAfter(t.id, after)}
+                  />
+                </div>
                 <div>
                   <p class="section-label mb-2">When</p>
                   <div class="flex flex-wrap items-center gap-2">
@@ -660,7 +711,14 @@
           <!-- Where it belongs, decided whenever you know — which is usually
                not at the moment you had the thought. -->
           <div class="mt-1 border-t border-line-1 pt-3 pb-2">
-            <p class="section-label mb-2">Belongs to</p>
+            <p class="section-label mb-2">What it says</p>
+            <RenameField
+              value={i.text}
+              label="What it says"
+              onrename={(text) => updateIdea(i.id, { text })}
+            />
+
+            <p class="section-label mt-3 mb-2">Belongs to</p>
             <div class="flex flex-wrap gap-2">
               <button
                 class="chip press {i.projectId ? '' : 'chip-on'}"

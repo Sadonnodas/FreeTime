@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from './db';
-import { createProject, createTodo, completeTodo, today } from './store';
+import { createProject, createTodo, completeTodo, softDelete, today } from './store';
 import { effortCeiling, fitsTime, createPlanner, planDay } from './freetime';
 import type { FreeTimeAnswers } from './types';
 
@@ -40,6 +40,42 @@ describe('effort and time are separate axes', () => {
   it('keeps a job with no estimate, rather than assuming it is long', () => {
     const unknown = { id: 'c', title: 'no estimate' } as never;
     expect(fitsTime(unknown, '20min')).toBe(true);
+  });
+});
+
+describe('a to-do that is waiting on another one', () => {
+  beforeEach(reset);
+
+  it('is never offered while the thing before it is open', async () => {
+    // The garden this was built from: you cannot sow before it is cleared, and
+    // a flow that hands you "sow the grass" on a free afternoon looks like a
+    // plan while being an impossible one.
+    const clean = await createTodo('clean up the garden');
+    await createTodo('sow the grass', { after: clean });
+
+    const planner = await createPlanner(ask());
+    expect(planner.pool.map((t) => t.title)).toEqual(['clean up the garden']);
+  });
+
+  it('becomes available the moment the blocker is ticked', async () => {
+    const clean = await createTodo('clean up the garden');
+    await createTodo('sow the grass', { after: clean });
+    await completeTodo(clean);
+
+    const planner = await createPlanner(ask());
+    expect(planner.pool.map((t) => t.title)).toEqual(['sow the grass']);
+  });
+
+  it('is not held back by a blocker that was deleted', async () => {
+    // Resolving the link against OPEN to-dos alone would give the right answer
+    // here for the wrong reason. A deleted blocker must free the to-do, or it
+    // is stuck forever with nothing on screen to explain why.
+    const clean = await createTodo('clean up the garden');
+    await createTodo('sow the grass', { after: clean });
+    await softDelete('todos', clean);
+
+    const planner = await createPlanner(ask());
+    expect(planner.pool.map((t) => t.title)).toEqual(['sow the grass']);
   });
 });
 

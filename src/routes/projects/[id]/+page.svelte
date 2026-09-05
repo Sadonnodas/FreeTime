@@ -7,19 +7,22 @@
   import BuyList from '$lib/components/BuyList.svelte';
   import type { Todo, BuyItem, Note } from '$lib/types';
   import {
-    createTodo, completeTodo, updateTodo, createBuyItem, markPurchased, saveNote, getNote,
+    createTodo, completeTodo, updateTodo, setTodoAfter, createBuyItem, markPurchased, saveNote, getNote,
     setProjectImage, setProjectTags, removeProjectTag, renameProjectTag,
     setProjectTagColor, setProjectTagDescription, PROJECT_COLORS,
     archiveProject, projectTagColor, softDelete
   } from '$lib/store';
   import { goto } from '$app/navigation';
   import { resizeImage, COVER_EDGE } from '$lib/images';
+  import { indexById, readyFirst, blockerOf, possibleBlockers } from '$lib/order';
   import ProjectCover from '$lib/components/ProjectCover.svelte';
   import StickerPicker from '$lib/components/StickerPicker.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import EnergyPicker from '$lib/components/EnergyPicker.svelte';
   import DurationPicker from '$lib/components/DurationPicker.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
+  import RenameField from '$lib/components/RenameField.svelte';
+  import AfterPicker from '$lib/components/AfterPicker.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
 
 
@@ -181,9 +184,11 @@
 
 
 
-  const open = $derived(
-    (($todosQ as Todo[] | undefined) ?? []).filter((t) => !t.completedAt)
-  );
+  const eraTodos = $derived(($todosQ as Todo[] | undefined) ?? []);
+  const byId = $derived(indexById(eraTodos));
+  /** Ready first within each project's group, so a chain reads in sequence
+   *  here exactly as it does inside the project itself. */
+  const open = $derived(readyFirst(eraTodos.filter((t) => !t.completedAt)));
   /**
    * Every note in the era, including each project's.
    *
@@ -514,15 +519,45 @@
                 class="min-w-0 flex-1 py-3 text-left"
                 onclick={() => (openTodo = openTodo === todo.id ? null : todo.id)}
               >
-                <p>{todo.title}</p>
-                {#if todo.energy || todo.date}
-                  <p class="footnote">{[todo.takes, todo.energy, todo.date].filter(Boolean).join(' · ')}</p>
+                <p class={blockerOf(todo, byId) ? 'text-ink-400' : ''}>{todo.title}</p>
+                {#if blockerOf(todo, byId) || todo.energy || todo.date}
+                  <p class="footnote">
+                    {[
+                      blockerOf(todo, byId) ? `after ${blockerOf(todo, byId)!.title}` : null,
+                      todo.takes,
+                      todo.energy,
+                      todo.date
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
                 {/if}
               </button>
             </div>
 
             {#if openTodo === todo.id}
               <div class="mt-1 space-y-3 border-t border-line-1 pt-3 pb-3">
+                <div>
+                  <p class="section-label mb-2">What it is</p>
+                  <RenameField
+                    value={todo.title}
+                    label="What it is"
+                    onrename={(title) => updateTodo(todo.id, { title })}
+                  />
+                </div>
+
+                <div>
+                  <p class="section-label mb-2">Comes after</p>
+                  <AfterPicker
+                    value={todo.after}
+                    options={possibleBlockers(
+                      todo,
+                      eraTodos.filter((o) => o.tag === todo.tag)
+                    )}
+                    onpick={(after) => setTodoAfter(todo.id, after)}
+                  />
+                </div>
+
                 <div>
                   <p class="section-label mb-2">How long will it take?</p>
                   <DurationPicker

@@ -86,6 +86,24 @@ export interface Todo extends Base {
   energy?: Energy;
   /** How long it takes, in the same buckets Free Time asks about. */
   takes?: TimeBucket;
+  /**
+   * The to-do this one has to wait for. "Sow the grass" comes AFTER "clean up
+   * the garden", because the second is not possible until the first is done.
+   *
+   * ONE predecessor, never a list. The same argument as one tag per to-do: a
+   * chain is a line you can read down, while several predecessors is a graph,
+   * and a graph needs a diagram to understand. If a job really waits on two
+   * things, chain them — the resulting order is the same one you wanted.
+   *
+   * This is NOT a sub-task and NOT a level of hierarchy. It is a sideways link
+   * between two to-dos in the same list; the two levels are still era and
+   * project, and adding a third is the thing the depth rule forbids.
+   *
+   * A dangling one — the to-do it names was deleted — must never block. See
+   * order.ts: a link into nothing is treated as no link at all, because a job
+   * frozen forever by an invisible reference is unfixable from the screen.
+   */
+  after?: string;
   date?: string; // YYYY-MM-DD
   completedAt?: string;
 }

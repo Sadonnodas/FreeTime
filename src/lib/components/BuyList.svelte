@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { BuyItem, Project } from '$lib/types';
   import { markPurchased, updateBuyItem, softDelete, toggleBuyNeeded } from '$lib/store';
+  import RenameField from '$lib/components/RenameField.svelte';
   import { money } from '$lib/format';
   import { resizeImage, THUMB_EDGE } from '$lib/images';
   import RemoveButton from './RemoveButton.svelte';
@@ -238,6 +239,16 @@
 
       {#if openId === item.id}
         <div class="mt-1 space-y-2 border-t border-line-1 pt-3 pb-2">
+          <!-- "the bracket" was the right name for about an hour. Everything
+               here is written in one field at speed, so the name is the thing
+               most likely to need fixing, and it was the one thing that set
+               permanently on Add. -->
+          <RenameField
+            value={item.name}
+            label="What to buy"
+            onrename={(name) => updateBuyItem(item.id, { name })}
+          />
+
           <div class="flex gap-2">
             <input
               inputmode="numeric"

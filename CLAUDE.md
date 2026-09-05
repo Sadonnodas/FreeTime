@@ -746,6 +746,58 @@ device; there is nothing to build. Memos are the exception, below.
   overview**: every to-do in the era, grouped under the project it belongs to with
   that project's colour, showing its energy and date. Tapping one still sets those;
   only creating moved.
+- **A to-do can name ONE it comes after, and that is a link, not a level**
+  ([order.ts](src/lib/order.ts), `Todo.after`). Asked for with the garden:
+  cleaning up, removing the bamboo, sowing grass, installing pots — and the
+  grass cannot be sown until the garden is clear. The word used in the request
+  was "order or hierarchy", and the distinction matters: this is a SIDEWAYS
+  link between two to-dos in the same list, never a parent. Sub-tasks would be
+  the third level the depth rule forbids, and this is not that.
+  **One predecessor, never a list.** Same argument as one tag per to-do: a
+  chain is a line you read down, several predecessors is a graph, and a graph
+  needs a diagram. If a job really waits on two things, chain them — the
+  resulting order is the one you wanted anyway.
+  **The order is derived, never arranged.** `readyFirst` sorts by how many
+  unfinished things stand in the way, then by when it was written, so the
+  garden reads clean-up → bamboo → grass → pots with nobody dragging anything,
+  and re-sorts itself as things get ticked. Nothing is written to the waiting
+  to-do when its blocker is completed — blocked-ness is derived, so it cannot
+  go stale.
+  **THE ASYMMETRY IS THE DESIGN. The app will not OFFER a blocked to-do; it
+  never forbids one.** Free Time filters them out of the pool, because handing
+  you "sow the grass" on a free afternoon looks like a plan and is not one. But
+  the tick circle still works, and Today's picker still lists them with what
+  they are waiting for, because that is you choosing rather than the app
+  suggesting. Same instinct as nothing ever being overdue: this app is not the
+  boss of the garden.
+  Two failure modes are handled and both are load-bearing. **A dangling link
+  never blocks** — if the blocker was deleted, or arrived from a device this
+  one has not synced, the to-do is free; blocking on an unresolvable id would
+  freeze it forever with nothing on screen to explain it and no way to undo it.
+  And **loops are refused at the picker AND in the store**: `possibleBlockers`
+  never offers something that already waits on this one, `setTodoAfter` checks
+  again for anything written elsewhere, and `chainDepth` carries a visited set
+  because half a loop can be legal on each of two devices. Pinned by
+  [order.test.ts](src/lib/order.test.ts).
+  Resolving a link needs the COMPLETED to-dos too, which is why
+  `queries.allTodos()` exists — `openTodos()` filters away exactly the rows
+  that answer "is the thing before it done?", and getting the right answer from
+  the narrow list is an accident that reverses the moment that filter changes.
+
+- **Everything written in one field can be renamed afterwards**
+  ([RenameField.svelte](src/lib/components/RenameField.svelte)). Reported
+  plainly: "once you've hit add you can't adjust name anymore". It was true of
+  to-dos, ideas and buy items — you could change a to-do's era, project,
+  effort, duration, date and what it waits for, but not what it *said*. That is
+  backwards: capture is one field typed at speed, which is the whole point of
+  it, and the cost of speed is typos and names that turn out to be wrong an
+  hour later. The field sits at the top of the row editor that already exists,
+  so nothing new opens.
+  `value` rather than `bind:`, because the row underneath is a liveQuery and a
+  sync landing mid-edit would fight the cursor; it saves on blur and on Enter.
+  **An empty name is refused, not saved** — a row with no text cannot be read,
+  cannot be tapped open, and therefore cannot be renamed back.
+
 - **A list for a day is a DATE, not a new kind of thing** ([days.ts](src/lib/days.ts),
   Brain → To-dos). Asked for as *"a to do list for a day... that doesn't have to
   belong to an era or project but is just all the things I need to do that day"*.

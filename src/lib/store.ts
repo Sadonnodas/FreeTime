@@ -1,4 +1,5 @@
 import { db } from './db';
+import { indexById, wouldCycle } from './order';
 import type {
   Base, Project, Todo, Idea, BuyItem, List, ListItem,
   Habit, HabitLog, Capture, Note, Energy, TimeBucket, ListItemState, HabitState,
@@ -248,7 +249,7 @@ export async function createTodo(
   title: string,
   opts: {
     projectId?: string; tag?: string; energy?: Energy; takes?: TimeBucket;
-    date?: string; notes?: string;
+    date?: string; notes?: string; after?: string;
   } = {}
 ): Promise<string> {
   const t: Todo = stamp({ title: title.trim(), ...opts });
@@ -258,6 +259,25 @@ export async function createTodo(
 
 export async function updateTodo(id: string, patch: Partial<Todo>): Promise<void> {
   await db.todos.update(id, { ...patch, updatedAt: now() });
+}
+
+/**
+ * Say which to-do this one has to wait for, or clear it.
+ *
+ * The picker only offers links that cannot close a loop, so the guard here is a
+ * backstop — for the assistant, for an import, and for anything written on
+ * another device. It refuses rather than throws: a refused link leaves the
+ * to-do exactly as it was, which is the safe end of getting this wrong.
+ */
+export async function setTodoAfter(id: string, afterId?: string): Promise<boolean> {
+  if (afterId) {
+    const byId = indexById((await db.todos.toArray()).filter(alive));
+    if (wouldCycle(id, afterId, byId)) return false;
+  }
+  // Dexie's update() with undefined DELETES the property, which is what clearing
+  // a link has to do — an `after` left pointing anywhere would keep blocking.
+  await db.todos.update(id, { after: afterId, updatedAt: now() });
+  return true;
 }
 
 /** Completion is a timestamp, never a deletion. This timestamp IS the wins feed. */
@@ -291,6 +311,12 @@ export async function createIdea(
  * having a second, invented one just for ideas was a competing hierarchy of
  * exactly the kind that killed the previous system.
  */
+/** Fixing the wording of a thought. Same reason to-dos can be renamed: it was
+ *  typed in five seconds and five seconds is not long enough to be right. */
+export async function updateIdea(id: string, patch: Partial<Idea>): Promise<void> {
+  await db.ideas.update(id, { ...patch, updatedAt: now() });
+}
+
 export async function setIdeaProject(id: string, projectId?: string): Promise<void> {
   await db.ideas.update(id, { projectId, updatedAt: now() });
 }

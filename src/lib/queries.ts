@@ -27,6 +27,19 @@ export async function openTodos(projectId?: string): Promise<Todo[]> {
 }
 
 /**
+ * Every live to-do, open AND closed.
+ *
+ * Whether one to-do is blocked depends on whether the thing before it is DONE,
+ * and openTodos() has filtered exactly that away. Resolving a link against the
+ * open ones alone happens to give the right answer today — a completed blocker
+ * is simply absent — but only by accident, and the accident would reverse the
+ * moment that filter changed.
+ */
+export async function allTodos(): Promise<Todo[]> {
+  return (await db.todos.toArray()).filter(notDeleted);
+}
+
+/**
  * Completed items are never deleted and never hidden (spec principle 2), so
  * this is a first-class view, not a debug affordance.
  */

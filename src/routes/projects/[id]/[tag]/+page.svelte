@@ -6,10 +6,11 @@
   import type { Project, Todo, BuyItem, Memo, Widget, Energy, TimeBucket } from '$lib/types';
   import { widgetsFor } from '$lib/widgets';
   import {
-    createTodo, completeTodo, updateTodo, createBuyItem, saveNote, getNote,
+    createTodo, completeTodo, updateTodo, setTodoAfter, createBuyItem, saveNote, getNote,
     setProjectTagColor, projectTagColor, PROJECT_COLORS, softDelete
   } from '$lib/store';
   import { memosForProject } from '$lib/memos';
+  import { indexById, readyFirst, blockerOf, possibleBlockers } from '$lib/order';
   import { canRecord } from '$lib/audio';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import WidgetBoard from '$lib/components/WidgetBoard.svelte';
@@ -20,6 +21,8 @@
   import RemoveButton from '$lib/components/RemoveButton.svelte';
   import EnergyPicker from '$lib/components/EnergyPicker.svelte';
   import DurationPicker from '$lib/components/DurationPicker.svelte';
+  import RenameField from '$lib/components/RenameField.svelte';
+  import AfterPicker from '$lib/components/AfterPicker.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
 
   /**
@@ -46,12 +49,22 @@
   /** A project that has been renamed or removed out from under this URL. */
   const missing = $derived(!!era && !(era.tags ?? []).includes(tag));
 
-  const todosQ = $derived(
+  /**
+   * Every live to-do in the ERA, not just this project — then narrowed below.
+   *
+   * The wider set is what resolves "comes after": the thing standing in the way
+   * may be completed (which openTodos-style filtering would hide) or may have
+   * been moved out to the era since the link was made. Resolving against the
+   * narrow list would silently drop the link in both cases.
+   */
+  const eraTodosQ = $derived(
     liveQuery(async () =>
-      (await db.todos.where('projectId').equals(eraId).toArray())
-        .filter((t) => !t.deletedAt && t.tag === tag)
+      (await db.todos.where('projectId').equals(eraId).toArray()).filter((t) => !t.deletedAt)
     )
   );
+  const eraTodos = $derived(($eraTodosQ as Todo[] | undefined) ?? []);
+  const byId = $derived(indexById(eraTodos));
+  const todosQ = $derived(eraTodos.filter((t) => t.tag === tag));
   const buyQ = $derived(
     liveQuery(async () =>
       (await db.buyItems.where('projectId').equals(eraId).toArray())
@@ -64,11 +77,13 @@
     (($blocksQ as Widget[] | undefined) ?? []).filter((w) => w.tag === tag)
   );
 
-  const open = $derived(
-    (($todosQ as Todo[] | undefined) ?? []).filter((t) => !t.completedAt)
-  );
+  /**
+   * Ready first, then each chain in the order it has to happen — the list
+   * arranges itself from the links, so nobody has to drag anything.
+   */
+  const open = $derived(readyFirst(todosQ.filter((t) => !t.completedAt)));
   const closed = $derived(
-    (($todosQ as Todo[] | undefined) ?? [])
+    todosQ
       .filter((t): t is Todo & { completedAt: string } => !!t.completedAt)
       .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
   );
@@ -250,8 +265,15 @@
 
       <ul class="space-y-1">
         {#each open as todo (todo.id)}
+          {@const waiting = blockerOf(todo, byId)}
           <li class="card-flat px-3">
             <div class="flex items-center gap-3">
+              <!--
+                Still tappable while it waits, and deliberately so. Being
+                blocked changes what the app OFFERS, never what you are allowed
+                to do — the same reason nothing here is ever overdue. If you go
+                and sow the grass anyway, that is your garden.
+              -->
               <button
                 class="press tap shrink-0 text-ink-400"
                 onclick={() => completeTodo(todo.id)}
@@ -261,15 +283,33 @@
                 class="min-w-0 flex-1 py-3 text-left"
                 onclick={() => (openTodo = openTodo === todo.id ? null : todo.id)}
               >
-                <p>{todo.title}</p>
-                {#if todo.energy}
-                  <p class="footnote">{todo.energy}</p>
+                <p class={waiting ? 'text-ink-400' : ''}>{todo.title}</p>
+                {#if waiting || todo.takes || todo.energy}
+                  <p class="footnote">
+                    {[waiting ? `after ${waiting.title}` : null, todo.takes, todo.energy]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
                 {/if}
               </button>
             </div>
 
             {#if openTodo === todo.id}
               <div class="mt-1 border-t border-line-1 pt-3 pb-3">
+                <p class="section-label mb-2">What it is</p>
+                <RenameField
+                  value={todo.title}
+                  label="What it is"
+                  onrename={(title) => updateTodo(todo.id, { title })}
+                />
+
+                <p class="section-label mt-3 mb-2">Comes after</p>
+                <AfterPicker
+                  value={todo.after}
+                  options={possibleBlockers(todo, todosQ)}
+                  onpick={(after) => setTodoAfter(todo.id, after)}
+                />
+
                 <!--
                   TWO QUESTIONS, because they are two different things. How long
                   it takes is matched against the clock you have; how much head

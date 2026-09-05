@@ -3,7 +3,8 @@
   import { db } from '$lib/db';
   import type { Todo, Habit, Day } from '$lib/types';
   import { completeTodo, toggleHabitLog, today } from '$lib/store';
-  import { openTodos } from '$lib/queries';
+  import { allTodos } from '$lib/queries';
+  import { indexById, blockerOf } from '$lib/order';
   import {
     ensureDay, addToDay, removeFromDay, maybeCloseDay,
     canUnlockOneMore, unlockOneMore, DayFullError
@@ -31,7 +32,16 @@
   const logsTodayQ = liveQuery(async () =>
     (await db.habitLogs.where('date').equals(today()).toArray()).filter((l) => !l.deletedAt)
   );
-  const openQ = liveQuery(() => openTodos());
+  /**
+   * Every live to-do, read once — the open ones to choose from, and the whole
+   * set to resolve "comes after" against, since the thing standing in the way
+   * of one of them may be a completed to-do the open list has filtered out.
+   * One liveQuery over one table, so both stay current together.
+   */
+  const openQ = liveQuery(async () => {
+    const all = await allTodos();
+    return { all, open: all.filter((t) => !t.completedAt) };
+  });
 
   /**
    * The day's three, resolved from their ids.
@@ -97,8 +107,17 @@
   const day = $derived($dayQ as Day | undefined);
   const roomLeft = $derived(day ? day.unlockedCount - day.slots.length : 0);
   const doneCount = $derived(slotTodos.filter((t) => t.completedAt).length);
+  const todoIndex = $derived(indexById(($openQ as { all: Todo[] } | undefined)?.all ?? []));
+  /**
+   * Blocked to-dos are SHOWN here, with what they are waiting for, and are not
+   * filtered out. Free Time is the app making a suggestion, so it withholds
+   * them; this is you choosing your own three, and the app does not get a veto
+   * on that. It just makes sure you can see what you are picking.
+   */
   const candidates = $derived(
-    (($openQ as Todo[] | undefined) ?? []).filter((t) => !day?.slots.includes(t.id))
+    (($openQ as { open: Todo[] } | undefined)?.open ?? [])
+      .filter((t) => !day?.slots.includes(t.id))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   );
 </script>
 
@@ -240,12 +259,16 @@
         {#if candidates.length}
           <ul class="max-h-72 space-y-1 overflow-y-auto">
             {#each candidates.slice(0, 50) as todo (todo.id)}
+              {@const waiting = blockerOf(todo, todoIndex)}
               <li>
                 <button
                   class="press tap w-full rounded-xl px-3 py-2 text-left text-ink-50"
                   onclick={() => pick(todo)}
                 >
-                  {todo.title}
+                  <span class={waiting ? 'text-ink-400' : ''}>{todo.title}</span>
+                  {#if waiting}
+                    <span class="footnote block">after {waiting.title}</span>
+                  {/if}
                 </button>
               </li>
             {/each}
