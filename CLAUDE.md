@@ -746,6 +746,26 @@ device; there is nothing to build. Memos are the exception, below.
   overview**: every to-do in the era, grouped under the project it belongs to with
   that project's colour, showing its energy and date. Tapping one still sets those;
   only creating moved.
+- **A list for a day is a DATE, not a new kind of thing** ([days.ts](src/lib/days.ts),
+  Brain → To-dos). Asked for as *"a to do list for a day... that doesn't have to
+  belong to an era or project but is just all the things I need to do that day"*.
+  A to-do already has `date`, so the day chips are that field used as both the
+  filter and the destination — the same rule as the Ideas project chips and the buy
+  list, where whatever you are looking at is where a new one lands. No table, no
+  new concept, and no third level: it cuts ACROSS eras and projects rather than
+  sitting under one, and because it is the same field, anything on a day list
+  already feeds Free Time's obligation slot and already shows under "Has a date".
+  **It is deliberately not the Today screen's three slots.** Three is a hard
+  ceiling with an unlock behind it and the constraint IS the feature (spec 5.3);
+  "everything I have to do tomorrow" is a different question, and pushing it
+  through the three would either break that mechanic or lose most of the list.
+  Two details that are not decoration: a day list sorts OLDEST first, because a
+  plan for a day reads top to bottom while every other list is a feed where the
+  newest is what you came back for; and the row footnote NAMES the date
+  ("Tomorrow"), dropping it entirely inside a day list where it is already the
+  heading. `shiftDay` builds dates from parts and never `new Date('2026-09-06')`,
+  which is UTC midnight — the day before, anywhere west of Greenwich, which would
+  quietly file things on the wrong day.
 - **EFFORT AND DURATION ARE TWO AXES. Do not collapse them again.** `Todo.energy` is
   how much of your head a job takes; `Todo.takes` is how long it takes, in the same
   buckets Free Time asks about. Free Time filters on both, independently: how your

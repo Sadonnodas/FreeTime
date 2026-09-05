@@ -4,8 +4,9 @@
   import type { Todo, Idea, BuyItem, Project, Energy, TimeBucket, Memo } from '$lib/types';
   import {
     promoteIdea, completeTodo, createTodo, createIdea, createBuyItem,
-    setIdeaProject, toggleIdeaDone, updateTodo, softDelete
+    setIdeaProject, toggleIdeaDone, updateTodo, softDelete, today
   } from '$lib/store';
+  import { tomorrow, dayLabel, dayPhrase } from '$lib/days';
   import { activeProjects } from '$lib/queries';
   import { allMemos, storageUse, mb, type StorageUse } from '$lib/memos';
   import MemoList from '$lib/components/MemoList.svelte';
@@ -86,17 +87,68 @@
   let fDated = $state<'' | 'yes' | 'no'>('');
   let showClosed = $state(false);
 
+  /**
+   * A list for one day — asked for as "just all the things I need to do that
+   * day", belonging to no era and no project.
+   *
+   * It is a DATE, not a new kind of thing. A to-do already has `date`, so a day
+   * list is that field used as both the filter and the destination — the same
+   * shape as the Ideas project chips and the buy list, where whatever you are
+   * looking at is where a new one lands. No table, no new concept, and nothing
+   * deeper: the two levels are still era and project, and this cuts across them
+   * rather than sitting under one.
+   *
+   * Distinct from the Today screen's three slots on purpose. Three is a hard
+   * ceiling with an unlock behind it and the constraint IS the feature (spec
+   * 5.3); "everything I have to do tomorrow" is a different question, and
+   * pushing it through the three would either break that or lose the list.
+   */
+  let day = $state('');
+  const todayIso = today();
+  /** The date field is behind a chip: an empty dd/mm/yyyy box parked over the
+   *  list is chrome you have to read past every visit, for the rarer case. */
+  let pickingDay = $state(false);
+
+  function useDay(iso: string) {
+    day = day === iso ? '' : iso;
+    openTodo = null;
+  }
+
   const filteredTodos = $derived(
     (($todosQ as Todo[] | undefined) ?? [])
       .filter((t) => (showClosed ? true : !t.completedAt))
+      .filter((t) => (day ? t.date === day : true))
       .filter((t) => (fProject ? t.projectId === fProject : true))
       .filter((t) => (fEnergy ? t.energy === fEnergy : true))
-      .filter((t) => (fDated === 'yes' ? !!t.date : fDated === 'no' ? !t.date : true))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .filter((t) => (day || !fDated ? true : fDated === 'yes' ? !!t.date : !t.date))
+      // A day list reads top to bottom in the order it was written — it is a
+      // plan for a day, not a feed. Everywhere else the newest is what you came
+      // back for, so it stays on top.
+      .sort((a, b) =>
+        day ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt)
+      )
   );
 
   const projectName = (id?: string) =>
     (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === id)?.name;
+
+  /**
+   * Everything worth knowing about a to-do at a glance, in one line.
+   *
+   * The date is NAMED rather than printed — "Tomorrow" reads and 2026-09-06
+   * does not — and it is left off entirely inside a day list, where it is the
+   * heading over every row and repeating it is just noise down the page.
+   */
+  const footnote = (t: Todo): string =>
+    [
+      projectName(t.projectId),
+      t.tag,
+      t.takes,
+      t.energy,
+      t.date && t.date !== day ? dayLabel(t.date, todayIso) : null
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
   /**
    * Ideas are filed under PROJECTS, not under a taxonomy of their own.
@@ -188,7 +240,9 @@
       tag: newTag || undefined,
       energy: newEnergy,
       takes: newTakes,
-      date: newDate || undefined
+      // The lit day wins: while looking at tomorrow's list, "add" unambiguously
+      // means tomorrow, and nothing else on the form says otherwise.
+      date: day || newDate || undefined
     });
     // The title clears; the destination does not. Writing five things for the
     // same project should not mean setting the project five times.
@@ -267,9 +321,60 @@
   </div>
 
   {#if section === 'todos'}
+    <!--
+      A list for a day. The lit chip is both the filter and the destination, so
+      everything typed while it is on lands on that day — the same rule the
+      Ideas chips and the buy list already use.
+    -->
+    <div class="mb-3 flex flex-wrap items-center gap-2">
+      <button
+        class="chip press {day === todayIso ? 'chip-on' : ''}"
+        onclick={() => useDay(todayIso)}>Today</button
+      >
+      <button
+        class="chip press {day === tomorrow(todayIso) ? 'chip-on' : ''}"
+        onclick={() => useDay(tomorrow(todayIso))}>Tomorrow</button
+      >
+      {#if pickingDay || (day && day !== todayIso && day !== tomorrow(todayIso))}
+        <input
+          type="date"
+          bind:value={day}
+          class="field press text-sm"
+          aria-label="A list for another day"
+          onchange={() => (pickingDay = false)}
+        />
+      {:else}
+        <button class="chip press" onclick={() => (pickingDay = true)}>Another day</button>
+      {/if}
+      {#if day}
+        <button
+          class="press tap px-1 text-sm text-ink-400"
+          onclick={() => {
+            day = '';
+            pickingDay = false;
+          }}
+        >
+          Clear
+        </button>
+      {/if}
+    </div>
+
+    {#if day}
+      <!-- Said out loud, because a filtered list that does not say so is how you
+           come to believe the other things have gone. -->
+      <p class="footnote mb-3">
+        {dayLabel(day, todayIso)} — {filteredTodos.length}
+        thing{filteredTodos.length === 1 ? '' : 's'}. Anything you add lands here, era or no era.
+      </p>
+    {/if}
+
     <form onsubmit={addTodo} class="mb-3">
       <div class="flex gap-2">
-        <input bind:value={newTodoText} placeholder="Add a to-do" class="field min-w-0 flex-1" />
+        <input
+          bind:value={newTodoText}
+          placeholder={day ? `Add to ${dayPhrase(day, todayIso)}` : 'Add a to-do'}
+          class="field min-w-0 flex-1"
+        />
         <button class="btn btn-primary press" disabled={!newTodoText.trim()}>Add</button>
       </div>
 
@@ -324,7 +429,11 @@
             </label>
           </div>
 
-          <input type="date" bind:value={newDate} class="field w-full text-sm" />
+          {#if day}
+            <p class="footnote">Lands on {dayPhrase(day, todayIso)}.</p>
+          {:else}
+            <input type="date" bind:value={newDate} class="field w-full text-sm" />
+          {/if}
         </div>
       {/if}
     </form>
@@ -348,14 +457,16 @@
         <option value="moderate">Moderate</option>
         <option value="focus">Focus</option>
       </select>
-      <select
-        bind:value={fDated}
-        class="field press"
-      >
-        <option value="">Dated or not</option>
-        <option value="yes">Has a date</option>
-        <option value="no">No date</option>
-      </select>
+      {#if !day}
+        <select
+          bind:value={fDated}
+          class="field press"
+        >
+          <option value="">Dated or not</option>
+          <option value="yes">Has a date</option>
+          <option value="no">No date</option>
+        </select>
+      {/if}
       <button
         class="press tap rounded-xl border border-line-1 px-3 text-sm {showClosed
           ? 'text-good'
@@ -367,10 +478,17 @@
     </div>
 
     {#if !filteredTodos.length}
-      <Empty
-        line={showClosed ? 'Nothing here yet.' : 'Nothing open right now.'}
-        quip={showClosed ? 'Not even a fossil.' : 'Suspiciously peaceful. No asteroid in sight.'}
-      />
+      {#if day}
+        <Empty
+          line="Nothing on the list for {dayPhrase(day, todayIso)} yet. Type it in above."
+          quip="A whole day, unspoken for."
+        />
+      {:else}
+        <Empty
+          line={showClosed ? 'Nothing here yet.' : 'Nothing open right now.'}
+          quip={showClosed ? 'Not even a fossil.' : 'Suspiciously peaceful. No asteroid in sight.'}
+        />
+      {/if}
     {/if}
 
     <ul class="space-y-1">
@@ -387,10 +505,8 @@
               onclick={() => (openTodo = openTodo === t.id ? null : t.id)}
             >
               <p class={t.completedAt ? 'text-ink-400 line-through' : ''}>{t.title}</p>
-              {#if projectName(t.projectId) || t.tag || t.energy || t.date}
-                <p class="text-xs text-ink-400">
-                  {[projectName(t.projectId), t.tag, t.takes, t.energy, t.date].filter(Boolean).join(' · ')}
-                </p>
+              {#if footnote(t)}
+                <p class="text-xs text-ink-400">{footnote(t)}</p>
               {/if}
             </button>
           </div>
@@ -405,6 +521,32 @@
             -->
             <div class="mt-1 space-y-3 border-t border-line-1 pt-3 pb-3">
               {#if !t.completedAt}
+                <div>
+                  <p class="section-label mb-2">When</p>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button
+                      class="chip press {t.date ? '' : 'chip-on'}"
+                      onclick={() => updateTodo(t.id, { date: undefined })}>Someday</button
+                    >
+                    <button
+                      class="chip press {t.date === todayIso ? 'chip-on' : ''}"
+                      onclick={() => updateTodo(t.id, { date: todayIso })}>Today</button
+                    >
+                    <button
+                      class="chip press {t.date === tomorrow(todayIso) ? 'chip-on' : ''}"
+                      onclick={() => updateTodo(t.id, { date: tomorrow(todayIso) })}
+                      >Tomorrow</button
+                    >
+                    <input
+                      type="date"
+                      value={t.date ?? ''}
+                      class="field press text-sm"
+                      aria-label="Another day"
+                      onchange={(e) =>
+                        updateTodo(t.id, { date: e.currentTarget.value || undefined })}
+                    />
+                  </div>
+                </div>
                 <div>
                   <p class="section-label mb-2">How long will it take?</p>
                   <DurationPicker value={t.takes} onpick={(takes) => updateTodo(t.id, { takes })} />
