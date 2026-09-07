@@ -2,7 +2,7 @@
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
   import type { Todo, Habit, Day, Project } from '$lib/types';
-  import { completeTodo, toggleHabitLog, today } from '$lib/store';
+  import { completeTodo, toggleHabitLog, today, projectTagColor } from '$lib/store';
   import { allTodos, activeProjects } from '$lib/queries';
   import { ENERGIES, DURATIONS, energyLabel, durationLabel } from '$lib/sizes';
   import { indexById, blockerOf } from '$lib/order';
@@ -208,8 +208,25 @@
   ] as const;
   let pickOrder = $state<PickOrder>('recent');
 
-  const projectName = (id?: string) =>
-    (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === id)?.name;
+  const eraOf = (id?: string) =>
+    (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === id);
+  const projectName = (id?: string) => eraOf(id)?.name;
+
+  /**
+   * The colour of the project a to-do belongs to, or nothing.
+   *
+   * The same colour that project already wears on the era page and at the top
+   * of its own screen — assigned once and derived everywhere, so a to-do never
+   * carries a colour of its own that could disagree with it. An era-level to-do
+   * has no project and so has no colour; the dot is still rendered, in
+   * transparent, because a ragged left edge is harder to read down than an
+   * occasional gap.
+   */
+  const todoColor = (t: Todo): string | undefined => {
+    if (!t.tag) return undefined;
+    const era = eraOf(t.projectId);
+    return era ? projectTagColor(era.tags, era.tagColors, t.tag) : undefined;
+  };
 
   /** The line under a title: where it lives and how big it is. */
   const pickFootnote = (t: Todo): string =>
@@ -472,20 +489,31 @@
                   {@const waiting = blockerOf(todo, todoIndex)}
                   <li>
                     <button
-                      class="press tap w-full rounded-xl px-3 py-2 text-left text-ink-50"
+                      class="press tap flex w-full items-start gap-2.5 rounded-xl px-3 py-2 text-left text-ink-50"
                       onclick={() => pick(todo)}
                     >
-                      <span class={waiting ? 'text-ink-400' : ''}>{todo.title}</span>
-                      <!-- Where it lives and how big it is. Without this the row
-                           is a bare title, and choosing means recognising every
-                           one of them from memory. -->
-                      {#if waiting || pickFootnote(todo)}
-                        <span class="footnote block">
-                          {[waiting ? `after ${waiting.title}` : null, pickFootnote(todo)]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </span>
-                      {/if}
+                      <!-- The project's own colour, the same one it wears on the
+                           era page and at the top of its own screen. Down the
+                           leading edge rather than inside the footnote: a column
+                           of dots is scannable, and dots at varying x positions
+                           mid-sentence are not. -->
+                      <span
+                        class="mt-[7px] h-2 w-2 shrink-0 rounded-full"
+                        style="background: {todoColor(todo) ?? 'transparent'}"
+                      ></span>
+                      <span class="min-w-0 flex-1">
+                        <span class="block {waiting ? 'text-ink-400' : ''}">{todo.title}</span>
+                        <!-- Where it lives and how big it is. Without this the row
+                             is a bare title, and choosing means recognising every
+                             one of them from memory. -->
+                        {#if waiting || pickFootnote(todo)}
+                          <span class="footnote block">
+                            {[waiting ? `after ${waiting.title}` : null, pickFootnote(todo)]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        {/if}
+                      </span>
                     </button>
                   </li>
                 {/each}

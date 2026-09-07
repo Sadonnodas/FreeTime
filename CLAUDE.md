@@ -823,6 +823,16 @@ device; there is nothing to build. Memos are the exception, below.
   comparing two rows to work it out — the same reasoning as the buy list's
   shops. Empty groups are dropped. Each row carries its era, project and both
   sizes.
+  Each row carries its project's colour as a dot down the leading edge — the
+  same colour that project wears on the era page and at the top of its own
+  screen, derived through `projectTagColor` rather than stored anywhere new, so
+  a to-do can never carry a colour that disagrees with its project. A column of
+  dots is scannable in a way that dots at varying x positions inside a footnote
+  are not, and a to-do with no project still gets the dot in transparent,
+  because a ragged left edge is harder to read down than an occasional gap. It
+  earns its keep the moment two projects hold a job with the same name — "varnish
+  the wood" in Campervan and in Garden are one glance apart rather than two
+  footnotes apart.
   **"Pick something yourself" was grey prose starting with "Or", and was found
   by accident rather than by looking.** Quiet is right for a secondary action
   next to the Free Time button; invisible is not, and the difference is whether
