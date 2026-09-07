@@ -784,6 +784,40 @@ device; there is nothing to build. Memos are the exception, below.
   that answer "is the thing before it done?", and getting the right answer from
   the narrow list is an accident that reverses the moment that filter changes.
 
+- **Free Time tops up a day instead of replacing it, and is reachable all day**
+  ([FreeTime.svelte](src/lib/components/FreeTime.svelte) `room`). It used to be
+  offered ONLY from an empty day — reported as *"once I added a to do, I can't
+  use the freetime picker anymore to add a new one?"* — and the reason it was
+  hidden was sound even though the effect was not: `accept()` called
+  `setDaySlots`, which REPLACES the day's slots and resets the unlock count, so
+  offering it mid-day would have quietly wiped what was there, completed items
+  included.
+  So it fills what is free. `room` is how many slots are left; the plan is
+  sliced to it (suggesting three when one fits makes two of them a refusal on
+  the way out), and `accept` adds them one by one. An EMPTY day still goes
+  through `setDaySlots`, because "here is your day" is also what reopens a
+  closed one and resets the unlock count — that path is unchanged.
+  **`roomLeft` falls back to three, not zero, while the day record loads.** It
+  was `day ? … : 0`, which was harmless while it only gated a button and stopped
+  being harmless the moment it also told the flow how many slots to plan.
+  Both ways in now sit side by side once the day has something on it: *Free
+  time?* and *Add (N left)*.
+
+- **Every section on Today says what it is, and the hero shrank to make room.**
+  Habits had a heading and the calendar strip and the day's three did not, so
+  they ran together as one undifferentiated column; asked for directly. The
+  calendar's heading lives INSIDE CalendarStrip, because that component is the
+  only thing that knows whether it has anything to show and a heading over
+  nothing is worse than no heading.
+  The Free Time circle was `w-[64%] max-w-[264px]`, which pushed Habits under
+  the capture bar on an iPhone — *"the habits are pushed underneath the add
+  anything at all"*. Now `w-[48%] max-w-[196px]` with tighter gaps: still by a
+  distance the largest thing on an empty day, and everything else stays on
+  screen. Measured at 375×812 with a calendar strip, a to-do and three habits:
+  the habits row ends at 454 of 812, well clear of the bar at ~690. **If this
+  page grows another section, measure it there again** — this is the screen
+  that has to stay calm, and it is also the one everything wants to be on.
+
 - **The Today page waves and celebrates, and the shape of the wave IS the
   no-nag rule** ([+page.svelte](src/routes/+page.svelte) `nudged`, the `.nudge`
   keyframes in [app.css](src/app.css), [celebrate.ts](src/lib/celebrate.ts),

@@ -8,7 +8,7 @@
   import { indexById, blockerOf } from '$lib/order';
   import {
     ensureDay, addToDay, removeFromDay, maybeCloseDay,
-    canUnlockOneMore, unlockOneMore, DayFullError
+    canUnlockOneMore, unlockOneMore, DayFullError, STARTING_SLOTS
   } from '$lib/day';
   import CaptureBox from '$lib/components/CaptureBox.svelte';
   import DayClose from '$lib/components/DayClose.svelte';
@@ -140,7 +140,13 @@
 
   const slotTodos = $derived(($slotTodosQ as Todo[] | undefined) ?? []);
   const day = $derived($dayQ as Day | undefined);
-  const roomLeft = $derived(day ? day.unlockedCount - day.slots.length : 0);
+  /**
+   * Falls back to the full three, not to zero, while the day record is still
+   * loading — a day that does not exist yet has all of it free. Zero was
+   * harmless when this only gated a button, and stopped being harmless the
+   * moment it also told the Free Time flow how many slots to plan.
+   */
+  const roomLeft = $derived(day ? day.unlockedCount - day.slots.length : STARTING_SLOTS);
   const doneCount = $derived(slotTodos.filter((t) => t.completedAt).length);
   const todoIndex = $derived(indexById(($openQ as { all: Todo[] } | undefined)?.all ?? []));
   /**
@@ -305,11 +311,21 @@
       </p>
     </header>
 
-    <!-- Hides itself entirely when there is nothing to show. -->
+    <!--
+      Every section on this page says what it is now. Habits had a heading and
+      the other two did not, so the calendar strip and the day's three ran into
+      each other as one undifferentiated column — asked for directly. The
+      calendar's heading lives inside the component, because the component is
+      what knows whether there is anything to show, and a heading over nothing
+      is worse than no heading.
+    -->
     <CalendarStrip />
 
-    <!-- The three -->
-    <section class="space-y-3">
+    <section>
+      {#if slotTodos.length}
+        <h2 class="section-label mb-2">To-dos</h2>
+      {/if}
+      <div class="space-y-3">
       {#each slotTodos as todo (todo.id)}
         <div
           class="card rise p-4 transition-colors
@@ -354,6 +370,7 @@
           </div>
         </div>
       {/each}
+      </div>
     </section>
 
     {#if !slotTodos.length && !picking}
@@ -368,9 +385,15 @@
         full colour: three greens on an orange gradient is a fight, and at this
         size the shape is the recognisable part anyway.
       -->
-      <div class="mt-8 flex justify-center">
+      <!--
+        Smaller than it was. At 64% of the width with a max of 264 it pushed
+        Habits below the capture bar on an iPhone — reported exactly that way —
+        and a hero that hides the rest of the screen has stopped being a hero.
+        It is still by a distance the largest thing on an empty day.
+      -->
+      <div class="mt-5 flex justify-center">
         <button
-          class="press relative flex aspect-square w-[64%] max-w-[264px] min-w-[200px]
+          class="press relative flex aspect-square w-[48%] max-w-[196px] min-w-[150px]
                  items-center justify-center overflow-hidden rounded-full"
           style="background: linear-gradient(135deg, {scene.from}, {scene.to});
                  color: {scene.ink};
@@ -407,7 +430,7 @@
       <!-- The dinosaur gets a line. Below the circle rather than inside it: the
            button has to stay one clear thing to press, and there is a screen
            full of room down here. -->
-      <p class="mx-auto mt-5 max-w-[19rem] text-center text-[14px] italic text-ink-400">
+      <p class="mx-auto mt-3 max-w-[19rem] text-center text-[14px] italic text-ink-400">
         {quip}
       </p>
 
@@ -423,7 +446,7 @@
         Quiet and secondary on purpose: the button above is still the answer
         most days, and this is not a second hero.
       -->
-      <div class="mt-5 flex justify-center">
+      <div class="mt-3 flex justify-center">
         <!--
           A pill with accent text, NOT muted grey prose. The first version was
           grey and started with "Or", which made it read as a caption under the
@@ -441,12 +464,27 @@
       </div>
 
     {:else if roomLeft > 0 && !picking}
-      <button
-        class="press mt-4 w-full rounded-2xl border border-dashed border-line-2 py-4 text-ink-400"
-        onclick={() => (picking = true)}
-      >
-        {#if day?.closedAt}One more?{:else}Add ({roomLeft} left){/if}
-      </button>
+      <!--
+        BOTH ways in, not just the manual one. The questionnaire used to vanish
+        the moment the day had a single item on it, because accepting a plan
+        replaced the whole day and offering that mid-day would have wiped it.
+        FreeTime fills only the free slots now, so there is nothing to protect
+        against and no reason to hide it.
+      -->
+      <div class="mt-4 flex gap-2">
+        <button
+          class="press flex-1 rounded-2xl border border-dashed border-line-2 py-4 text-ink-400"
+          onclick={() => (freeTime = true)}
+        >
+          Free time?
+        </button>
+        <button
+          class="press flex-1 rounded-2xl border border-dashed border-line-2 py-4 text-ink-400"
+          onclick={() => (picking = true)}
+        >
+          {#if day?.closedAt}One more?{:else}Add ({roomLeft} left){/if}
+        </button>
+      </div>
     {:else if unlockAvailable}
       <!-- Only reachable on an already-closed day, one at a time, never
            visible in advance. -->
@@ -572,7 +610,10 @@
 {/if}
 
 {#if freeTime}
-  <FreeTime onDone={() => (freeTime = false)} />
+  <!-- How many slots it may fill. Three on an empty day, which is the plan-the
+       -whole-day case it has always been; fewer once something is on the day,
+       where it tops up instead of replacing. -->
+  <FreeTime room={roomLeft} onDone={() => (freeTime = false)} />
 {/if}
 
 {#if monthly}

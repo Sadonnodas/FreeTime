@@ -4,7 +4,7 @@
   } from '$lib/types';
   import { createPlanner, planDay, type Planner } from '$lib/freetime';
   import { pickRotating, type RotatingQuestion } from '$lib/questions';
-  import { setDaySlots } from '$lib/day';
+  import { setDaySlots, addToDay, STARTING_SLOTS, DayFullError } from '$lib/day';
   import { generateQuestions, rankSlots } from '$lib/gemini/plan';
   import { activeProjects } from '$lib/queries';
 
@@ -16,7 +16,21 @@
    * it does not replace this, because the spec requires a working non-AI path
    * for every AI feature.
    */
-  let { onDone }: { onDone: () => void } = $props();
+  /**
+   * `room` is how many of the day's slots are still free.
+   *
+   * This flow used to be reachable only from an empty day, and accepting a
+   * plan called setDaySlots, which REPLACES everything. So once a single to-do
+   * was on the day the questionnaire disappeared — reported as "once I added a
+   * to do, I can't use the freetime picker anymore" — and the reason it was
+   * hidden was sound even if the effect was not: offering it would have quietly
+   * wiped the day, completed items included.
+   *
+   * So it fills what is free instead. Three on an empty day, one when two are
+   * already spoken for, and the planner already excludes anything on the day,
+   * so a suggestion is never something you have.
+   */
+  let { onDone, room = STARTING_SLOTS }: { onDone: () => void; room?: number } = $props();
 
   type Step = 'time' | 'brain' | 'rotating' | 'plan';
   let step = $state<Step>('time');
@@ -124,7 +138,9 @@
       projects.find((p) => p.id === id)?.name ?? 'Unassigned';
 
     const ranked = await rankSlots(planner.pool, a, nameFor);
-    slots = ranked ?? (await planDay(a));
+    // Never more than the day has space for. Suggesting three when one fits
+    // would make two of them a refusal on the way out.
+    slots = (ranked ?? (await planDay(a))).slice(0, Math.max(room, 0));
     building = false;
   }
 
@@ -143,7 +159,25 @@
   }
 
   async function accept() {
-    await setDaySlots(slots.map((s) => s.todo.id));
+    const ids = slots.map((s) => s.todo.id);
+    if (room >= STARTING_SLOTS) {
+      // An empty day: a fresh plan, which also resets the unlock count and
+      // reopens a day that had been closed. That is what "here is your day"
+      // means, and it is the behaviour this flow has always had.
+      await setDaySlots(ids);
+    } else {
+      // A day already under way: add to it, and never past the cap. The
+      // DayFullError is caught rather than thrown at the user — the count came
+      // from the same day record a moment ago, so losing a race here means one
+      // suggestion does not land, which is not worth an error screen.
+      for (const id of ids) {
+        try {
+          await addToDay(id);
+        } catch (err) {
+          if (!(err instanceof DayFullError)) throw err;
+        }
+      }
+    }
     onDone();
   }
 
@@ -236,7 +270,7 @@
           </div>
         {/each}
       </div>
-      {#if slots.length < 3}
+      {#if slots.length < Math.min(3, room)}
         <!-- Two is a complete day. Said plainly so a short list doesn't read
              as the app having failed to find enough. -->
         <p class="footnote mt-4 text-center">

@@ -33,6 +33,10 @@
 </script>
 
 {#if events.length}
+  <!-- The heading is in here rather than on the page, because this component is
+       the only thing that knows whether there is anything to put under it, and
+       a heading over an empty space is worse than no heading at all. -->
+  <h2 class="section-label mb-2">Calendar</h2>
   <section class="rise mb-5 flex gap-2 overflow-x-auto pb-1">
     {#each events as event (event.id)}
       <!-- Not a button, not a link. There is nothing to do with these. -->
