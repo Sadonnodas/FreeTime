@@ -22,6 +22,7 @@
   import EnergyPicker from '$lib/components/EnergyPicker.svelte';
   import DurationPicker from '$lib/components/DurationPicker.svelte';
   import RenameField from '$lib/components/RenameField.svelte';
+  import AddField from '$lib/components/AddField.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
 
@@ -131,7 +132,9 @@
   let recording = $state(false);
   const recordable = canRecord();
 
-  let newTodo = $state('');
+  /** Whether the to-do field is open. Bound to AddField, and set by the sheet
+   *  below so "+ Add to <project> → To-do" still lands the cursor in it. */
+  let addTodo = $state(false);
   let newEnergy = $state<Energy | undefined>(undefined);
   let newTakes = $state<TimeBucket | undefined>(undefined);
   let newBuy = $state('');
@@ -142,6 +145,9 @@
       recording = true;
       return;
     }
+    // Unfolds the section AND opens its field — picking a kind from the sheet
+    // has to leave you typing, or the sheet is just a longer way in.
+    if (kind === 'todo') addTodo = true;
     adding = kind;
   }
 
@@ -219,49 +225,37 @@
 
     <!-- ---------------------------------------------------------------- to-dos -->
     <Collapsible id={sectionId('todo')} title="To-dos" count={open.length} {color} open={adding === 'todo'}>
-      <!-- Always shown, never only while the list is empty. Writing one to-do
-           and having the field disappear is the opposite of "type and Enter". -->
-      <form
-        onsubmit={async (e) => {
-          e.preventDefault();
-          if (!newTodo.trim()) return;
-          await createTodo(newTodo, { projectId: eraId, tag, energy: newEnergy, takes: newTakes });
-          newTodo = '';
-        }}
-        class="mb-2"
+      <!-- A button, not a bar. What sits over the list when you are not adding
+           is one quiet line, and the to-dos start where the eye does. -->
+      <AddField
+        bind:open={addTodo}
+        label="Add a to-do"
+        placeholder="Add to {tag}"
+        onadd={(title) => createTodo(title, { projectId: eraId, tag, energy: newEnergy, takes: newTakes })}
       >
-        <div class="flex gap-2">
-          <!-- svelte-ignore a11y_autofocus -->
-          <input
-            bind:value={newTodo}
-            autofocus={adding === 'todo'}
-            placeholder="Add to {tag}"
-            class="field min-w-0 flex-1"
-          />
-          <button class="btn btn-primary press">Add</button>
-        </div>
-
-        {#if newTodo.trim()}
-          <!-- How long it will take, offered while writing it rather than only
-               afterwards. Free Time can only rule a job out of a short window
-               if the job says how long it is. -->
-          <div class="card mt-2 space-y-3 p-3">
-            <div>
-              <p class="section-label mb-2">How long will it take?</p>
-              <DurationPicker value={newTakes} onpick={(v) => (newTakes = v)} unset={false} />
+        {#snippet extra(text)}
+          {#if text.trim()}
+            <!-- How long it will take, offered while writing it rather than only
+                 afterwards. Free Time can only rule a job out of a short window
+                 if the job says how long it is. -->
+            <div class="card mt-2 space-y-3 p-3">
+              <div>
+                <p class="section-label mb-2">How long will it take?</p>
+                <DurationPicker value={newTakes} onpick={(v) => (newTakes = v)} unset={false} />
+              </div>
+              <div>
+                <p class="section-label mb-2">How much head does it need?</p>
+                <EnergyPicker
+                  value={newEnergy}
+                  onpick={(v) => (newEnergy = v)}
+                  unset={false}
+                  hint={false}
+                />
+              </div>
             </div>
-            <div>
-              <p class="section-label mb-2">How much head does it need?</p>
-              <EnergyPicker
-                value={newEnergy}
-                onpick={(v) => (newEnergy = v)}
-                unset={false}
-                hint={false}
-              />
-            </div>
-          </div>
-        {/if}
-      </form>
+          {/if}
+        {/snippet}
+      </AddField>
 
       <ul class="space-y-1">
         {#each open as todo (todo.id)}

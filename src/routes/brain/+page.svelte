@@ -19,6 +19,7 @@
   import DurationPicker from '$lib/components/DurationPicker.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
   import RenameField from '$lib/components/RenameField.svelte';
+  import AddField from '$lib/components/AddField.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import { canRecord } from '$lib/audio';
   import { onMount } from 'svelte';
@@ -219,7 +220,9 @@
    * of cleverness: whatever filter is active is where a new one lands, because
    * that is unambiguously what you meant while looking at a filtered list.
    */
-  let newTodoText = $state('');
+  /** Whether the to-do field is open. Closed by default: what sits over the
+   *  list is a button, and the list starts where the eye does. */
+  let addingTodo = $state(false);
   let newIdeaText = $state('');
   let newBuyText = $state('');
 
@@ -258,10 +261,7 @@
     if (newTag && !eraTags.includes(newTag)) newTag = '';
   });
 
-  async function addTodo(e: SubmitEvent) {
-    e.preventDefault();
-    const title = newTodoText.trim();
-    if (!title) return;
+  async function addTodo(title: string) {
     await createTodo(title, {
       projectId: newEra || undefined,
       tag: newTag || undefined,
@@ -271,9 +271,8 @@
       // means tomorrow, and nothing else on the form says otherwise.
       date: day || newDate || undefined
     });
-    // The title clears; the destination does not. Writing five things for the
-    // same project should not mean setting the project five times.
-    newTodoText = '';
+    // The title clears (AddField does that); the destination does not. Writing
+    // five things for the same project should not mean setting it five times.
   }
 
   async function addIdea(e: SubmitEvent) {
@@ -395,17 +394,14 @@
       </p>
     {/if}
 
-    <form onsubmit={addTodo} class="mb-3">
-      <div class="flex gap-2">
-        <input
-          bind:value={newTodoText}
-          placeholder={day ? `Add to ${dayPhrase(day, todayIso)}` : 'Add a to-do'}
-          class="field min-w-0 flex-1"
-        />
-        <button class="btn btn-primary press" disabled={!newTodoText.trim()}>Add</button>
-      </div>
-
-      {#if newTodoText.trim()}
+    <AddField
+      bind:open={addingTodo}
+      label={day ? `Add to ${dayPhrase(day, todayIso)}` : 'Add a to-do'}
+      placeholder={day ? `Add to ${dayPhrase(day, todayIso)}` : 'Add a to-do'}
+      onadd={addTodo}
+    >
+      {#snippet extra(text)}
+        {#if text.trim()}
         <!-- Shown only once there is something to file, so the fast path is
              still type-and-Enter and none of this is in the way of it. -->
         <div class="card mt-2 space-y-3 p-3">
@@ -462,8 +458,9 @@
             <input type="date" bind:value={newDate} class="field w-full text-sm" />
           {/if}
         </div>
-      {/if}
-    </form>
+        {/if}
+      {/snippet}
+    </AddField>
 
     <div class="mb-3 flex flex-wrap gap-2 text-sm">
       <select

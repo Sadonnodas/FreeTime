@@ -784,6 +784,37 @@ device; there is nothing to build. Memos are the exception, below.
   that answer "is the thing before it done?", and getting the right answer from
   the narrow list is an accident that reverses the moment that filter changes.
 
+- **The add field starts closed, behind a "+ Add" button**
+  ([AddField.svelte](src/lib/components/AddField.svelte), the project screen's
+  To-dos section and Brain → To-dos). Toon's words: *"it's not very clean to see
+  the add bar above the to do's that are already there... I would just put an
+  +add button and have the already added to do's below it."* A text input parked
+  permanently over a list is furniture you read past every visit, competing with
+  the thing you came to look at.
+  **This is NOT the bug that was fixed two commits earlier, and the difference
+  has to stay clear.** The field used to vanish BY ITSELF — it rendered only
+  while the list was empty or while the add sheet had just chosen it, so writing
+  one to-do made it disappear with no control left behind and nothing to explain
+  it. Here the button is always there and the field closes only when you close
+  it. If a future report says "the add field is gone", check which of these two
+  it is before changing anything.
+  **The fast path is preserved deliberately.** Opening focuses the field, so the
+  tap that opens it is the tap that starts writing; adding does NOT close it and
+  re-focuses, so five to-dos are still type-Enter-type-Enter and not five taps
+  on a button. Escape closes, and so does the button, which says **Add** with
+  something typed and **Done** on an empty field — one control for the two
+  things there are to do at that moment, rather than a disabled Add sitting next
+  to a Close.
+  **The closed button is solid with accent text, and both halves of that are
+  load-bearing.** Dashed would twin the project screen's "+ Add to <project>",
+  which is the primary way in and covers every kind of thing — two identical
+  dashed boxes stacked at the top of a project read as one button drawn twice.
+  Muted grey on a faint ground would twin the to-do rows directly beneath it and
+  read as an empty row. Accent text on `bg-surface-1` is neither.
+  Still on the older always-open bar: Brain → Ideas, Brain → Buy, and the
+  project screen's To buy section. Swapping them over is passing `AddField` the
+  same three props; it was left alone because only to-dos were asked for.
+
 - **Everything written in one field can be renamed afterwards**
   ([RenameField.svelte](src/lib/components/RenameField.svelte)). Reported
   plainly: "once you've hit add you can't adjust name anymore". It was true of
