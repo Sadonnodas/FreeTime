@@ -23,6 +23,7 @@
   import DurationPicker from '$lib/components/DurationPicker.svelte';
   import RenameField from '$lib/components/RenameField.svelte';
   import AddField from '$lib/components/AddField.svelte';
+  import PlanToday from '$lib/components/PlanToday.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
 
@@ -326,6 +327,13 @@
                   value={todo.energy}
                   onpick={(energy) => updateTodo(todo.id, { energy })}
                 />
+
+                <!-- The one you came into the project to do. Its own line:
+                     the row below already carries two controls, and this is
+                     not a variant of either of them. -->
+                <div class="mt-3">
+                  <PlanToday todoId={todo.id} />
+                </div>
 
                 <div class="mt-2 flex items-center gap-1">
                   <button

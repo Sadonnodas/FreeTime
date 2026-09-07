@@ -5,7 +5,7 @@
   import { db } from '$lib/db';
   import type { ConflictLog } from '$lib/types';
   import { isGoogleConfigured, redirectUri, DRIVE_FOLDER } from '$lib/config';
-  import { beginSignIn, signOut, isConnected } from '$lib/google/auth';
+  import { beginSignIn, signOut, isConnected, getAccessToken } from '$lib/google/auth';
   import { clearCalendarCache } from '$lib/google/calendar';
   import { onSyncState, syncNow, type SyncState } from '$lib/sync';
   import { ago } from '$lib/format';
@@ -19,6 +19,8 @@
   let connected = $state(false);
   let authError = $state<string | undefined>(undefined);
   let silentFailed = $state(false);
+  /** Whether this device is holding a token that has not run out. */
+  let hasToken = $state(true);
   let apiKey = $state('');
   let keySaved = $state(false);
   let queued = $state(0);
@@ -68,6 +70,7 @@
     // Set only when a silent renewal FAILED, and cleared the moment one
     // succeeds — so it is a reliable "Google will not do this quietly".
     silentFailed = !!st?.lastSilentAuthAt;
+    hasToken = !!(await getAccessToken());
     apiKey = (await getApiKey()) ?? '';
     queued = await pendingAudioCount();
   });
@@ -78,6 +81,28 @@
 
 
   const configured = isGoogleConfigured();
+
+  /**
+   * Connected, and yet with no usable token — the state that cost two manual
+   * disconnect-and-reconnect rounds.
+   *
+   * A device signed in on Saturday and opened on Monday has an hour-old token
+   * and a `googleConnected` flag that is still true. The silent renewal runs at
+   * launch, and when Google declines to do it quietly there is nothing more the
+   * app can do on its own — that part is Google's call, not a bug here. What
+   * WAS a bug: this screen then showed only "Sync now" and "Disconnect",
+   * because Connect appears in the not-connected branch. So the single thing
+   * that fixes it — one full sign-in — was reachable only by disconnecting
+   * first, which reads like throwing your setup away to get it back.
+   *
+   * The status line already said the right thing ("Google wants a fresh
+   * sign-in"). Diagnosing correctly and then offering no way to act is its own
+   * failure, and a close cousin of the one this file's comment above already
+   * warns about.
+   */
+  const needsFreshSignIn = $derived(
+    connected && (!hasToken || (sync.status === 'paused' && sync.reason === 'no-token'))
+  );
 
   /**
    * Say which of these it is, and never promise a recovery that cannot happen.
@@ -184,6 +209,18 @@
       <div class="card p-4">
         <p class="text-sm">{statusLine}</p>
         {#if connected}
+          {#if needsFreshSignIn}
+            <!-- The primary action while there is no token: everything else in
+                 this card is something you cannot usefully do yet. -->
+            <button
+              class="btn btn-primary press mt-3 text-sm"
+              onclick={() => beginSignIn(false)}>Reconnect Google</button
+            >
+            <p class="footnote mt-2">
+              Nothing here is lost while it is disconnected — it syncs as soon as this
+              goes through.
+            </p>
+          {/if}
           <div class="mt-3 flex gap-2">
             <button
               class="press tap rounded-xl bg-surface-2 px-4 text-sm text-ink-200"

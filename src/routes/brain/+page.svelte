@@ -20,6 +20,7 @@
   import RemoveButton from '$lib/components/RemoveButton.svelte';
   import RenameField from '$lib/components/RenameField.svelte';
   import AddField from '$lib/components/AddField.svelte';
+  import PlanToday from '$lib/components/PlanToday.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import { canRecord } from '$lib/audio';
   import { onMount } from 'svelte';
@@ -604,7 +605,17 @@
                   <EnergyPicker value={t.energy} onpick={(energy) => updateTodo(t.id, { energy })} />
                 </div>
               {/if}
-              <div class="flex">
+              <!--
+                Down here with the actions, deliberately far from the When
+                chips above. Those set a DATE — the day it is promised for —
+                while this puts it in today's three, which is what actually
+                shows up on the Today screen. Two controls saying "Today" a
+                centimetre apart would be read as one.
+              -->
+              <div class="flex items-center gap-1">
+                {#if !t.completedAt}
+                  <PlanToday todoId={t.id} />
+                {/if}
                 <span class="flex-1"></span>
                 <RemoveButton
                   label="Delete"

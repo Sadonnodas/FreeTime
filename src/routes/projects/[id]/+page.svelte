@@ -23,6 +23,7 @@
   import RemoveButton from '$lib/components/RemoveButton.svelte';
   import RenameField from '$lib/components/RenameField.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
+  import PlanToday from '$lib/components/PlanToday.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
 
 
@@ -574,7 +575,10 @@
                   />
                 </div>
 
-                <div class="flex">
+                <div class="flex items-center gap-1">
+                  {#if !todo.completedAt}
+                    <PlanToday todoId={todo.id} />
+                  {/if}
                   <span class="flex-1"></span>
                   <RemoveButton
                     label="Delete"

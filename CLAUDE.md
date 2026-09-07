@@ -784,6 +784,52 @@ device; there is nothing to build. Memos are the exception, below.
   that answer "is the thing before it done?", and getting the right answer from
   the narrow list is an accident that reverses the moment that filter changes.
 
+- **A to-do can be put straight into Today's three, without the Free Time flow**
+  ([PlanToday.svelte](src/lib/components/PlanToday.svelte), and "Or pick
+  something yourself" under the Free Time button). Asked for as: *"today I want
+  to varnish the wood in my campervan. I made a to do for that but I would like
+  to be able to plan it in so that when I open the freetime app, I see it there
+  in the today section."* Free Time asks how long you have and what your head
+  is like before it suggests anything — the right tool for *what should I do?*
+  and the wrong one for *I already know*.
+  **The gap was worst exactly where it mattered.** Today's manual picker only
+  renders once the day already has something in it (`{:else if roomLeft > 0}`,
+  after the empty-day branch), so on an EMPTY day the only route into the three
+  was the questionnaire. The one case where you most need to put something in
+  was the one case you could not.
+  **It writes `Day.slots`, never `Todo.date`,** and the difference is the whole
+  point. A date is an obligation marker that feeds the obligation slot; it puts
+  nothing on the screen. "I see it there in the today section" means the slots.
+  Brain's row editor now carries both, and they are deliberately far apart —
+  the When chips (a date) at the top, "Do it today" (a slot) down in the action
+  row. Two controls saying "Today" a centimetre apart would be read as one.
+  **The three are still three.** `addToDay` throws once the day is full, and
+  the button is replaced by the plain sentence "Today already has its three"
+  rather than growing a fourth slot or failing quietly. The DayFullError catch
+  is still needed even though the button hides itself: the cap lives in data
+  and two devices share one day.
+
+- **"Connected" with a dead token had no way forward but Disconnect**
+  ([settings/+page.svelte](src/routes/settings/+page.svelte) `needsFreshSignIn`).
+  Reported twice, weeks apart: *"I again needed to disconnect my google and
+  reconnect in order for things to sync up."* A laptop signed in on Saturday
+  and opened on Monday has an hour-old token and `googleConnected` still true.
+  The silent renewal runs at launch; when Google declines to do it quietly —
+  which is Google's call and not a bug here — the app is left holding nothing.
+  **The screen then showed only "Sync now" and "Disconnect", because Connect
+  lives in the not-connected branch.** So the one action that fixes it was
+  reachable only by disconnecting first, which reads like throwing your setup
+  away in order to get it back. The status line was already correct ("Google
+  wants a fresh sign-in — it would not renew quietly"); diagnosing accurately
+  and then offering no way to act is its own failure, and the sibling of the
+  "signed out of a device that never signed in" bug two entries below.
+  If this recurs even WITH the button, the next thing to look at is the flow
+  itself: Google has deprecated the implicit flow for client-side apps in
+  favour of Google Identity Services, whose token client can refresh silently
+  in an iframe instead of a full-page redirect. That is a real change, not a
+  tweak — read the "Google gives a static site no refresh token" trap first,
+  because the constraint that forced this design has not gone away.
+
 - **The add field starts closed, behind a "+ Add" button**
   ([AddField.svelte](src/lib/components/AddField.svelte), the project screen's
   To-dos section and Brain → To-dos). Toon's words: *"it's not very clean to see

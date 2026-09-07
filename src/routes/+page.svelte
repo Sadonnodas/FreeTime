@@ -232,6 +232,24 @@
         {quip}
       </p>
 
+      <!--
+        The other way in, for when you already know.
+        Free Time asks how long you have and what your head is like before it
+        suggests anything, which is the right tool for "what should I do?" and
+        the wrong one for "today I am varnishing the campervan". Until this
+        existed, an empty day had NO route into the three except that flow —
+        the picker below only appears once the day already has something in it,
+        so the one case where you most need to put something in was the one
+        case you could not.
+        Quiet and secondary on purpose: the button above is still the answer
+        most days, and this is not a second hero.
+      -->
+      <div class="mt-4 text-center">
+        <button class="press tap-h px-4 text-sm text-ink-400" onclick={() => (picking = true)}>
+          Or pick something yourself
+        </button>
+      </div>
+
     {:else if roomLeft > 0 && !picking}
       <button
         class="press mt-4 w-full rounded-2xl border border-dashed border-line-2 py-4 text-ink-400"
