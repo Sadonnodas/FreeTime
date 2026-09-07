@@ -3,6 +3,7 @@ import type { Base, Settings, ConflictLog } from './types';
 import { now, uid } from './store';
 import { mergeRecords, conflictFileName } from './merge';
 import { getAccessToken, isConnected } from './google/auth';
+import { clearCalendarCache } from './google/calendar';
 import {
   ensureFolders, list, readFile, readJsonArray, writeFile, writeBlob, readBlob,
   deleteFile, DriveAuthError
@@ -314,6 +315,11 @@ export async function downloadMemoAudio(memoId: string): Promise<Blob | null> {
  * invites rate limiting, and there is no deadline here worth defending.
  */
 export async function syncNow(): Promise<SyncState> {
+  // The calendar is a read, not part of Drive reconciliation — but "sync" is
+  // reasonably taken to mean "go and get the latest", and a test event added
+  // in Google two minutes ago should turn up when asked for. Clearing costs
+  // nothing: the next read fetches, and nothing fetches on its own.
+  clearCalendarCache();
   if (!isGoogleConfigured()) {
     const s: SyncState = { status: 'paused', reason: 'not-configured' };
     setState(s);

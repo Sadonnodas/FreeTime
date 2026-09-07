@@ -784,6 +784,43 @@ device; there is nothing to build. Memos are the exception, below.
   that answer "is the thing before it done?", and getting the right answer from
   the narrow list is an accident that reverses the moment that filter changes.
 
+- **The calendar strip reads EVERY ticked calendar, not just the primary one**
+  ([google/calendar.ts](src/lib/google/calendar.ts),
+  [calendar.test.ts](src/lib/google/calendar.test.ts)). It asked
+  `/calendars/primary/events` and nothing else, so events on a calendar made
+  for a band, a client or a company never appeared — and **an absent category
+  looks exactly like an empty one**, which is why it went unnoticed until Toon
+  asked whether it covered all of them. It now lists `calendarList` and reads
+  each chosen calendar in parallel.
+  **"Chosen" means `selected` in Google's own list — the same checkbox that
+  decides what shows in Google Calendar's web UI.** That rule is worth keeping:
+  what you see there is what you see here, adjusted in a place that already
+  exists rather than in a settings screen of ours, and it keeps Holidays and
+  Birthdays out without a hardcoded blocklist. The primary calendar is always
+  included, ticked or not. If the calendar list cannot be fetched it falls back
+  to primary alone, so a permissions hiccup degrades to the old behaviour
+  rather than a blank strip. The scope was already `calendar.readonly`, which
+  covers all of this — no re-consent was needed.
+  Ids are composite (`calendarId:eventId`), because two calendars can hold the
+  same event id and a duplicate `{#each}` key drops one silently. The same
+  event on two calendars — an invitation that also sits on a shared calendar —
+  collapses to one card, keyed on title plus start.
+  Each card names its calendar in that calendar's own colour, so a band night
+  and a client meeting are told apart at a glance; the primary calendar is left
+  unnamed, since saying it on every card says nothing.
+
+- **The calendar cache expired at midnight and at no other time.** It was a
+  module variable keyed on the DATE, so on a phone — where an installed app is
+  suspended rather than closed — adding an event in Google and coming back
+  showed the previous list for days, with nothing that could make it look
+  again. Reported as *"I did a quick test by adding something for today and
+  syncing FreeTime but it didn't appear"*, which was true twice over: the cache
+  held, and **syncing never touched the calendar at all**, being Drive
+  reconciliation. Now: a five-minute TTL, a refetch when the app returns to the
+  foreground (the same safe moment the update check uses), and `syncNow` clears
+  it — "sync" is reasonably read as "go and get the latest", and clearing costs
+  nothing because nothing fetches on its own.
+
 - **A to-do can be put straight into Today's three, without the Free Time flow**
   ([PlanToday.svelte](src/lib/components/PlanToday.svelte), and "Or pick
   something yourself" under the Free Time button). Asked for as: *"today I want
