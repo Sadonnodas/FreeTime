@@ -13,11 +13,9 @@
    *
    * Still optional. Ignoring it writes the to-do anyway.
    */
-  export const ENERGIES: { key: Energy; label: string; hint: string }[] = [
-    { key: 'quick', label: 'Quick', hint: 'a few minutes' },
-    { key: 'moderate', label: 'Moderate', hint: 'a sitting' },
-    { key: 'focus', label: 'Focus', hint: 'a long block' }
-  ];
+  // The labels live in lib/sizes.ts: they also appear in row footnotes and in
+  // the Today picker's headings, and copies of user-facing copy drift.
+  import { ENERGIES } from '$lib/sizes';
 
   let {
     value,

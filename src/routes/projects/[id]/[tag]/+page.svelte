@@ -152,12 +152,6 @@
     adding = kind;
   }
 
-  const ENERGIES: { key: Energy; label: string; hint: string }[] = [
-    { key: 'quick', label: 'Quick', hint: 'a few minutes' },
-    { key: 'moderate', label: 'Moderate', hint: 'a sitting' },
-    { key: 'focus', label: 'Focus', hint: 'a long block' }
-  ];
-
   let openTodo = $state<string | null>(null);
   let picking = $state(false);
 

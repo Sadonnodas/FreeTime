@@ -397,12 +397,139 @@ body {
     animation: rise 320ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
   }
 
+  /* ---------------------------------------------------- "still here" */
+
+  /*
+   * A single slow breath, on ONE undone thing at a time.
+   *
+   * This is the closest the app comes to the banned nag, so the shape of it is
+   * the whole argument. It NEVER escalates: the same gentle movement at nine in
+   * the morning and nine at night, because a pulse that grows more insistent
+   * the longer something sits there is an overdue state wearing a costume. It
+   * never singles out the oldest or the most neglected item either — the turn
+   * goes round the list evenly, so it can't read as the app pointing at your
+   * worst one. And it says nothing: no "don't forget", no count. It is a thing
+   * on the screen being alive, which is the same rule as the dinosaur's jokes
+   * being about the dinosaur.
+   */
+  @keyframes nudge {
+    0%,
+    100% {
+      transform: none;
+    }
+    35% {
+      transform: scale(1.018);
+    }
+  }
+
+  .nudge {
+    animation: nudge 1400ms cubic-bezier(0.4, 0, 0.3, 1);
+  }
+
+  /* The empty circle catches a little light as it goes. */
+  @keyframes nudge-ring {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    }
+    35% {
+      box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.09);
+    }
+  }
+
+  .nudge-ring {
+    animation: nudge-ring 1400ms cubic-bezier(0.4, 0, 0.3, 1);
+  }
+
+  /* --------------------------------------------------------- the burst */
+
+  .burst {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* rotate first, then travel along the rotated axis: one angle variable
+     sends a piece outward without any per-particle x/y maths. */
+  @keyframes burst-fly {
+    0% {
+      transform: rotate(var(--a)) translateY(0) scale(0.3);
+      opacity: 0;
+    }
+    18% {
+      opacity: 1;
+    }
+    100% {
+      transform: rotate(var(--a)) translateY(calc(var(--d) * -1px)) scale(var(--s));
+      opacity: 0;
+    }
+  }
+
+  .burst-p {
+    animation-name: burst-fly;
+    animation-timing-function: cubic-bezier(0.15, 0.75, 0.3, 1);
+    animation-fill-mode: forwards;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  @keyframes burst-ring {
+    from {
+      transform: scale(0.35);
+      opacity: 0.5;
+    }
+    to {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+
+  .burst-ring {
+    animation: burst-ring 520ms cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  /* The tick itself, which is the part your eye is actually on. */
+  @keyframes tick-pop {
+    0% {
+      transform: scale(1);
+    }
+    45% {
+      transform: scale(1.22);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  .tick-pop {
+    animation: tick-pop 420ms cubic-bezier(0.2, 0.9, 0.25, 1);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .rise {
       animation: none;
     }
     .press:active {
       transform: none;
+    }
+    /* The wave goes entirely. Everything below is decoration, and decoration is
+       exactly what this setting is asking us to drop — the tick still turns
+       green, which is the part that carries the meaning. */
+    .nudge,
+    .nudge-ring,
+    .tick-pop,
+    .burst-p,
+    .burst-ring {
+      animation: none;
+    }
+    .burst {
+      display: none;
     }
   }
 

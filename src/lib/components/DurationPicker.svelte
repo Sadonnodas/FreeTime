@@ -15,12 +15,8 @@
    * Unset always passes the filter, like effort: a job with no estimate is not
    * assumed to be a long one.
    */
-  export const DURATIONS: { key: TimeBucket; label: string }[] = [
-    { key: '20min', label: '20 min' },
-    { key: '1-2h', label: 'An hour or two' },
-    { key: 'half day', label: 'Half a day' },
-    { key: 'all day', label: 'All day' }
-  ];
+  // Shared with the pickers' sibling and the Today picker — see lib/sizes.ts.
+  import { DURATIONS } from '$lib/sizes';
 
   let {
     value,

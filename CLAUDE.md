@@ -784,6 +784,56 @@ device; there is nothing to build. Memos are the exception, below.
   that answer "is the thing before it done?", and getting the right answer from
   the narrow list is an accident that reverses the moment that filter changes.
 
+- **The Today page waves and celebrates, and the shape of the wave IS the
+  no-nag rule** ([+page.svelte](src/routes/+page.svelte) `nudged`, the `.nudge`
+  keyframes in [app.css](src/app.css), [celebrate.ts](src/lib/celebrate.ts),
+  [Burst.svelte](src/lib/components/Burst.svelte)). Asked for as *"pulse or
+  something to say 'don't forget about me 😉'"* plus *"some kind of variable
+  animation when you tab it to complete"*. This is the closest the app comes to
+  the banned nag, so the constraints are load-bearing and not styling:
+  **it never escalates** — the same gentle movement at nine in the morning and
+  nine at night, because a pulse that grows more insistent the longer something
+  sits there is an overdue state wearing a costume; **it never singles one
+  out** — the turn goes evenly round the list, so it cannot read as the app
+  pointing at your worst item; **it says nothing in words** — "don't forget
+  about me" on the screen would be aimed at the reader, and the house rule is
+  that the personality is never at your expense; **one thing at a time**, to-dos
+  and habits in ONE rotation, because two things waving at once is a busy screen
+  rather than a live one. It stops on a closed day, on a finished list, and in a
+  tab nobody is looking at.
+  The celebration is **variable on purpose** — six bursts, never the same one
+  twice running, the same reasoning as the rotating Free Time scenes: an
+  identical celebration stops being one by about the fourth day, and a repeat
+  reads as "nothing happened". Geometry only (sparks, dots, stars, petals),
+  which is the icon lesson again — hand-written beziers make fine confetti and
+  terrible animals. It fires BEFORE the database write, because a celebration
+  that arrives after a round trip reads as a glitch; it is
+  `pointer-events: none`, because a row that stops taking taps while a sparkle
+  is over it would be worse than no sparkle; and it plays only on the way IN for
+  a habit, since confetti for unticking something is the app being pleased about
+  the wrong thing. **Every bit of it goes under `prefers-reduced-motion`** — the
+  tick still turns green, which is the part carrying the meaning.
+
+- **The Today picker is grouped, and its entry point had to stop whispering.**
+  It was a flat list of bare titles, newest first — fine at five to-dos and
+  useless at fifty, since nothing on a row said which era it belonged to or how
+  big it was, so choosing meant recognising every title from memory. Four
+  arrangements now (Recent / Era / Time / Head), grouped with headings rather
+  than merely sorted, because a heading answers "what am I looking at" without
+  comparing two rows to work it out — the same reasoning as the buy list's
+  shops. Empty groups are dropped. Each row carries its era, project and both
+  sizes.
+  **"Pick something yourself" was grey prose starting with "Or", and was found
+  by accident rather than by looking.** Quiet is right for a secondary action
+  next to the Free Time button; invisible is not, and the difference is whether
+  it looks pressable. It is an accent pill now — the same correction the add
+  button needed when it was grey-on-grey, which is a mistake worth only making
+  once more.
+  Size labels live in [sizes.ts](src/lib/sizes.ts) now, because they appear in
+  the two pickers, in row footnotes and in these headings, and there were
+  already two copies of the effort list (one of them dead code in the project
+  page). User-facing copy in more than one place drifts.
+
 - **The calendar strip reads EVERY ticked calendar, not just the primary one**
   ([google/calendar.ts](src/lib/google/calendar.ts),
   [calendar.test.ts](src/lib/google/calendar.test.ts)). It asked

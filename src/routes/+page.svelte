@@ -1,9 +1,10 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
-  import type { Todo, Habit, Day } from '$lib/types';
+  import type { Todo, Habit, Day, Project } from '$lib/types';
   import { completeTodo, toggleHabitLog, today } from '$lib/store';
-  import { allTodos } from '$lib/queries';
+  import { allTodos, activeProjects } from '$lib/queries';
+  import { ENERGIES, DURATIONS, energyLabel, durationLabel } from '$lib/sizes';
   import { indexById, blockerOf } from '$lib/order';
   import {
     ensureDay, addToDay, removeFromDay, maybeCloseDay,
@@ -17,6 +18,7 @@
   import { onMount } from 'svelte';
   import FreeTime from '$lib/components/FreeTime.svelte';
   import Dino from '$lib/components/Dino.svelte';
+  import Burst from '$lib/components/Burst.svelte';
   import { pickScene, pickQuip } from '$lib/freeTimeScenes';
 
   /**
@@ -38,6 +40,9 @@
    * of one of them may be a completed to-do the open list has filtered out.
    * One liveQuery over one table, so both stay current together.
    */
+  /** Era names for the picker's headings and each row's footnote. */
+  const projectsQ = liveQuery(() => activeProjects());
+
   const openQ = liveQuery(async () => {
     const all = await allTodos();
     return { all, open: all.filter((t) => !t.completedAt) };
@@ -69,6 +74,33 @@
   const scene = pickScene();
   const quip = pickQuip();
 
+  /**
+   * "Still here."
+   *
+   * ONE undone thing waves at a time, in turn, for a moment. The rules that
+   * keep this on the right side of the no-nag line are in app.css next to the
+   * keyframes, and they are not decoration: it never escalates with time, it
+   * never picks out the oldest or most neglected item, and it says nothing in
+   * words. Motion only — "don't forget about me" written on the screen would be
+   * aimed at the reader, and the house rule is that the app's personality is
+   * never at your expense.
+   */
+  const NUDGE_EVERY = 7000;
+  const NUDGE_FOR = 1500;
+  let nudged = $state<string | null>(null);
+  let turn = 0;
+
+  /** Which item is mid-celebration, so its burst renders exactly once. */
+  let celebrating = $state<string | null>(null);
+  function celebrate(id: string) {
+    celebrating = id;
+    // Fire and forget: nothing waits on this, and a second tick during it
+    // simply replaces it rather than queueing.
+    setTimeout(() => {
+      if (celebrating === id) celebrating = null;
+    }, 900);
+  }
+
   let showClose = $state(false);
   let unlockAvailable = $state(false);
   let picking = $state(false);
@@ -86,6 +118,9 @@
   });
 
   async function onComplete(todo: Todo) {
+    // Before the await: the burst is a response to the tap, and a celebration
+    // that arrives after a round trip to the database reads as a glitch.
+    celebrate(todo.id);
     await completeTodo(todo.id);
     // The day closes the instant the third slot is done — before any "one
     // more?" is offered. That ordering is the whole mechanic (spec 5.3).
@@ -114,11 +149,128 @@
    * them; this is you choosing your own three, and the app does not get a veto
    * on that. It just makes sure you can see what you are picking.
    */
+  const habits = $derived(($habitsQ as Habit[] | undefined) ?? []);
+  const habitsDone = $derived(
+    new Set((($logsTodayQ as { habitId: string }[] | undefined) ?? []).map((l) => l.habitId))
+  );
+
+  /**
+   * Everything on this screen that is still waiting, to-dos and habits in ONE
+   * rotation. Separate rotations would mean two things waving at once, which
+   * is a busy screen rather than a live one.
+   */
+  const waiting = $derived([
+    ...slotTodos.filter((t) => !t.completedAt).map((t) => t.id),
+    ...habits.filter((h) => !habitsDone.has(h.id)).map((h) => h.id)
+  ]);
+
+  onMount(() => {
+    const timer = setInterval(() => {
+      // Nothing animates in a tab nobody is looking at.
+      if (document.visibilityState !== 'visible') return;
+      // A closed day has nothing to wave about; so has a finished one.
+      if (day?.closedAt || !waiting.length) {
+        nudged = null;
+        return;
+      }
+      nudged = waiting[turn % waiting.length] ?? null;
+      turn++;
+      setTimeout(() => (nudged = null), NUDGE_FOR);
+    }, NUDGE_EVERY);
+    return () => clearInterval(timer);
+  });
+
   const candidates = $derived(
     (($openQ as { open: Todo[] } | undefined)?.open ?? [])
       .filter((t) => !day?.slots.includes(t.id))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   );
+
+  /**
+   * How the picker is arranged.
+   *
+   * It was a flat list of bare titles, newest first — fine at five to-dos and
+   * useless at fifty: nothing on a row said which era it belonged to or how big
+   * it was, so choosing meant recognising every title from memory. These are
+   * the three questions actually being asked at this moment — what am I working
+   * on, what fits the time I have, what have I got the head for — plus the
+   * order it always had.
+   *
+   * Local state, not stored: same as the buy list's grouping. Which way you
+   * last sorted a picker is not worth a write or a sync.
+   */
+  type PickOrder = 'recent' | 'era' | 'time' | 'effort';
+  const PICK_ORDERS = [
+    { key: 'recent', label: 'Recent' },
+    { key: 'era', label: 'Era' },
+    { key: 'time', label: 'Time' },
+    { key: 'effort', label: 'Head' }
+  ] as const;
+  let pickOrder = $state<PickOrder>('recent');
+
+  const projectName = (id?: string) =>
+    (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === id)?.name;
+
+  /** The line under a title: where it lives and how big it is. */
+  const pickFootnote = (t: Todo): string =>
+    [
+      projectName(t.projectId),
+      t.tag,
+      t.takes && durationLabel(t.takes),
+      t.energy && energyLabel(t.energy)
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+  /**
+   * The picker's rows, in groups with headings.
+   *
+   * Grouped rather than merely sorted, because a heading answers "what am I
+   * looking at" without having to compare two rows to work it out — the same
+   * reasoning as the buy list's shops. Recent keeps one unlabelled group, since
+   * a heading over everything says nothing.
+   *
+   * Empty groups are dropped: a picker lists what you can choose, and a heading
+   * with nothing under it is an invitation to wonder what is missing.
+   */
+  const pickGroups = $derived.by((): { key: string; label: string; todos: Todo[] }[] => {
+    const all = candidates;
+    if (pickOrder === 'recent') return [{ key: 'all', label: '', todos: all }];
+
+    if (pickOrder === 'time') {
+      return [
+        ...DURATIONS.map((d) => ({
+          key: d.key,
+          label: d.label,
+          todos: all.filter((t) => t.takes === d.key)
+        })),
+        { key: 'unsized', label: 'Length not set', todos: all.filter((t) => !t.takes) }
+      ].filter((g) => g.todos.length);
+    }
+
+    if (pickOrder === 'effort') {
+      return [
+        ...ENERGIES.map((e) => ({
+          key: e.key,
+          label: e.label,
+          todos: all.filter((t) => t.energy === e.key)
+        })),
+        { key: 'unsized', label: 'Size not set', todos: all.filter((t) => !t.energy) }
+      ].filter((g) => g.todos.length);
+    }
+
+    // By era, in the order the eras are listed, with the loose ones last —
+    // untagged to-dos are a pile to sort rather than a place to work.
+    const eras = ($projectsQ as Project[] | undefined) ?? [];
+    return [
+      ...eras.map((p) => ({
+        key: p.id,
+        label: p.name,
+        todos: all.filter((t) => t.projectId === p.id)
+      })),
+      { key: 'none', label: 'Not in an era', todos: all.filter((t) => !t.projectId) }
+    ].filter((g) => g.todos.length);
+  });
 </script>
 
 <div class="flex h-full flex-col">
@@ -145,18 +297,28 @@
         <div
           class="card rise p-4 transition-colors
                  {todo.completedAt ? 'border-good/30 bg-good/[0.06]' : ''}"
+          class:nudge={nudged === todo.id}
         >
           <div class="flex items-start gap-3">
-            <button
-              class="press tap flex shrink-0 items-center justify-center rounded-full border-2
-                     {todo.completedAt ? 'border-good bg-good text-ink-950' : 'border-ink-600'}"
-              style="width:44px;height:44px"
-              onclick={() => onComplete(todo)}
-              disabled={!!todo.completedAt}
-              aria-label={todo.completedAt ? 'Completed' : `Complete ${todo.title}`}
-            >
-              {#if todo.completedAt}✓{/if}
-            </button>
+            <!-- relative, so the burst can be centred on the tick rather than
+                 on the card: the tick is where the eye already is. -->
+            <span class="relative flex shrink-0">
+              {#if celebrating === todo.id}
+                <Burst />
+              {/if}
+              <button
+                class="press tap flex shrink-0 items-center justify-center rounded-full border-2
+                       {todo.completedAt ? 'border-good bg-good text-ink-950' : 'border-ink-600'}"
+                class:nudge-ring={nudged === todo.id}
+                class:tick-pop={celebrating === todo.id}
+                style="width:44px;height:44px"
+                onclick={() => onComplete(todo)}
+                disabled={!!todo.completedAt}
+                aria-label={todo.completedAt ? 'Completed' : `Complete ${todo.title}`}
+              >
+                {#if todo.completedAt}✓{/if}
+              </button>
+            </span>
             <div class="min-w-0 flex-1 pt-2">
               <p class="body {todo.completedAt ? 'text-ink-400 line-through' : ''}">
                 {todo.title}
@@ -244,9 +406,20 @@
         Quiet and secondary on purpose: the button above is still the answer
         most days, and this is not a second hero.
       -->
-      <div class="mt-4 text-center">
-        <button class="press tap-h px-4 text-sm text-ink-400" onclick={() => (picking = true)}>
-          Or pick something yourself
+      <div class="mt-5 flex justify-center">
+        <!--
+          A pill with accent text, NOT muted grey prose. The first version was
+          grey and started with "Or", which made it read as a caption under the
+          button above — found by accident rather than by looking, and reported
+          that way. Quiet is right for a secondary action; invisible is not, and
+          the difference is whether it looks like something you can press.
+          Same lesson as the add button that had to stop being grey-on-grey.
+        -->
+        <button
+          class="press tap rounded-full bg-surface-1 px-5 text-sm font-medium text-accent"
+          onclick={() => (picking = true)}
+        >
+          Pick something yourself
         </button>
       </div>
 
@@ -275,22 +448,50 @@
           <button class="press tap px-2 text-sm text-accent" onclick={() => (picking = false)}>Done</button>
         </div>
         {#if candidates.length}
-          <ul class="max-h-72 space-y-1 overflow-y-auto">
-            {#each candidates.slice(0, 50) as todo (todo.id)}
-              {@const waiting = blockerOf(todo, todoIndex)}
-              <li>
-                <button
-                  class="press tap w-full rounded-xl px-3 py-2 text-left text-ink-50"
-                  onclick={() => pick(todo)}
-                >
-                  <span class={waiting ? 'text-ink-400' : ''}>{todo.title}</span>
-                  {#if waiting}
-                    <span class="footnote block">after {waiting.title}</span>
-                  {/if}
-                </button>
-              </li>
+          <!-- Four ways to look at the same list. Which one you want depends on
+               the question in your head right now, and all four of those
+               questions are real ones. -->
+          <div class="segmented mb-2">
+            {#each PICK_ORDERS as o (o.key)}
+              <button
+                class="press segment {pickOrder === o.key ? 'segment-on' : ''}"
+                onclick={() => (pickOrder = o.key)}
+              >
+                {o.label}
+              </button>
             {/each}
-          </ul>
+          </div>
+
+          <div class="max-h-72 overflow-y-auto">
+            {#each pickGroups as group (group.key)}
+              {#if group.label}
+                <p class="section-label mt-3 mb-1 first:mt-0">{group.label}</p>
+              {/if}
+              <ul class="space-y-1">
+                {#each group.todos.slice(0, 50) as todo (todo.id)}
+                  {@const waiting = blockerOf(todo, todoIndex)}
+                  <li>
+                    <button
+                      class="press tap w-full rounded-xl px-3 py-2 text-left text-ink-50"
+                      onclick={() => pick(todo)}
+                    >
+                      <span class={waiting ? 'text-ink-400' : ''}>{todo.title}</span>
+                      <!-- Where it lives and how big it is. Without this the row
+                           is a bare title, and choosing means recognising every
+                           one of them from memory. -->
+                      {#if waiting || pickFootnote(todo)}
+                        <span class="footnote block">
+                          {[waiting ? `after ${waiting.title}` : null, pickFootnote(todo)]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      {/if}
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/each}
+          </div>
         {:else}
           <p class="px-2 py-3 text-sm text-ink-400">
             Nothing open yet. Capture something below — the box is always hungry.
@@ -305,17 +506,26 @@
       <section class="mt-8">
         <h2 class="section-label mb-2">Habits</h2>
         <div class="flex flex-wrap gap-2">
-          {#each $habitsQ as Habit[] as habit (habit.id)}
-            {@const done = (($logsTodayQ as { habitId: string }[] | undefined) ?? []).some(
-              (l) => l.habitId === habit.id
-            )}
+          {#each habits as habit (habit.id)}
+            {@const done = habitsDone.has(habit.id)}
             <button
-              class="press tap rounded-2xl border px-4 py-3 text-[15px] font-medium transition-colors
+              class="press tap relative rounded-2xl border px-4 py-3 text-[15px] font-medium transition-colors
                      {done
                 ? 'border-good/50 bg-good/[0.14] text-good'
                 : 'border-line-1 bg-surface-1 text-ink-200'}"
-              onclick={() => toggleHabitLog(habit.id)}
+              class:nudge={nudged === habit.id}
+              class:tick-pop={celebrating === habit.id}
+              onclick={() => {
+                // Only on the way IN. Unticking something is a correction, and
+                // confetti for a correction is the app being pleased about the
+                // wrong thing.
+                if (!done) celebrate(habit.id);
+                void toggleHabitLog(habit.id);
+              }}
             >
+              {#if celebrating === habit.id}
+                <Burst size={108} />
+              {/if}
               {done ? '✓ ' : ''}{habit.name}
             </button>
           {/each}
