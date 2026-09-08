@@ -107,16 +107,26 @@
   /**
    * Who is walking through, and which way.
    *
-   * A different sticker dinosaur each time and a coin-flip on direction, so the
-   * same row twice running is never the same little event. CSS cannot roll a
-   * die, so the choice is made here and handed over as custom properties.
+   * A different sticker dinosaur each time and a coin flip on which way it
+   * goes, so the same row twice running is never the same little event. CSS
+   * cannot roll a die, so the choice is made here and handed over as custom
+   * properties.
+   *
+   * TWO PROPERTIES, because they do different jobs. `--dino-dir` comes from the
+   * sticker's own `faces` and makes the animal walk FORWARDS; `--dino-face` is
+   * the coin flip. Mirroring cannot fix facing — it flips the picture and the
+   * travel together, so a backwards walk stays backwards — which is exactly
+   * why the direction is reversed instead. See the note in app.css.
    */
   let dinoSrc = $state('');
   let dinoFace = $state(1);
+  let dinoDir = $state('normal');
 
   function castDino() {
-    const url = stickerUrl(randomSticker());
+    const sticker = randomSticker();
+    const url = stickerUrl(sticker);
     dinoSrc = `url("${url}")`;
+    dinoDir = sticker.faces === 'right' ? 'normal' : 'reverse';
     dinoFace = Math.random() < 0.5 ? -1 : 1;
     // Start the fetch now rather than when the animation needs it. On the phone
     // these are precached, so this only matters the first time on a laptop.
@@ -367,6 +377,7 @@
           class:nudge={nudged === todo.id}
           style:--dino-src={nudged === todo.id ? dinoSrc : undefined}
           style:--dino-face={nudged === todo.id ? dinoFace : undefined}
+          style:--dino-dir={nudged === todo.id ? dinoDir : undefined}
         >
           <div class="flex items-start gap-3">
             <!-- relative, so the burst can be centred on the tick rather than
@@ -618,6 +629,7 @@
               class:nudge={nudged === habit.id}
               style:--dino-src={nudged === habit.id ? dinoSrc : undefined}
               style:--dino-face={nudged === habit.id ? dinoFace : undefined}
+              style:--dino-dir={nudged === habit.id ? dinoDir : undefined}
               class:tick-pop={celebrating === habit.id}
               onclick={() => {
                 // Only on the way IN. Unticking something is a correction, and

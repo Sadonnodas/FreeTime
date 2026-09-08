@@ -858,6 +858,25 @@ device; there is nothing to build. Memos are the exception, below.
   one-and-a-half-in-five had. **`NUDGE_FOR` must stay ahead of the longest
   animation in app.css** — if it ever falls short, the class comes off mid-walk
   and the animal vanishes in the middle of the row.
+  **WALKING FORWARDS TAKES TWO CONTROLS, AND THE OBVIOUS ONE IS NOT ENOUGH.**
+  Asked for as "make the dinosaurs walk in the direction that they are looking".
+  Mirroring cannot do it: `scaleX(-1)` flips the art AND the travel together, so
+  it PRESERVES whether an animal is going forwards — a left-facing sticker
+  mirrored is a right-facing sticker moving left, still backwards. What fixes it
+  is reversing the TRAVEL (`animation-direction: reverse`), and working the
+  algebra through gives the rule: local travel must equal the sticker's natural
+  facing, at which point the mirror cancels on both sides and all four
+  combinations come out forwards. So `--dino-dir` comes from `Sticker.faces` and
+  `--dino-face` stays a free coin flip for variety. Verified by measuring the
+  background position early and late in all four cases.
+  `Sticker.faces` is judged BY EYE and is a person's call per picture — nothing
+  in the pixels or the file names says which end the head is, since several are
+  drawn face-on, a few curl their necks right round and one is upside down.
+  [scripts/sticker-contact-sheet.py](scripts/sticker-contact-sheet.py) lays them
+  out numbered on a grid so the call can be made in one look. **A new sticker
+  must declare one**, and a test asserts it: the symptom otherwise is a single
+  animal moonwalking through a to-do, which nobody would trace back to a missing
+  field.
   It started as the Twemoji sauropod silhouette from Dino.svelte, which still
   reads well if the sticker set is ever dropped. Either way it is **not
   hand-drawn**, which is a rule with four failed attempts behind it.

@@ -95,3 +95,22 @@ describe('the dinosaur that walks through a row', () => {
     expect(stickerFor('crafting').id).toBe(stickerFor('crafting').id);
   });
 });
+
+describe('which way each dinosaur is looking', () => {
+  it('is declared for every single one', () => {
+    // A sticker added without a facing walks backwards, and the symptom —
+    // one animal moonwalking through a to-do — is not one anybody would
+    // trace back to a missing field.
+    for (const s of STICKERS) {
+      expect(['left', 'right'], `${s.id} has no facing`).toContain(s.faces);
+    }
+  });
+
+  it('has a decent spread of both, which is a sanity check on the eyeballing', () => {
+    // Judged by eye off a contact sheet, so a wildly lopsided split would mean
+    // a column was read wrong rather than that the artwork leans that way.
+    const right = STICKERS.filter((s) => s.faces === 'right').length;
+    expect(right).toBeGreaterThan(STICKERS.length * 0.25);
+    expect(right).toBeLessThan(STICKERS.length * 0.75);
+  });
+});

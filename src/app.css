@@ -542,9 +542,20 @@ body {
    * page when it chooses who is walking. CSS cannot roll a die, and the
    * variation is the point.
    *
-   * ONE MIRROR DOES BOTH JOBS. `scaleX(-1)` flips the pseudo-element, which
-   * turns the animal round AND reverses its travel, since the keyframes move it
-   * left-to-right in its own now-mirrored space. No second set of keyframes.
+   * WALKING FORWARDS TAKES TWO CONTROLS, NOT ONE, and the reason is worth
+   * spelling out because the obvious fix does nothing.
+   *
+   * `scaleX(-1)` flips the art AND the travel together, so it PRESERVES
+   * whether an animal is walking forwards or backwards — a left-facing sticker
+   * mirrored is a right-facing sticker moving left, still backwards. Mirroring
+   * can never correct facing; it is only variety.
+   *
+   * What fixes it is reversing the TRAVEL: `animation-direction: reverse` sends
+   * the walk right-to-left in the element's own space. Work it through and the
+   * rule falls out — local travel must equal the sticker's natural facing, and
+   * the mirror then cancels on both sides of the comparison, leaving all four
+   * combinations forwards. So `--dino-dir` comes from `faces` and `--dino-face`
+   * stays a free coin flip.
    *
    * `z-index: -1` is what puts it behind the text: a negative pseudo-element
    * paints after its parent's background and before its parent's content. That
@@ -586,6 +597,8 @@ body {
     background-size: auto 62%;
     transform: scaleX(var(--dino-face, 1));
     animation: dino-walk 3000ms linear both;
+    /* After the shorthand, which would otherwise reset it. */
+    animation-direction: var(--dino-dir, normal);
   }
 
   /* And the empty circle glows as the light reaches it — the two together are

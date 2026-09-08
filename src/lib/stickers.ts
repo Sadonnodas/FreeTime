@@ -26,65 +26,80 @@ import { base } from "$app/paths";
  * precache does not re-fetch what has not changed — and it is smaller than one
  * photo off the phone.
  */
+/** Which way the animal in the picture is looking. */
+export type Facing = 'left' | 'right';
+
 export interface Sticker {
   id: string;
   /** Shown under the picture. Describes what it is doing, not what it is. */
   label: string;
+  /**
+   * Which way the animal is looking, judged by eye from the artwork.
+   *
+   * Only the walk-through-a-row animation uses it, and it exists because
+   * nothing in the file names or the pixels reliably says which end the head
+   * is: a few are drawn face-on, several curl their necks right round, and one
+   * is upside down. So it is a person's call per sticker, laid out on a contact
+   * sheet and read off. **A new sticker must declare one** — a test asserts it,
+   * because the alternative is one animal moonwalking through your to-dos and
+   * nobody able to say why.
+   */
+  faces: Facing;
 }
 
 export const STICKERS: Sticker[] = [
-  { id: "a-burst-of-music", label: "a burst of music" },
-  { id: "a-cloud-of-rainbow", label: "a cloud of rainbow" },
-  { id: "a-spray-of-flowers", label: "a spray of flowers" },
-  { id: "a-wave-of-water", label: "a wave of water" },
-  { id: "at-the-mixing-desk", label: "at the mixing desk" },
-  { id: "at-the-telescope", label: "at the telescope" },
-  { id: "at-the-typewriter", label: "at the typewriter" },
-  { id: "behind-the-decks", label: "behind the decks" },
-  { id: "board-game-night", label: "board game night" },
-  { id: "bubbles", label: "bubbles" },
-  { id: "building-a-landscape", label: "building a landscape" },
-  { id: "building-a-toy-car", label: "building a toy car" },
-  { id: "digging-up-fossils", label: "digging up fossils" },
-  { id: "drawing-on-a-tablet", label: "drawing on a tablet" },
-  { id: "flying-a-biplane", label: "flying a biplane" },
-  { id: "fruit-salad", label: "fruit salad" },
-  { id: "fruit-salad-again", label: "fruit salad, again" },
-  { id: "handstand", label: "handstand" },
-  { id: "just-standing-there", label: "just standing there" },
-  { id: "knitting-a-scarf", label: "knitting a scarf" },
-  { id: "leaping-the-rooftops", label: "leaping the rooftops" },
-  { id: "model-railway", label: "model railway" },
-  { id: "on-the-keytar", label: "on the keytar" },
-  { id: "on-the-moon", label: "on the moon" },
-  { id: "orange-and-upright", label: "orange and upright" },
-  { id: "over-the-canyon", label: "over the canyon" },
-  { id: "painting-at-an-easel", label: "painting at an easel" },
-  { id: "pirate-treasure", label: "pirate treasure" },
-  { id: "playing-guitar", label: "playing guitar" },
-  { id: "pouring-coffee", label: "pouring coffee" },
-  { id: "puzzle-pieces", label: "puzzle pieces" },
-  { id: "rainbow-arc", label: "rainbow arc" },
-  { id: "rainbow-contrail", label: "rainbow contrail" },
-  { id: "rainbow-roar", label: "rainbow roar" },
-  { id: "rainbow-skate-ramp", label: "rainbow skate ramp" },
-  { id: "rainbow-swirl", label: "rainbow swirl" },
-  { id: "reading", label: "reading" },
-  { id: "recording-studio", label: "recording studio" },
-  { id: "rolling-sushi", label: "rolling sushi" },
-  { id: "satellite-repair", label: "satellite repair" },
-  { id: "scuba-diving", label: "scuba diving" },
-  { id: "skate-ramp", label: "skate ramp" },
-  { id: "small-and-unbothered", label: "small and unbothered" },
-  { id: "snowboarding", label: "snowboarding" },
-  { id: "sparkles", label: "sparkles" },
-  { id: "standing-on-the-rainbow", label: "standing on the rainbow" },
-  { id: "surfing", label: "surfing" },
-  { id: "tailoring-a-suit", label: "tailoring a suit" },
-  { id: "tall-and-pleased", label: "tall and pleased" },
-  { id: "throwing-a-pot", label: "throwing a pot" },
-  { id: "unearthing-eggs", label: "unearthing eggs" },
-  { id: "weaving", label: "weaving" },
+  { id: "a-burst-of-music", label: "a burst of music", faces: "left" },
+  { id: "a-cloud-of-rainbow", label: "a cloud of rainbow", faces: "left" },
+  { id: "a-spray-of-flowers", label: "a spray of flowers", faces: "left" },
+  { id: "a-wave-of-water", label: "a wave of water", faces: "left" },
+  { id: "at-the-mixing-desk", label: "at the mixing desk", faces: "left" },
+  { id: "at-the-telescope", label: "at the telescope", faces: "right" },
+  { id: "at-the-typewriter", label: "at the typewriter", faces: "left" },
+  { id: "behind-the-decks", label: "behind the decks", faces: "left" },
+  { id: "board-game-night", label: "board game night", faces: "right" },
+  { id: "bubbles", label: "bubbles", faces: "right" },
+  { id: "building-a-landscape", label: "building a landscape", faces: "right" },
+  { id: "building-a-toy-car", label: "building a toy car", faces: "right" },
+  { id: "digging-up-fossils", label: "digging up fossils", faces: "right" },
+  { id: "drawing-on-a-tablet", label: "drawing on a tablet", faces: "left" },
+  { id: "flying-a-biplane", label: "flying a biplane", faces: "right" },
+  { id: "fruit-salad", label: "fruit salad", faces: "left" },
+  { id: "fruit-salad-again", label: "fruit salad, again", faces: "right" },
+  { id: "handstand", label: "handstand", faces: "left" },
+  { id: "just-standing-there", label: "just standing there", faces: "left" },
+  { id: "knitting-a-scarf", label: "knitting a scarf", faces: "left" },
+  { id: "leaping-the-rooftops", label: "leaping the rooftops", faces: "left" },
+  { id: "model-railway", label: "model railway", faces: "right" },
+  { id: "on-the-keytar", label: "on the keytar", faces: "left" },
+  { id: "on-the-moon", label: "on the moon", faces: "left" },
+  { id: "orange-and-upright", label: "orange and upright", faces: "left" },
+  { id: "over-the-canyon", label: "over the canyon", faces: "left" },
+  { id: "painting-at-an-easel", label: "painting at an easel", faces: "right" },
+  { id: "pirate-treasure", label: "pirate treasure", faces: "right" },
+  { id: "playing-guitar", label: "playing guitar", faces: "left" },
+  { id: "pouring-coffee", label: "pouring coffee", faces: "right" },
+  { id: "puzzle-pieces", label: "puzzle pieces", faces: "right" },
+  { id: "rainbow-arc", label: "rainbow arc", faces: "left" },
+  { id: "rainbow-contrail", label: "rainbow contrail", faces: "left" },
+  { id: "rainbow-roar", label: "rainbow roar", faces: "right" },
+  { id: "rainbow-skate-ramp", label: "rainbow skate ramp", faces: "right" },
+  { id: "rainbow-swirl", label: "rainbow swirl", faces: "left" },
+  { id: "reading", label: "reading", faces: "left" },
+  { id: "recording-studio", label: "recording studio", faces: "left" },
+  { id: "rolling-sushi", label: "rolling sushi", faces: "right" },
+  { id: "satellite-repair", label: "satellite repair", faces: "left" },
+  { id: "scuba-diving", label: "scuba diving", faces: "left" },
+  { id: "skate-ramp", label: "skate ramp", faces: "right" },
+  { id: "small-and-unbothered", label: "small and unbothered", faces: "left" },
+  { id: "snowboarding", label: "snowboarding", faces: "right" },
+  { id: "sparkles", label: "sparkles", faces: "left" },
+  { id: "standing-on-the-rainbow", label: "standing on the rainbow", faces: "left" },
+  { id: "surfing", label: "surfing", faces: "right" },
+  { id: "tailoring-a-suit", label: "tailoring a suit", faces: "left" },
+  { id: "tall-and-pleased", label: "tall and pleased", faces: "left" },
+  { id: "throwing-a-pot", label: "throwing a pot", faces: "left" },
+  { id: "unearthing-eggs", label: "unearthing eggs", faces: "right" },
+  { id: "weaving", label: "weaving", faces: "left" },
 ];
 
 const BY_ID = new Map(STICKERS.map((s) => [s.id, s]));
