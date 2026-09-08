@@ -837,14 +837,28 @@ device; there is nothing to build. Memos are the exception, below.
   item at a time, cycling evenly through the to-do and all three habits), it
   simply could not be seen. **When a control or a signal is deliberately quiet,
   check it on a real screen, not in the diff.**
-  What it is now is a light that runs AROUND THE EDGE of the row — a conic
-  gradient rotated by an animated `--shine-angle`, masked down to the border
-  ring, plus a glow on the tick circle. It went through two earlier shapes and
-  both are worth knowing about: a scale swell, which moved the card and made a
-  still page feel unsteady; then a band across the FACE, which washed over the
-  text for a second and a half. The rim is more visible than either, not less —
-  motion at a boundary is what peripheral vision is good at — and it never
-  touches a word.
+  What it is now is a light running AROUND THE EDGE of the row — a conic
+  gradient rotated by an animated `--shine-angle`, masked to the border ring —
+  plus a glow on the tick circle, and **a dinosaur walking past inside it,
+  behind the text**. Toon's idea and a better one than the swirl of light it
+  replaced: *"like the buttons are a window through which we see a dinosaur
+  pass."* It is the app's own character rather than a generic shimmer, and it
+  is the SAME Twemoji sauropod as the icon, the Free Time button and the empty
+  states — the paths are lifted from Dino.svelte verbatim, so if that artwork
+  changes it has to change here too. **Not hand-drawn**, which is a rule with
+  four failed attempts behind it.
+  It went through three earlier shapes, all worth knowing about: a scale swell,
+  which moved the card and made a still page feel unsteady; a band across the
+  FACE, which washed over the text for a second and a half; and a spiralling
+  glow, which was a smear. The rim is more visible than any of them — motion at
+  a boundary is what peripheral vision is good at — and it never touches a word.
+  **The dinosaur is behind the text via `z-index: -1`, which only works because
+  `.nudge` sets `isolation: isolate`.** A negative pseudo-element paints after
+  its parent's background and before its parent's content — but only inside a
+  stacking context its parent owns. Without the isolation it joins the page's
+  context and disappears behind the row entirely. That line is load-bearing, not
+  tidying. It is drawn as a MASK with the shine colour behind it, so one copy
+  serves both themes.
   **The row must never get `overflow: hidden`** — the completion burst is a
   child of it and would be cut in half — which is why both the face version and
   this one are built to stay inside their own box.
