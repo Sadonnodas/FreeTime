@@ -413,35 +413,67 @@ body {
    * being about the dinosaur.
    */
   /*
-   * The swell was 1.8% and reported as not visible at all — which is the same
-   * mistake as the grey-on-grey buttons: subtle is the goal, invisible is a
-   * bug, and there is a floor below which a thing is not understated, it is
-   * absent. 3.5% moves a card about a centimetre on a phone and reads as a
-   * breath rather than a jolt.
+   * A shine, not a swell — asked for as "more a shine or glow".
+   *
+   * A band of light crosses the row and leaves it exactly where it was. That is
+   * the better mechanic as well as the requested one: the scale version moved
+   * the card, which nudges everything under it a fraction and makes a still
+   * page feel unsteady, while light passing over something says "here" and
+   * disturbs nothing.
+   *
+   * Done with background-position on an ::after rather than a translated child,
+   * so nothing ever leaves the box — the row must NOT get overflow:hidden,
+   * because the completion burst is a child of it and would be clipped in half.
+   * At background-size 200%, position 100% puts the band just off the right
+   * edge and 0% just off the left, so one sweep is one range.
    */
-  @keyframes nudge {
-    0%,
-    100% {
-      transform: none;
+  @keyframes shine {
+    from {
+      background-position: 100% 0;
+      opacity: 0;
     }
-    38% {
-      transform: scale(1.035);
+    12%,
+    88% {
+      opacity: 1;
+    }
+    to {
+      background-position: 0% 0;
+      opacity: 0;
     }
   }
 
   .nudge {
-    animation: nudge 1500ms cubic-bezier(0.4, 0, 0.3, 1);
+    position: relative;
   }
 
-  /* And the empty circle catches the light. Accent rather than white, so it is
-     visible on paper as well as on near-black. */
+  .nudge::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    pointer-events: none;
+    /* Accent rather than white: a white sheen is invisible on paper, and this
+       one has to read in both themes. */
+    background-image: linear-gradient(
+      100deg,
+      transparent 38%,
+      color-mix(in srgb, var(--color-accent) 34%, transparent) 50%,
+      transparent 62%
+    );
+    background-size: 200% 100%;
+    animation: shine 1500ms cubic-bezier(0.35, 0, 0.3, 1);
+  }
+
+  /* And the empty circle glows as the light reaches it — the two together are
+     one thing passing over the row rather than two effects. */
   @keyframes nudge-ring {
     0%,
     100% {
       box-shadow: 0 0 0 0 transparent;
     }
-    38% {
-      box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-accent) 26%, transparent);
+    45% {
+      box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
     }
   }
 
@@ -529,12 +561,17 @@ body {
     /* The wave goes entirely. Everything below is decoration, and decoration is
        exactly what this setting is asking us to drop — the tick still turns
        green, which is the part that carries the meaning. */
-    .nudge,
+    .nudge::after,
     .nudge-ring,
     .tick-pop,
     .burst-p,
     .burst-ring {
       animation: none;
+    }
+    /* The band would otherwise sit frozen across the row at whatever position
+       the first frame put it. */
+    .nudge::after {
+      display: none;
     }
     .burst {
       display: none;

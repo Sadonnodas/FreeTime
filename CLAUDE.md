@@ -824,9 +824,17 @@ device; there is nothing to build. Memos are the exception, below.
   Today wave at a 1.8% swell — *"I don't really see the habits or to do's
   pulsing"*. The rotation was working perfectly the whole time (verified: one
   item at a time, cycling evenly through the to-do and all three habits), it
-  simply could not be seen. It is 3.5% now, over 1.5s, one item every 5s rather
-  than 7. **When a control or a signal is deliberately quiet, check it on a real
-  screen, not in the diff.**
+  simply could not be seen. **When a control or a signal is deliberately quiet,
+  check it on a real screen, not in the diff.**
+  What it is now is a SHINE rather than a swell — asked for as *"more a shine or
+  glow"* — a band of light crossing the row on `::after`, plus a glow on the
+  tick circle as the light reaches it. That is the better mechanic as well as
+  the requested one: scaling moved the card, which shifts everything under it a
+  fraction and makes a still page feel unsteady, while light passing over
+  something says "here" and disturbs nothing. Accent-coloured, because a white
+  sheen is invisible on paper. **Done with `background-position`, NOT a
+  translated child, so the row never needs `overflow: hidden`** — the
+  completion burst is a child of that row and would be cut in half by it.
   Worth ruling out before touching the numbers again: the whole thing is
   disabled under `prefers-reduced-motion`, which is on for anyone who has
   turned on Reduce Motion in iOS accessibility settings.
@@ -834,8 +842,10 @@ device; there is nothing to build. Memos are the exception, below.
 - **"Automatic" means "whatever the phone says", and that is not what it reads
   as** ([ThemePicker.svelte](src/lib/components/ThemePicker.svelte)). Reported
   as *"my appearance is set to automatic but it's daytime now and my app is
-  still in nighttime"*. An iPhone left on Dark keeps this app dark at noon, and
-  the app is doing exactly what it was asked to — but the word promises a
+  still in nighttime"*, and confirmed a message later — *"but so is this chat
+  window so maybe it is more a problem with my phone than the app"*. It was the
+  phone. An iPhone left on Dark keeps this app dark at noon, and the app is
+  doing exactly what it was asked to — but the word promises a
   switch that only happens if the phone itself is set to switch. The picker now
   says which of the two the phone is currently reporting, which turns a mystery
   into a fact, and names the setting to change (iPhone Settings → Display &
