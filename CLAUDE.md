@@ -305,6 +305,17 @@ Do not "fix" these without talking to Toon first.
   disabling pinch-zoom altogether, which trades a real accessibility loss for a
   layout annoyance.
 
+- **A CSS animation with no `fill-mode` snaps back to the element's STATIC
+  style the instant it ends.** Reported as *"it flickers at the end of the
+  buttons"*, and it was exactly that: the shine ran 1500ms while the class that
+  carried it stayed 1600ms, so for the last hundred milliseconds the
+  pseudo-element fell back to its own rules — which declared no `opacity`,
+  meaning 1 — and a fully lit band flashed into view at its default position.
+  Any animation that fades something in must ALSO declare the resting state on
+  the element (`opacity: 0`) and use `animation-fill-mode: both`, or there is a
+  frame at each end showing whatever the base rules happen to say. The gap only
+  has to be one frame to be seen.
+
 - **Careful with `\b` in Python-driven edits.** A `\b` in a non-raw Python string
   becomes a literal backspace byte and silently corrupts a regex. Caught once by a test;
   scan with a control-character check if edits go through Python.
@@ -826,14 +837,17 @@ device; there is nothing to build. Memos are the exception, below.
   item at a time, cycling evenly through the to-do and all three habits), it
   simply could not be seen. **When a control or a signal is deliberately quiet,
   check it on a real screen, not in the diff.**
-  What it is now is a SHINE rather than a swell — asked for as *"more a shine or
-  glow"* — a band of light crossing the row on `::after`, plus a glow on the
-  tick circle as the light reaches it. That is the better mechanic as well as
-  the requested one: scaling moved the card, which shifts everything under it a
-  fraction and makes a still page feel unsteady, while light passing over
-  something says "here" and disturbs nothing. **Done with `background-position`,
-  NOT a translated child, so the row never needs `overflow: hidden`** — the
-  completion burst is a child of that row and would be cut in half by it.
+  What it is now is a light that runs AROUND THE EDGE of the row — a conic
+  gradient rotated by an animated `--shine-angle`, masked down to the border
+  ring, plus a glow on the tick circle. It went through two earlier shapes and
+  both are worth knowing about: a scale swell, which moved the card and made a
+  still page feel unsteady; then a band across the FACE, which washed over the
+  text for a second and a half. The rim is more visible than either, not less —
+  motion at a boundary is what peripheral vision is good at — and it never
+  touches a word.
+  **The row must never get `overflow: hidden`** — the completion burst is a
+  child of it and would be cut in half — which is why both the face version and
+  this one are built to stay inside their own box.
   **It is NOT the accent, and the reason is worth keeping.** A flat wash of
   `--color-accent` at a third opacity is orange PAINT on a dark grey card, and
   it reads as a dirty yellow smear — reported that way. Light needs three

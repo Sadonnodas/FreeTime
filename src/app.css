@@ -84,8 +84,8 @@
    * On paper none of that applies — adding light to white gives white — so
    * light mode uses a saturated gold at normal blending instead.
    */
-  --shine-edge: rgba(255, 196, 92, 0.3);
-  --shine-core: rgba(255, 246, 220, 0.72);
+  --shine-edge: rgba(255, 198, 96, 0.55);
+  --shine-core: rgba(255, 249, 228, 0.98);
   --shine-blend: plus-lighter;
   --shine-glow: rgba(255, 214, 130, 0.34);
 
@@ -141,8 +141,8 @@
     --color-on-accent: #fffaf2;
 
     /* Gold that has to show ON paper: darker, and laid on rather than added. */
-    --shine-edge: rgba(198, 142, 24, 0.16);
-    --shine-core: rgba(224, 172, 44, 0.4);
+    --shine-edge: rgba(198, 142, 24, 0.5);
+    --shine-core: rgba(226, 170, 40, 0.98);
     --shine-blend: normal;
     --shine-glow: rgba(198, 142, 24, 0.26);
 
@@ -178,8 +178,8 @@
   --color-good: #1c8f3c;
   --color-on-accent: #fffaf2;
 
-  --shine-edge: rgba(198, 142, 24, 0.16);
-  --shine-core: rgba(224, 172, 44, 0.4);
+  --shine-edge: rgba(198, 142, 24, 0.5);
+  --shine-core: rgba(226, 170, 40, 0.98);
   --shine-blend: normal;
   --shine-glow: rgba(198, 142, 24, 0.26);
 
@@ -443,31 +443,43 @@ body {
    * being about the dinosaur.
    */
   /*
-   * A shine, not a swell — asked for as "more a shine or glow".
+   * A light that runs around the edge of a row still waiting.
    *
-   * A band of light crosses the row and leaves it exactly where it was. That is
-   * the better mechanic as well as the requested one: the scale version moved
-   * the card, which nudges everything under it a fraction and makes a still
-   * page feel unsteady, while light passing over something says "here" and
-   * disturbs nothing.
+   * WHY THE EDGE. It crossed the FACE first, which washed over the text for a
+   * second and a half and flickered on the way out. Around the rim it is more
+   * visible, not less — motion at a boundary is what peripheral vision is good
+   * at — and it never touches a word. Asked for directly.
    *
-   * Done with background-position on an ::after rather than a translated child,
-   * so nothing ever leaves the box — the row must NOT get overflow:hidden,
-   * because the completion burst is a child of it and would be clipped in half.
-   * At background-size 200%, position 100% puts the band just off the right
-   * edge and 0% just off the left, so one sweep is one range.
+   * A conic gradient rotated by an animated custom property, masked down to a
+   * ring so only the border shows: the two masks cover the whole box and the
+   * content box, and excluding one from the other leaves exactly the padding
+   * ring. The row must NOT get overflow:hidden for any of this — the
+   * completion burst is a child of it and would be cut in half.
+   *
+   * THE FLICKER WAS A MISSING FILL-MODE, and the shape of that bug is worth
+   * remembering. The animation ran 1500ms while the class stayed 1600ms, so for
+   * the last hundred milliseconds the pseudo-element fell back to its STATIC
+   * style — no opacity declared means opacity 1 — and a fully lit band snapped
+   * into view at its default position. Hence `both` here, and a base opacity of
+   * 0: nothing is visible except while the animation is actually running.
    */
-  @keyframes shine {
-    from {
-      background-position: 100% 0;
+  @property --shine-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+
+  @keyframes shine-edge {
+    0% {
+      --shine-angle: 0deg;
       opacity: 0;
     }
-    12%,
-    88% {
+    14%,
+    86% {
       opacity: 1;
     }
-    to {
-      background-position: 0% 0;
+    100% {
+      --shine-angle: 360deg;
       opacity: 0;
     }
   }
@@ -476,26 +488,43 @@ body {
     position: relative;
   }
 
-  .nudge::after {
+  .nudge::before {
     content: '';
     position: absolute;
     inset: 0;
     z-index: 1;
     border-radius: inherit;
+    /* The ring's thickness. */
+    padding: 2px;
     pointer-events: none;
-    /* Gold, white-hot at the centre, gone by the edges — a glint rather than a
-       stripe. The tokens carry the theme; see their definition at the top. */
-    background-image: linear-gradient(
-      100deg,
-      transparent 39%,
-      var(--shine-edge) 46%,
-      var(--shine-core) 50%,
-      var(--shine-edge) 54%,
-      transparent 61%
+    opacity: 0;
+    /* Gold, white-hot along the middle of the arc and gone by its ends — a
+       glint travelling the rim, not an outline that lights up all at once. The
+       core is a plateau rather than a point, or the bright part is over before
+       the eye finds it. */
+    background: conic-gradient(
+      from var(--shine-angle),
+      transparent 0deg,
+      var(--shine-edge) 16deg,
+      var(--shine-core) 34deg,
+      var(--shine-core) 48deg,
+      var(--shine-edge) 66deg,
+      transparent 86deg
     );
-    background-size: 200% 100%;
+    /* A drop-shadow follows the MASKED shape, so this glows around the lit arc
+       itself rather than boxing the whole row — which is the difference between
+       something giving off light and something with a light behind it. */
+    filter: drop-shadow(0 0 5px var(--shine-glow));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
     mix-blend-mode: var(--shine-blend);
-    animation: shine 1500ms cubic-bezier(0.35, 0, 0.3, 1);
+    animation: shine-edge 1500ms linear both;
   }
 
   /* And the empty circle glows as the light reaches it — the two together are
@@ -594,16 +623,16 @@ body {
     /* The wave goes entirely. Everything below is decoration, and decoration is
        exactly what this setting is asking us to drop — the tick still turns
        green, which is the part that carries the meaning. */
-    .nudge::after,
+    .nudge::before,
     .nudge-ring,
     .tick-pop,
     .burst-p,
     .burst-ring {
       animation: none;
     }
-    /* The band would otherwise sit frozen across the row at whatever position
-       the first frame put it. */
-    .nudge::after {
+    /* Belt and braces: with the animation gone the base opacity of 0 already
+       hides it, and this removes it from the box model entirely. */
+    .nudge::before {
       display: none;
     }
     .burst {
