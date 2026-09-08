@@ -831,10 +831,20 @@ device; there is nothing to build. Memos are the exception, below.
   tick circle as the light reaches it. That is the better mechanic as well as
   the requested one: scaling moved the card, which shifts everything under it a
   fraction and makes a still page feel unsteady, while light passing over
-  something says "here" and disturbs nothing. Accent-coloured, because a white
-  sheen is invisible on paper. **Done with `background-position`, NOT a
-  translated child, so the row never needs `overflow: hidden`** — the
+  something says "here" and disturbs nothing. **Done with `background-position`,
+  NOT a translated child, so the row never needs `overflow: hidden`** — the
   completion burst is a child of that row and would be cut in half by it.
+  **It is NOT the accent, and the reason is worth keeping.** A flat wash of
+  `--color-accent` at a third opacity is orange PAINT on a dark grey card, and
+  it reads as a dirty yellow smear — reported that way. Light needs three
+  things paint does not have, and it needs all three: a near-white CORE with
+  gold falling away either side (a specular highlight has a hot centre; one
+  flat colour is a stain); a yellower, lighter gold than the accent's orange;
+  and `mix-blend-mode: plus-lighter`, so the band ADDS light rather than
+  tinting what is under it — that last one does most of the work. On paper
+  none of it applies, since adding light to white gives white, so light mode
+  uses a saturated gold at normal blending. All four values are `--shine-*`
+  tokens redefined per theme, like the rest of the palette.
   Worth ruling out before touching the numbers again: the whole thing is
   disabled under `prefers-reduced-motion`, which is on for anyone who has
   turned on Reduce Motion in iOS accessibility settings.

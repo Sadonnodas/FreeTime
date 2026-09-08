@@ -70,6 +70,25 @@
   /* Text sitting ON the accent, e.g. the Add button. */
   --color-on-accent: #1a1206;
 
+  /*
+   * The shine that crosses a to-do or habit still waiting.
+   *
+   * NOT the accent. A flat wash of #ff9f0a at a third opacity is orange PAINT
+   * on a dark grey card, and it reads as a dirty yellow smear — reported that
+   * way. Three things separate light from paint, and it needs all three:
+   *   - a near-white CORE with gold falling away either side, because that is
+   *     what a specular highlight is; one flat colour is a stain;
+   *   - a yellower, lighter gold than the accent's orange;
+   *   - `plus-lighter`, so the band ADDS light instead of tinting what is
+   *     under it. This is the one that does most of the work.
+   * On paper none of that applies — adding light to white gives white — so
+   * light mode uses a saturated gold at normal blending instead.
+   */
+  --shine-edge: rgba(255, 196, 92, 0.3);
+  --shine-core: rgba(255, 246, 220, 0.72);
+  --shine-blend: plus-lighter;
+  --shine-glow: rgba(255, 214, 130, 0.34);
+
   /* The sun and the moon on the theme slider. They keep their own colours in
      both themes — see ThemePicker — but a silver moon is invisible against a
      near-white page, so the moon darkens in light mode while staying cool, and
@@ -121,6 +140,12 @@
     --color-good: #1c8f3c;
     --color-on-accent: #fffaf2;
 
+    /* Gold that has to show ON paper: darker, and laid on rather than added. */
+    --shine-edge: rgba(198, 142, 24, 0.16);
+    --shine-core: rgba(224, 172, 44, 0.4);
+    --shine-blend: normal;
+    --shine-glow: rgba(198, 142, 24, 0.26);
+
     /* A raised edge is a light catching a dark surface. On paper there is no
        such highlight, so it is removed rather than inverted into a grey smear,
        and the drop shadow softens to something a printed card would cast. */
@@ -152,6 +177,11 @@
   --color-accent-2: #c93f60;
   --color-good: #1c8f3c;
   --color-on-accent: #fffaf2;
+
+  --shine-edge: rgba(198, 142, 24, 0.16);
+  --shine-core: rgba(224, 172, 44, 0.4);
+  --shine-blend: normal;
+  --shine-glow: rgba(198, 142, 24, 0.26);
 
   --card-highlight: transparent;
   --card-shadow: rgba(20, 18, 26, 0.09);
@@ -453,15 +483,18 @@ body {
     z-index: 1;
     border-radius: inherit;
     pointer-events: none;
-    /* Accent rather than white: a white sheen is invisible on paper, and this
-       one has to read in both themes. */
+    /* Gold, white-hot at the centre, gone by the edges — a glint rather than a
+       stripe. The tokens carry the theme; see their definition at the top. */
     background-image: linear-gradient(
       100deg,
-      transparent 38%,
-      color-mix(in srgb, var(--color-accent) 34%, transparent) 50%,
-      transparent 62%
+      transparent 39%,
+      var(--shine-edge) 46%,
+      var(--shine-core) 50%,
+      var(--shine-edge) 54%,
+      transparent 61%
     );
     background-size: 200% 100%;
+    mix-blend-mode: var(--shine-blend);
     animation: shine 1500ms cubic-bezier(0.35, 0, 0.3, 1);
   }
 
@@ -473,7 +506,7 @@ body {
       box-shadow: 0 0 0 0 transparent;
     }
     45% {
-      box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
+      box-shadow: 0 0 0 8px var(--shine-glow);
     }
   }
 
