@@ -850,6 +850,14 @@ device; there is nothing to build. Memos are the exception, below.
   mirror does both jobs**: `scaleX(-1)` turns the animal round AND reverses its
   travel, because the keyframes move it left-to-right in its own now-mirrored
   space, so there is no second set of keyframes to keep in step.
+  **The walk takes three seconds and one comes round every nine.** It crossed a
+  whole card in a second and a half at first, which is a bolt rather than a
+  stroll — *"moving a bit too fast to really see them well"*. Doubling the walk
+  meant doubling the gap too, or the page would be animated more often than it
+  is still; three-in-nine keeps almost exactly the proportion of quiet that
+  one-and-a-half-in-five had. **`NUDGE_FOR` must stay ahead of the longest
+  animation in app.css** — if it ever falls short, the class comes off mid-walk
+  and the animal vanishes in the middle of the row.
   It started as the Twemoji sauropod silhouette from Dino.svelte, which still
   reads well if the sticker set is ever dropped. Either way it is **not
   hand-drawn**, which is a rule with four failed attempts behind it.

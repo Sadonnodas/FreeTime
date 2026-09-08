@@ -86,10 +86,21 @@
    * aimed at the reader, and the house rule is that the app's personality is
    * never at your expense.
    */
-  // Seven seconds meant you could look at the screen for a while and never
-  // catch one. Five still leaves it mostly still.
-  const NUDGE_EVERY = 5000;
-  const NUDGE_FOR = 1600;
+  /*
+   * A walk takes three seconds and one comes round every nine.
+   *
+   * The animal used to cross a whole card in a second and a half, which is a
+   * bolt rather than a stroll — "moving a bit too fast to really see them
+   * well". Doubling the walk means the gap has to grow with it or the page is
+   * animated more often than it is still: three-in-nine keeps almost exactly
+   * the proportion of quiet that one-and-a-half-in-five had.
+   *
+   * NUDGE_FOR must stay AHEAD of the longest animation in app.css. If it ever
+   * falls short the class comes off mid-walk and the animal disappears in the
+   * middle of the row.
+   */
+  const NUDGE_EVERY = 9000;
+  const NUDGE_FOR = 3100;
   let nudged = $state<string | null>(null);
   let turn = 0;
 

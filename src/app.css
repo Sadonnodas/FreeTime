@@ -474,8 +474,8 @@ body {
       --shine-angle: 0deg;
       opacity: 0;
     }
-    14%,
-    86% {
+    8%,
+    92% {
       opacity: 1;
     }
     100% {
@@ -527,7 +527,7 @@ body {
       linear-gradient(#000 0 0);
     mask-composite: exclude;
     mix-blend-mode: var(--shine-blend);
-    animation: shine-edge 1500ms linear both;
+    animation: shine-edge 3000ms linear both;
   }
 
   /*
@@ -561,8 +561,8 @@ body {
       background-position: -26% 64%;
       opacity: 0;
     }
-    16%,
-    84% {
+    9%,
+    91% {
       /* Well short of solid: it passes BEHIND the title, and the title has to
          stay the easiest thing on the row to read. */
       opacity: 0.6;
@@ -585,7 +585,7 @@ body {
     background-repeat: no-repeat;
     background-size: auto 62%;
     transform: scaleX(var(--dino-face, 1));
-    animation: dino-walk 1500ms linear both;
+    animation: dino-walk 3000ms linear both;
   }
 
   /* And the empty circle glows as the light reaches it — the two together are
@@ -601,7 +601,7 @@ body {
   }
 
   .nudge-ring {
-    animation: nudge-ring 1500ms cubic-bezier(0.4, 0, 0.3, 1);
+    animation: nudge-ring 3000ms cubic-bezier(0.4, 0, 0.3, 1);
   }
 
   /* --------------------------------------------------------- the burst */
