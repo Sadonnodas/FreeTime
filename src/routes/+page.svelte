@@ -6,6 +6,7 @@
   import { allTodos, activeProjects } from '$lib/queries';
   import { ENERGIES, DURATIONS, energyLabel, durationLabel } from '$lib/sizes';
   import { indexById, blockerOf } from '$lib/order';
+  import { tomorrow } from '$lib/days';
   import {
     ensureDay, addToDay, removeFromDay, maybeCloseDay,
     canUnlockOneMore, unlockOneMore, DayFullError, STARTING_SLOTS
@@ -190,6 +191,34 @@
    * moment it also told the Free Time flow how many slots to plan.
    */
   const roomLeft = $derived(day ? day.unlockedCount - day.slots.length : STARTING_SLOTS);
+
+  /**
+   * Tomorrow, read only so the "Tomorrow" action knows whether it can land.
+   *
+   * The three are three on every day, not just this one. With tomorrow already
+   * full the button is hidden rather than shown and refused — offering an
+   * action that cannot happen is the thing this app keeps getting told off for
+   * — and the × is still there, which puts the to-do back in its project where
+   * it will resurface through the neglected slot anyway.
+   */
+  const tomorrowQ = liveQuery(() => db.days.where('date').equals(tomorrow()).first());
+  const tomorrowDay = $derived($tomorrowQ as Day | undefined);
+  const tomorrowRoom = $derived(
+    tomorrowDay ? tomorrowDay.unlockedCount - tomorrowDay.slots.length : STARTING_SLOTS
+  );
+
+  async function pushToTomorrow(id: string) {
+    try {
+      await addToDay(id, tomorrow());
+    } catch (err) {
+      // The cap lives in data and two devices share a day, so this is reachable
+      // even with the button hidden when it is known to be full. Leaving it on
+      // today is the safe end of losing that race.
+      if (err instanceof DayFullError) return;
+      throw err;
+    }
+    await removeFromDay(id);
+  }
   const doneCount = $derived(slotTodos.filter((t) => t.completedAt).length);
   const todoIndex = $derived(indexById(($openQ as { all: Todo[] } | undefined)?.all ?? []));
   /**
@@ -399,21 +428,51 @@
                 {#if todo.completedAt}✓{/if}
               </button>
             </span>
-            <div class="min-w-0 flex-1 pt-2">
+            <div class="min-w-0 flex-1">
               <p class="body {todo.completedAt ? 'text-ink-400 line-through' : ''}">
                 {todo.title}
               </p>
+
+              {#if !todo.completedAt}
+                <!--
+                  ON THEIR OWN LINE, AND NAMED.
+
+                  "Tomorrow" beside the × cost about eighty pixels of the title,
+                  which put a medium-length one onto three lines; two bare
+                  glyphs instead would have been the row of unlabelled symbols
+                  this app has already been told off for once. A line of its own
+                  costs a few pixels of height and buys both back.
+
+                  "Tomorrow instead" moves the to-do into TOMORROW'S three
+                  rather than dating it. A date is for a real commitment —
+                  something you promised someone — and it would take the
+                  obligation slot from then on; "I'll do it tomorrow" is a plan,
+                  and the day's slots are where plans live. Tomorrow it is
+                  simply already there.
+
+                  Nothing counts how often either is tapped. Rain three days
+                  running and it moves three times, with no record of having
+                  been moved.
+                -->
+                <div class="-ml-2 mt-1 flex items-center gap-1">
+                  {#if tomorrowRoom > 0}
+                    <button
+                      class="press tap-h rounded-lg px-2 text-xs text-ink-400"
+                      onclick={() => pushToTomorrow(todo.id)}
+                    >
+                      Tomorrow instead
+                    </button>
+                  {/if}
+                  <!-- Skippable without ceremony: no confirm, no guilt copy. -->
+                  <button
+                    class="press tap-h rounded-lg px-2 text-xs text-ink-400"
+                    onclick={() => removeFromDay(todo.id)}
+                  >
+                    Not today
+                  </button>
+                </div>
+              {/if}
             </div>
-            {#if !todo.completedAt}
-              <!-- Skippable without ceremony: no confirm, no guilt copy. -->
-              <button
-                class="press tap px-2 text-ink-400"
-                onclick={() => removeFromDay(todo.id)}
-                aria-label="Remove from today"
-              >
-                ×
-              </button>
-            {/if}
           </div>
         </div>
       {/each}

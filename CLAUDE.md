@@ -1042,6 +1042,29 @@ device; there is nothing to build. Memos are the exception, below.
   it — "sync" is reasonably read as "go and get the latest", and clearing costs
   nothing because nothing fetches on its own.
 
+- **"Tomorrow instead" on a Today card, and the actions got names.** Asked
+  after a real morning: *"I wanted to varnish the furniture of my campervan
+  today, but because it is raining... so what happens now with that to do?"*
+  The answer was already fine — take it off, nothing records it as missed, and
+  the project going quiet brings it back through the neglected slot — but
+  "not today, tomorrow then" meant a trip to Brain to find the to-do and set a
+  date, from a card you are already looking at.
+  **It moves the to-do into TOMORROW'S three; it does not date it.** A date is
+  for a real commitment, something promised to someone, and it would take the
+  obligation slot from then on. "I'll do it tomorrow" is a plan, and plans live
+  in the day's slots — so tomorrow it is simply already there. The to-do itself
+  is untouched: still undated, and carrying no record of having been moved.
+  Rain three days running and it moves three times, counted by nothing.
+  **Withdrawn when tomorrow is already full**, rather than offered and refused.
+  The × remains, which puts it back in its project either way.
+  The layout is the interesting part. "Tomorrow" beside the × ate about eighty
+  pixels of title and pushed a medium one onto three lines; two bare glyphs
+  instead would have been exactly the row of unlabelled symbols this file
+  already complains about under *A control has to name what it acts on*. Both
+  actions moved to a line of their own and gained words — **"Tomorrow instead"
+  and "Not today"** — which costs a few pixels of height and buys back the whole
+  title. The bare × is gone with it.
+
 - **A to-do can be put straight into Today's three, without the Free Time flow**
   ([PlanToday.svelte](src/lib/components/PlanToday.svelte), and "Or pick
   something yourself" under the Free Time button). Asked for as: *"today I want
