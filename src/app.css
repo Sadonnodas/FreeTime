@@ -533,43 +533,42 @@ body {
   /*
    * And a dinosaur walks past inside the row, behind the words.
    *
-   * Toon's idea, and a better one than the swirl of light it replaced: "what
-   * would be even funnier is if a dinosaur passed inside the buttons behind
-   * the text. Like the buttons are a window through which we see a dinosaur
-   * pass." It is also the app's own character rather than a generic shimmer —
-   * the same Twemoji sauropod as the icon, the Free Time button and the empty
-   * states, so the thing that walks through your to-do is the thing that
-   * greets you everywhere else.
+   * Toon's idea: "like the buttons are a window through which we see a
+   * dinosaur pass." It is one of the fifty-two sticker dinosaurs — the same
+   * ones that cover the era cards — chosen fresh each time and never the same
+   * twice running, because a repeat reads as nothing having happened.
    *
-   * NOT hand-drawn, and that is a rule with four failed attempts behind it:
-   * writing bezier curves blind makes decent geometry and terrible animals.
-   * The two paths are lifted from Dino.svelte, which is why they are here
-   * verbatim — if that artwork is ever replaced, replace it here too.
+   * The picture and the direction come in as custom properties, set by the
+   * page when it chooses who is walking. CSS cannot roll a die, and the
+   * variation is the point.
    *
-   * Used as a MASK with the shine colour behind it, so the silhouette takes
-   * the theme's gold without a second copy of the file per theme.
+   * ONE MIRROR DOES BOTH JOBS. `scaleX(-1)` flips the pseudo-element, which
+   * turns the animal round AND reverses its travel, since the keyframes move it
+   * left-to-right in its own now-mirrored space. No second set of keyframes.
    *
    * `z-index: -1` is what puts it behind the text: a negative pseudo-element
    * paints after its parent's background and before its parent's content. That
-   * only holds if the parent is its own stacking context, or it would drop
-   * behind the card entirely and vanish — hence `isolation: isolate` below,
+   * only holds inside a stacking context the parent owns, or it drops behind
+   * the row entirely and is never seen — hence `isolation: isolate` above,
    * which is load-bearing and not tidying.
    *
-   * The mask never paints outside the element's box, so the row still does not
+   * A background never paints outside its own box, so the row still does not
    * need `overflow: hidden` — which it cannot have, because the completion
    * burst is a child of it.
    */
   @keyframes dino-walk {
     0% {
-      mask-position: -22% 60%;
+      background-position: -26% 64%;
       opacity: 0;
     }
-    14%,
-    86% {
-      opacity: 1;
+    16%,
+    84% {
+      /* Well short of solid: it passes BEHIND the title, and the title has to
+         stay the easiest thing on the row to read. */
+      opacity: 0.6;
     }
     100% {
-      mask-position: 122% 60%;
+      background-position: 126% 64%;
       opacity: 0;
     }
   }
@@ -582,14 +581,10 @@ body {
     border-radius: inherit;
     pointer-events: none;
     opacity: 0;
-    background: var(--shine-edge);
-    --dino: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Cpath d='M17.68 22s1.937 7.873 1.187 9.373c-2.373 4.746-1.187 4.627 0 4.627h2.373c2.373 0-1.187-14-1.187-14zM5.255 19.387s-.436 7.993-1.187 9.493C1.695 33.626 1.695 36 2.882 36h2.373c1.186 0 1.187-4.154 1.187-5.34c0-1.187 1.187-8.603 1.187-8.603z'/%3E%3Cpath d='M12.374 5.251c-2.068.017-4.209-.435-5.523 2.099c-1.404 2.709-2.065 8.579.776 9.664c2.479.947 7.933-1.187 13.866 1.187s8.306 16.612 13.015 16.63c1.224.005 1.206 1.123.001 1.132c-5.914.045-8.509-5.897-9.509-5.897c0 0 1 5.934 0 5.934h-4c-1 0 0-3.081 0-4.268v-1.667s-1.593 1.218-5.936 1.218C11.781 31.284 9 30.066 9 30.066S10 36 9 36H5.255c-1.678 0 .166-4.013 0-5.934c-.102-1.182-.51-4.757-1.224-5.933c-1.726-2.847-2.763-11.521-1.929-15.285c.781-3.526 3.122-6.633 4.675-7.51C8.296.479 9.64-.162 12.968.373c1.775.285 3.591 2.922 2.89 4.274c-.421.81-1.94.591-3.484.604'/%3E%3C/svg%3E");
-    -webkit-mask-image: var(--dino);
-    -webkit-mask-repeat: no-repeat;
-    -webkit-mask-size: auto 58%;
-    mask-image: var(--dino);
-    mask-repeat: no-repeat;
-    mask-size: auto 58%;
+    background-image: var(--dino-src);
+    background-repeat: no-repeat;
+    background-size: auto 62%;
+    transform: scaleX(var(--dino-face, 1));
     animation: dino-walk 1500ms linear both;
   }
 

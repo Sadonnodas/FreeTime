@@ -19,6 +19,7 @@
   import FreeTime from '$lib/components/FreeTime.svelte';
   import Dino from '$lib/components/Dino.svelte';
   import Burst from '$lib/components/Burst.svelte';
+  import { randomSticker, stickerUrl } from '$lib/stickers';
   import { pickScene, pickQuip } from '$lib/freeTimeScenes';
 
   /**
@@ -91,6 +92,25 @@
   const NUDGE_FOR = 1600;
   let nudged = $state<string | null>(null);
   let turn = 0;
+
+  /**
+   * Who is walking through, and which way.
+   *
+   * A different sticker dinosaur each time and a coin-flip on direction, so the
+   * same row twice running is never the same little event. CSS cannot roll a
+   * die, so the choice is made here and handed over as custom properties.
+   */
+  let dinoSrc = $state('');
+  let dinoFace = $state(1);
+
+  function castDino() {
+    const url = stickerUrl(randomSticker());
+    dinoSrc = `url("${url}")`;
+    dinoFace = Math.random() < 0.5 ? -1 : 1;
+    // Start the fetch now rather than when the animation needs it. On the phone
+    // these are precached, so this only matters the first time on a laptop.
+    if (typeof Image !== 'undefined') new Image().src = url;
+  }
 
   /** Which item is mid-celebration, so its burst renders exactly once. */
   let celebrating = $state<string | null>(null);
@@ -181,6 +201,7 @@
         nudged = null;
         return;
       }
+      castDino();
       nudged = waiting[turn % waiting.length] ?? null;
       turn++;
       setTimeout(() => (nudged = null), NUDGE_FOR);
@@ -333,6 +354,8 @@
           class="card rise p-4 transition-colors
                  {todo.completedAt ? 'border-good/30 bg-good/[0.06]' : ''}"
           class:nudge={nudged === todo.id}
+          style:--dino-src={nudged === todo.id ? dinoSrc : undefined}
+          style:--dino-face={nudged === todo.id ? dinoFace : undefined}
         >
           <div class="flex items-start gap-3">
             <!-- relative, so the burst can be centred on the tick rather than
@@ -582,6 +605,8 @@
                 ? 'border-good/50 bg-good/[0.14] text-good'
                 : 'border-line-1 bg-surface-1 text-ink-200'}"
               class:nudge={nudged === habit.id}
+              style:--dino-src={nudged === habit.id ? dinoSrc : undefined}
+              style:--dino-face={nudged === habit.id ? dinoFace : undefined}
               class:tick-pop={celebrating === habit.id}
               onclick={() => {
                 // Only on the way IN. Unticking something is a correction, and

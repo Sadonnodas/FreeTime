@@ -129,6 +129,29 @@ export const stickerUrl = (sticker: Sticker) =>
  * render reads as a glitch rather than as a character, and on an empty state
  * it would flicker on each keystroke elsewhere in the page.
  */
+let lastRandom: string | null = null;
+
+/**
+ * A different one each time, never the same twice running.
+ *
+ * Same rule as the Free Time scenes and the completion bursts: a repeat reads
+ * as "nothing happened", which is the one thing a bit of decoration must not
+ * do. Distinct from stickerFor below, which is deliberately the opposite — an
+ * empty state has to show the SAME animal every time or the screen looks
+ * unstable.
+ */
+export function randomSticker(): Sticker {
+  const options = STICKERS.filter((s) => s.id !== lastRandom);
+  const pick = options[Math.floor(Math.random() * options.length)] ?? STICKERS[0];
+  lastRandom = pick.id;
+  return pick;
+}
+
+/** Test seam: forget what was shown last. */
+export function resetRandomSticker(): void {
+  lastRandom = null;
+}
+
 export function stickerFor(seed: string): Sticker {
   let h = 0;
   for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) % 100000;

@@ -842,11 +842,17 @@ device; there is nothing to build. Memos are the exception, below.
   plus a glow on the tick circle, and **a dinosaur walking past inside it,
   behind the text**. Toon's idea and a better one than the swirl of light it
   replaced: *"like the buttons are a window through which we see a dinosaur
-  pass."* It is the app's own character rather than a generic shimmer, and it
-  is the SAME Twemoji sauropod as the icon, the Free Time button and the empty
-  states — the paths are lifted from Dino.svelte verbatim, so if that artwork
-  changes it has to change here too. **Not hand-drawn**, which is a rule with
-  four failed attempts behind it.
+  pass."*
+  It is one of the fifty-two STICKER dinosaurs — the same ones that cover the
+  era cards — drawn fresh each time and never the same twice running, with a
+  coin flip on which way it walks. CSS cannot roll a die, so the page chooses
+  and hands the picture and the direction over as custom properties. **One
+  mirror does both jobs**: `scaleX(-1)` turns the animal round AND reverses its
+  travel, because the keyframes move it left-to-right in its own now-mirrored
+  space, so there is no second set of keyframes to keep in step.
+  It started as the Twemoji sauropod silhouette from Dino.svelte, which still
+  reads well if the sticker set is ever dropped. Either way it is **not
+  hand-drawn**, which is a rule with four failed attempts behind it.
   It went through three earlier shapes, all worth knowing about: a scale swell,
   which moved the card and made a still page feel unsteady; a band across the
   FACE, which washed over the text for a second and a half; and a spiralling

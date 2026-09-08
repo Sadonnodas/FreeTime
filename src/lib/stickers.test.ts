@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { STICKERS, stickerFrom, stickerRef, stickerFor, isStickerRef } from './stickers';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { STICKERS, stickerFrom, stickerRef, stickerFor, isStickerRef, randomSticker, resetRandomSticker } from './stickers';
 
 /**
  * The registry and the files have to agree, and nothing at runtime would say
@@ -66,5 +66,32 @@ describe('stickers', () => {
   it('gives the same name the same dinosaur every time', () => {
     expect(stickerFor('Music')).toEqual(stickerFor('Music'));
     expect(stickerFor('Nothing here yet')).toEqual(stickerFor('Nothing here yet'));
+  });
+});
+
+describe('the dinosaur that walks through a row', () => {
+  beforeEach(resetRandomSticker);
+
+  it('never picks the same one twice running', () => {
+    // A repeat reads as "nothing happened", which is the one thing a piece of
+    // decoration must not do.
+    let last = '';
+    for (let i = 0; i < 200; i++) {
+      const s = randomSticker();
+      expect(s.id).not.toBe(last);
+      last = s.id;
+    }
+  });
+
+  it('can still reach every one of them', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 4000; i++) seen.add(randomSticker().id);
+    expect(seen.size).toBe(STICKERS.length);
+  });
+
+  it('stays distinct from stickerFor, which must NOT vary', () => {
+    // An empty state has to show the same animal every time or the screen
+    // looks unstable. These two are deliberately opposite.
+    expect(stickerFor('crafting').id).toBe(stickerFor('crafting').id);
   });
 });
