@@ -412,33 +412,41 @@ body {
    * on the screen being alive, which is the same rule as the dinosaur's jokes
    * being about the dinosaur.
    */
+  /*
+   * The swell was 1.8% and reported as not visible at all — which is the same
+   * mistake as the grey-on-grey buttons: subtle is the goal, invisible is a
+   * bug, and there is a floor below which a thing is not understated, it is
+   * absent. 3.5% moves a card about a centimetre on a phone and reads as a
+   * breath rather than a jolt.
+   */
   @keyframes nudge {
     0%,
     100% {
       transform: none;
     }
-    35% {
-      transform: scale(1.018);
+    38% {
+      transform: scale(1.035);
     }
   }
 
   .nudge {
-    animation: nudge 1400ms cubic-bezier(0.4, 0, 0.3, 1);
+    animation: nudge 1500ms cubic-bezier(0.4, 0, 0.3, 1);
   }
 
-  /* The empty circle catches a little light as it goes. */
+  /* And the empty circle catches the light. Accent rather than white, so it is
+     visible on paper as well as on near-black. */
   @keyframes nudge-ring {
     0%,
     100% {
-      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+      box-shadow: 0 0 0 0 transparent;
     }
-    35% {
-      box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.09);
+    38% {
+      box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-accent) 26%, transparent);
     }
   }
 
   .nudge-ring {
-    animation: nudge-ring 1400ms cubic-bezier(0.4, 0, 0.3, 1);
+    animation: nudge-ring 1500ms cubic-bezier(0.4, 0, 0.3, 1);
   }
 
   /* --------------------------------------------------------- the burst */

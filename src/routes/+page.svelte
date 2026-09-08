@@ -85,8 +85,10 @@
    * aimed at the reader, and the house rule is that the app's personality is
    * never at your expense.
    */
-  const NUDGE_EVERY = 7000;
-  const NUDGE_FOR = 1500;
+  // Seven seconds meant you could look at the screen for a while and never
+  // catch one. Five still leaves it mostly still.
+  const NUDGE_EVERY = 5000;
+  const NUDGE_FOR = 1600;
   let nudged = $state<string | null>(null);
   let turn = 0;
 

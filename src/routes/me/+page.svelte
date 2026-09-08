@@ -1,9 +1,10 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
-  import type { Habit, HabitState } from '$lib/types';
+  import type { Habit, HabitState, HabitLog } from '$lib/types';
   import { createHabit } from '$lib/store';
   import { winsSince } from '$lib/queries';
+  import { recentDays } from '$lib/habits';
   import ProjectShare from '$lib/components/ProjectShare.svelte';
   import Empty from '$lib/components/Empty.svelte';
   import { base } from '$app/paths';
@@ -24,6 +25,27 @@
 
   const byState = (s: HabitState) =>
     (($habitsQ as Habit[] | undefined) ?? []).filter((h) => h.state === s);
+
+  /**
+   * Every habit's logged days, so a row can show the last fortnight.
+   *
+   * Read here rather than per row: one query over the table beats one per
+   * habit, and a liveQuery only re-runs for tables it actually read — tapping a
+   * habit on Today writes to habitLogs, and this has to notice.
+   */
+  const logsQ = liveQuery(async () =>
+    (await db.habitLogs.toArray()).filter((l) => !l.deletedAt)
+  );
+  const logsByHabit = $derived.by(() => {
+    const map = new Map<string, string[]>();
+    for (const l of ($logsQ as HabitLog[] | undefined) ?? []) {
+      const list = map.get(l.habitId);
+      if (list) list.push(l.date);
+      else map.set(l.habitId, [l.date]);
+    }
+    return map;
+  });
+  const logsFor = (id: string) => logsByHabit.get(id) ?? [];
 
   /**
    * Cycle history (spec 3.6) instead of streaks. "Active since March" reframes
@@ -69,13 +91,34 @@
                 href="{base}/me/habits/{h.id}"
                 class="card-flat press flex items-center gap-2 px-4 py-3"
               >
-                <div class="flex-1">
+                <div class="min-w-0 flex-1">
                   <p>{h.name}</p>
-                  <!-- No streak. No percentage. Just which cycle you're in. -->
-                  <Empty
-          line="Nothing closed yet. It fills itself in."
-          quip="Evolution is slow like that."
-        />
+                  <!--
+                    A fortnight of dots, then which cycle you are in.
+
+                    NO STREAK, and that is the spec's rule rather than an
+                    oversight: a streak counter can only ever tell you that you
+                    broke it, and the fear of breaking one is what made the last
+                    system a machine for guilt. What is shown instead is what
+                    actually happened — a row of days, on or off, against no
+                    target — which is the same argument that lets the "where the
+                    work went" chart exist. Gaps are just gaps here; nothing
+                    counts them.
+                  -->
+                  <div class="mt-1.5 flex gap-[3px]">
+                    {#each recentDays(logsFor(h.id)) as d (d.date)}
+                      <span
+                        class="h-2 w-2 rounded-[2px] {d.on ? 'bg-good' : 'bg-surface-2'}"
+                        title={d.date}
+                      ></span>
+                    {/each}
+                  </div>
+                  <!-- The state word is left off: the group heading above already
+                       says Active, Dormant or Retired, and repeating it on every
+                       row costs space that the date needs. -->
+                  <p class="footnote mt-1.5">
+                    {logsFor(h.id).length} logged · since {since(h.stateChangedAt)}
+                  </p>
                 </div>
                 <span class="text-ink-400">›</span>
               </a>

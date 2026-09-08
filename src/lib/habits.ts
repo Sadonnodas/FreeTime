@@ -122,6 +122,32 @@ export function heatmapWeeks(logDates: string[], weeks = 26): { date: string; on
 
 /** "Jan 2026". Months are the right resolution — a cycle boundary to the day
  *  implies a precision the user did not intend when they tapped a dropdown. */
+/**
+ * The last `days` calendar days, oldest first, each marked done or not.
+ *
+ * The row-sized version of the detail page's heatmap, and deliberately the same
+ * two states: on or off. Nothing is shaded by how much or how often, because
+ * shading against an expected amount is a completion percentage in a costume.
+ *
+ * Local days, built from parts — `new Date('2026-09-08')` is UTC midnight,
+ * which is the day before anywhere west of Greenwich, and a habit logged this
+ * evening would show up on the wrong square.
+ */
+export function recentDays(
+  logDates: string[],
+  days = 14,
+  from: Date = new Date()
+): { date: string; on: boolean }[] {
+  const done = new Set(logDates);
+  const out: { date: string; on: boolean }[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() - i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    out.push({ date: iso, on: done.has(iso) });
+  }
+  return out;
+}
+
 export function monthLabel(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 }

@@ -818,6 +818,52 @@ device; there is nothing to build. Memos are the exception, below.
   page grows another section, measure it there again** — this is the screen
   that has to stay calm, and it is also the one everything wants to be on.
 
+- **Subtle has a floor, and below it a thing is not understated, it is absent.**
+  Three separate reports now: an add button that was grey on grey, a "pick
+  something yourself" that was grey prose and got found by accident, and the
+  Today wave at a 1.8% swell — *"I don't really see the habits or to do's
+  pulsing"*. The rotation was working perfectly the whole time (verified: one
+  item at a time, cycling evenly through the to-do and all three habits), it
+  simply could not be seen. It is 3.5% now, over 1.5s, one item every 5s rather
+  than 7. **When a control or a signal is deliberately quiet, check it on a real
+  screen, not in the diff.**
+  Worth ruling out before touching the numbers again: the whole thing is
+  disabled under `prefers-reduced-motion`, which is on for anyone who has
+  turned on Reduce Motion in iOS accessibility settings.
+
+- **"Automatic" means "whatever the phone says", and that is not what it reads
+  as** ([ThemePicker.svelte](src/lib/components/ThemePicker.svelte)). Reported
+  as *"my appearance is set to automatic but it's daytime now and my app is
+  still in nighttime"*. An iPhone left on Dark keeps this app dark at noon, and
+  the app is doing exactly what it was asked to — but the word promises a
+  switch that only happens if the phone itself is set to switch. The picker now
+  says which of the two the phone is currently reporting, which turns a mystery
+  into a fact, and names the setting to change (iPhone Settings → Display &
+  Brightness → Automatic) at the point of confusion rather than behind the ⓘ.
+  **And `system` is re-applied on every foreground** ([theme.ts](src/lib/theme.ts)).
+  The `prefers-color-scheme` listener is the right mechanism and is not enough
+  on its own: an installed app on iOS is suspended rather than closed, so it can
+  sit through an entire sunrise with its JavaScript frozen, and a change event
+  that fires while nothing is running is one nobody hears. Same signal, and the
+  same reasoning, as the update check.
+
+- **Every habit row on Me was rendering the WINS empty-state.** "Nothing closed
+  yet. It fills itself in." appeared under all three habits, so tapping one on
+  Today looked like it did nothing and the row looked broken rather than
+  clickable — which is why the detail page, where the six-month heatmap has
+  lived all along, was never found. A bad automated edit had replaced the cycle
+  line with an `<Empty>` block; the `since()` helper it was meant to use sat
+  unused right above. **If a screen shows copy that belongs to a different
+  screen, look for a mangled edit before designing anything.**
+  The row now carries a fortnight of dots plus "N logged · since <month>", so a
+  tap on Today is visible immediately and the row obviously leads somewhere.
+  **Still no streak, and that is the spec's rule rather than an oversight**: a
+  streak counter can only ever tell you that you broke it, and the fear of
+  breaking one is what made the previous system a machine for guilt. What is
+  shown is what happened — days on or off against no target, gaps that nothing
+  counts — which is the same argument that lets the "where the work went" chart
+  exist. If a streak is asked for again, this is the paragraph to read first.
+
 - **The Today page waves and celebrates, and the shape of the wave IS the
   no-nag rule** ([+page.svelte](src/routes/+page.svelte) `nudged`, the `.nudge`
   keyframes in [app.css](src/app.css), [celebrate.ts](src/lib/celebrate.ts),

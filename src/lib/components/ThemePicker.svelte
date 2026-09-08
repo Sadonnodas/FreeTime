@@ -170,3 +170,19 @@
   <input type="checkbox" class="sr-only" checked={auto} onchange={toggleAuto} />
   <span class="text-[15px]">Automatic</span>
 </label>
+
+{#if auto}
+  <!--
+    Says what it is actually following, which turns a mystery into a fact.
+    "Automatic" reads as "changes by itself with the time of day", and what it
+    really means is "whatever the phone says" — so an iPhone left on Dark keeps
+    this app dark at noon, correctly, and with nothing on screen to explain it.
+    Reported exactly that way. The phone's own setting is the thing to change,
+    so it is named where the confusion happens rather than in the ⓘ.
+  -->
+  <p class="footnote mt-2">
+    Following your phone, which is on {showing} right now. For it to change at sunrise
+    and sunset, set the phone itself to automatic: iPhone <b>Settings → Display &amp;
+    Brightness → Automatic</b>.
+  </p>
+{/if}

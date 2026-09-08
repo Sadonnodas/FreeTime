@@ -145,9 +145,11 @@
           Tap the sun or the moon and the dinosaur walks over to it.
         </p>
         <p>
-          <b>Automatic</b> follows your Mac or iPhone instead, including their own switch
-          at sunset — which already knows where in the world you are, so it gets the time
-          right when you travel.
+          <b>Automatic</b> follows your Mac or iPhone instead. That includes their own
+          switch at sunset, which already knows where in the world you are and so gets
+          the time right when you travel — but only if the device itself is set to
+          switch. A phone left on Dark keeps this app dark at noon, and it is doing
+          exactly what it was asked to.
         </p>
       </InfoDot>
     </h2>

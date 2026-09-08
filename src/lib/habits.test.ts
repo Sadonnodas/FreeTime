@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildCycles, heatmapWeeks, type Cycle } from './habits';
+import { buildCycles, heatmapWeeks, type Cycle, recentDays } from './habits';
 import type { Habit, HabitStateChange, HabitState } from './types';
 
 const habit = (over: Partial<Habit> = {}): Habit => ({
@@ -103,5 +103,35 @@ describe('heatmap grid', () => {
     // Every cell is a plain boolean — there is no intensity to shade against a
     // goal, because that would be a completion percentage in disguise.
     expect(grid.flat().every((d) => typeof d.on === 'boolean')).toBe(true);
+  });
+});
+
+describe('the fortnight on a habit row', () => {
+  // Fixed "today" so the test does not drift, and built from parts for the same
+  // reason the function is: new Date('2026-09-08') is UTC midnight, which is
+  // the day before west of Greenwich.
+  const on = new Date(2026, 8, 8); // 8 September 2026
+
+  it('ends on today and runs backwards a fortnight', () => {
+    const days = recentDays([], 14, on);
+    expect(days).toHaveLength(14);
+    expect(days.at(-1)!.date).toBe('2026-09-08');
+    expect(days[0].date).toBe('2026-08-26');
+  });
+
+  it('marks the days that were logged and only those', () => {
+    const days = recentDays(['2026-09-08', '2026-09-01'], 14, on);
+    expect(days.filter((d) => d.on).map((d) => d.date)).toEqual(['2026-09-01', '2026-09-08']);
+  });
+
+  it('ignores a log from outside the window rather than shifting it in', () => {
+    expect(recentDays(['2026-01-01'], 14, on).some((d) => d.on)).toBe(false);
+  });
+
+  it('crosses a month boundary without inventing a day', () => {
+    const dates = recentDays([], 14, new Date(2026, 2, 3)).map((d) => d.date);
+    expect(dates).toContain('2026-02-28');
+    expect(dates).toContain('2026-03-01');
+    expect(new Set(dates).size).toBe(14);
   });
 });

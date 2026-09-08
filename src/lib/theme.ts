@@ -92,5 +92,27 @@ export function startThemeWatch(): () => void {
     if (getTheme() === 'system') applyTheme('system');
   };
   mq.addEventListener('change', onChange);
-  return () => mq.removeEventListener('change', onChange);
+
+  /**
+   * And again every time the app comes back to the front.
+   *
+   * The media-query listener is the right mechanism and it is not enough on
+   * its own: an installed app on iOS is SUSPENDED rather than closed, so it can
+   * sit through an entire sunrise with its JavaScript frozen, and a change
+   * event that fires while nothing is running is a change event nobody hears.
+   * Re-reading on resume costs one attribute write and catches every case the
+   * listener sleeps through. Same reasoning as the update check, which resumes
+   * on the same signal for the same reason.
+   */
+  const onResume = () => {
+    if (document.visibilityState === 'visible' && getTheme() === 'system') applyTheme('system');
+  };
+  document.addEventListener('visibilitychange', onResume);
+  window.addEventListener('pageshow', onResume);
+
+  return () => {
+    mq.removeEventListener('change', onChange);
+    document.removeEventListener('visibilitychange', onResume);
+    window.removeEventListener('pageshow', onResume);
+  };
 }
