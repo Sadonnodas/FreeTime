@@ -482,6 +482,15 @@ one came close to a hard rule, the reasoning is recorded here.
   asked for, and location is never awaited, because a recorder that waits on a
   permission sheet misses the idea. They live in Brain → Memos and, per project, in a
   `memos` widget above the three tabs.
+  **A take can be discarded from the panel it just saved into.** Stopping still
+  saves with no confirm and no required field — that stays, because a recorder
+  which asks a question before keeping your idea can lose it — but the cost of
+  that choice is a botched take already on disk, and the only way to remove one
+  used to be leaving, finding it in Brain and deleting it there. *"When I messed
+  up a song"* deserves an answer on the screen you are already on. Armed
+  two-tap like every other delete of audio, and it lands back on the record
+  button rather than closing, because messing one up is nearly always followed
+  by going again.
 - **Update checking does not trust the service worker alone** ([pwa.ts](src/lib/pwa.ts)).
   A registration can vanish underneath the app — Safari evicts workers for sites left
   alone about a week — and the stale handle goes on answering `update()` without

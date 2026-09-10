@@ -3,8 +3,9 @@
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
   import { startRecording, beep, canRecord, MAX_MEMO_MS, type Recorder } from '$lib/audio';
-  import { createMemo, updateMemo, tryLocate, mmss } from '$lib/memos';
+  import { createMemo, updateMemo, deleteMemo, tryLocate, mmss } from '$lib/memos';
   import { activeProjects } from '$lib/queries';
+  import RemoveButton from './RemoveButton.svelte';
   import type { Project, Memo } from '$lib/types';
 
   /**
@@ -165,6 +166,31 @@
     savedId = null;
     elapsed = 0;
     phase = 'idle';
+    discarded = false;
+  }
+
+  /**
+   * Throw the take away.
+   *
+   * Stopping SAVES, with no confirm step and no required field — that is
+   * deliberate and stays, because a recorder that asks a question before
+   * keeping your idea can lose it. The cost of that choice is a botched take
+   * already on disk, and until now the only way to get rid of one was to leave,
+   * find it in Brain and delete it there. "I messed up the song" deserves an
+   * answer on the screen you are already on.
+   *
+   * Armed two-tap, like every other delete of audio in the app: the audio
+   * really does go, and the second tap is the confirmation you can walk away
+   * from. It lands back on the record button rather than closing, because
+   * messing one up is nearly always followed by going again.
+   */
+  let discarded = $state(false);
+
+  async function discard() {
+    if (!savedId) return;
+    await deleteMemo(savedId);
+    again();
+    discarded = true;
   }
 
   const pickProject = (id?: string) => {
@@ -234,6 +260,15 @@
         </div>
       {/if}
 
+      <div class="mt-7 flex">
+        <RemoveButton
+          label="Discard this take"
+          confirm="Really? The audio goes."
+          onremove={discard}
+        />
+        <span class="flex-1"></span>
+      </div>
+
       <div class="h-6"></div>
     </div>
 
@@ -255,10 +290,16 @@
         >
           Record
         </button>
-        <p class="footnote mt-6 max-w-xs text-center">
-          Sing it, hum it, play it. It saves the moment you stop — naming it is optional
-          and the date, time and place are kept for you.
-        </p>
+        {#if discarded}
+          <!-- Said once, on the screen the discard landed on, so a take that
+               vanished is a thing you did rather than a thing that happened. -->
+          <p class="footnote mt-6 text-center text-good">Discarded. Go again.</p>
+        {:else}
+          <p class="footnote mt-6 max-w-xs text-center">
+            Sing it, hum it, play it. It saves the moment you stop — naming it is optional
+            and the date, time and place are kept for you.
+          </p>
+        {/if}
       {:else if phase === 'recording'}
         <!-- Deliberately almost empty: one very large target and a clock. -->
         <button
