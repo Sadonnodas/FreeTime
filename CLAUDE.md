@@ -144,6 +144,19 @@ Do not "fix" these without talking to Toon first.
 
 ## Traps, found the hard way
 
+- **Putting a route parameter INSIDE a liveQuery throws the subscription away
+  when it changes.** The project screen's four queries all read by era; three
+  then filtered by `tag` in plain code and one — the buy list — filtered inside
+  the query callback. That made the whole liveQuery depend on `tag`, so a change
+  rebuilt it. Invisible for months, because the only way to change the tag was
+  to navigate to another project, and a route change remounts the component and
+  rebuilds everything anyway. It surfaced the instant a project could be RENAMED
+  from inside itself, which changes this page's tag WITHOUT remounting it: the
+  To buy section went empty and stayed empty until a reload, while the data was
+  perfectly correct the whole time — the worst kind, because the obvious
+  suspicion is that the rename lost the items. **Query by the thing that does
+  not change, filter by the thing that does.**
+
 - **A liveQuery only re-runs for the tables it actually read.** Today's three slots were
   resolved in an `$effect` keyed on the day record, so completing a to-do — a write to
   `todos`, leaving `days` untouched — re-ran nothing: no tick, no count change, until the
@@ -891,6 +904,18 @@ device; there is nothing to build. Memos are the exception, below.
   and must do so BEFORE the tags change**: `setProjectTags` drops entries for names
   that are gone, so doing it after recolours the project at random on rename.
   Pinned by [notes.test.ts](src/lib/notes.test.ts).
+  **Name, description and colour are edited from inside the project too**
+  ([ProjectTagEditor.svelte](src/lib/components/ProjectTagEditor.svelte)). Only
+  the colour used to be reachable there — a lone dot in the header — so renaming
+  a project or writing its line meant going back out to the era list and finding
+  the row you had just come from, which is a strange way round when you are
+  stood inside the thing. One shared component now serves both, so the two
+  cannot drift into offering different fields in different places; each screen
+  adds its own extra actions around it (move, sleep and remove stay on the era's
+  list, where they are operations on a list).
+  **Renaming from inside has to navigate**, because the project's name is in
+  that page's own URL and staying put would show "this project is gone" the
+  instant it succeeded.
   **The "+ New project" button was dead for two days** and nobody could have known
   why: the redesign that turned the era page into an index deleted the panel the
   button opened, while leaving the button and its `editingTags` flag behind, so it

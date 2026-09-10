@@ -18,6 +18,7 @@
   import { resizeImage, COVER_EDGE } from '$lib/images';
   import { indexById, readyFirst, blockerOf, possibleBlockers } from '$lib/order';
   import ProjectCover from '$lib/components/ProjectCover.svelte';
+  import ProjectTagEditor from '$lib/components/ProjectTagEditor.svelte';
   import StickerPicker from '$lib/components/StickerPicker.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import EnergyPicker from '$lib/components/EnergyPicker.svelte';
@@ -390,31 +391,13 @@
               <!-- Name, description and colour, in the same order as the form
                    that made it, so editing one is not a different screen. -->
               <div class="space-y-3 px-4 pt-1 pb-4">
-                <input
-                  value={t}
-                  onchange={(e) => renameProjectTag(id, t, e.currentTarget.value)}
-                  placeholder="Name"
-                  class="field w-full"
+                <ProjectTagEditor
+                  eraId={id}
+                  tag={t}
+                  color={c}
+                  description={desc ?? ''}
+                  onrenamed={() => (editingTag = null)}
                 />
-                <input
-                  value={desc ?? ''}
-                  onchange={(e) => setProjectTagDescription(id, t, e.currentTarget.value)}
-                  placeholder="What is it, in a line? (optional)"
-                  class="field w-full"
-                />
-                <div class="flex flex-wrap gap-2">
-                  {#each PROJECT_COLORS as swatch (swatch)}
-                    <button
-                      type="button"
-                      class="press h-8 w-8 rounded-full border-2 {c === swatch
-                        ? 'border-ink-50'
-                        : 'border-transparent'}"
-                      style="background: {swatch}"
-                      onclick={() => setProjectTagColor(id, t, swatch)}
-                      aria-label="Use this colour"
-                    ></button>
-                  {/each}
-                </div>
                 {#if otherEras.length}
                   <!--
                     Moving a whole project, with everything in it. An era turns

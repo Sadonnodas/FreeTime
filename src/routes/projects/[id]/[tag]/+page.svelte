@@ -7,7 +7,7 @@
   import { widgetsFor } from '$lib/widgets';
   import {
     createTodo, completeTodo, updateTodo, setTodoAfter, createBuyItem, saveNote, getNote,
-    setProjectTagColor, projectTagColor, PROJECT_COLORS, softDelete
+    projectTagColor, softDelete
   } from '$lib/store';
   import { memosForProject } from '$lib/memos';
   import { indexById, readyFirst, blockerOf, possibleBlockers } from '$lib/order';
@@ -26,6 +26,8 @@
   import PlanToday from '$lib/components/PlanToday.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
+  import ProjectTagEditor from '$lib/components/ProjectTagEditor.svelte';
+  import { goto } from '$app/navigation';
 
   /**
    * A project inside an era: everything it holds, on one screen.
@@ -67,12 +69,28 @@
   const eraTodos = $derived(($eraTodosQ as Todo[] | undefined) ?? []);
   const byId = $derived(indexById(eraTodos));
   const todosQ = $derived(eraTodos.filter((t) => t.tag === tag));
-  const buyQ = $derived(
+  /*
+   * THE TAG IS FILTERED OUTSIDE THE LIVEQUERY, like its three siblings above
+   * and below, and that is not a style choice.
+   *
+   * This one used to read `tag` INSIDE the query, which made the whole
+   * liveQuery a dependency of it: change the tag and the `$derived` throws the
+   * subscription away and builds a new one. That was invisible while the only
+   * way to change the tag was to navigate to another project — a route change
+   * remounts the component and everything is rebuilt anyway — and it surfaced
+   * the moment a project could be RENAMED from inside itself, which changes
+   * this page's tag without remounting it. The section went empty and stayed
+   * empty until a reload, while the data was perfectly fine the whole time.
+   *
+   * Querying by era and filtering by tag in plain code keeps the subscription
+   * alive across a rename, and costs nothing: it is the same rows either way.
+   */
+  const eraBuyQ = $derived(
     liveQuery(async () =>
-      (await db.buyItems.where('projectId').equals(eraId).toArray())
-        .filter((b) => !b.deletedAt && b.tag === tag)
+      (await db.buyItems.where('projectId').equals(eraId).toArray()).filter((b) => !b.deletedAt)
     )
   );
+  const buyQ = $derived((($eraBuyQ as BuyItem[] | undefined) ?? []).filter((b) => b.tag === tag));
   const memosQ = $derived(liveQuery(() => memosForProject(eraId)));
   const blocksQ = $derived(liveQuery(() => widgetsFor(eraId)));
   const blocks = $derived(
@@ -90,7 +108,7 @@
       .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
   );
   const buyItems = $derived(
-    (($buyQ as BuyItem[] | undefined) ?? []).sort(
+    [...buyQ].sort(
       (a, b) =>
         (a.purchasedAt ? 1 : 0) - (b.purchasedAt ? 1 : 0) ||
         (b.needed ? 1 : 0) - (a.needed ? 1 : 0) ||
@@ -176,29 +194,38 @@
           <p class="footnote">{era.tagDescriptions[tag]}</p>
         {/if}
       </div>
+      <!--
+        Its name, its line and its colour, edited from inside the thing itself.
+        Only the colour used to be here — a lone dot — so renaming a project or
+        writing its tagline meant going back out to the era list and finding the
+        row you had just come from, which is a strange way round: you are stood
+        in it.
+      -->
       <button
-        class="press tap-h shrink-0 rounded-full px-2 text-[13px]"
+        class="press tap-h shrink-0 rounded-full px-3 text-[13px]"
         style="color: {color}"
         onclick={() => (picking = !picking)}
-        aria-label="Change colour">●</button
       >
+        {picking ? 'Done' : 'Edit'}
+      </button>
     </div>
 
     {#if picking}
-      <div class="mt-2 flex flex-wrap gap-2">
-        {#each PROJECT_COLORS as c (c)}
-          <button
-            class="press h-8 w-8 rounded-full border-2 {color === c
-              ? 'border-ink-50'
-              : 'border-transparent'}"
-            style="background: {c}"
-            onclick={() => {
-              void setProjectTagColor(eraId, tag, c);
-              picking = false;
-            }}
-            aria-label="Use this colour"
-          ></button>
-        {/each}
+      <div class="mt-3">
+        <ProjectTagEditor
+          {eraId}
+          {tag}
+          {color}
+          description={era?.tagDescriptions?.[tag] ?? ''}
+          onrenamed={(next) => {
+            // The name is in this page's own URL, so staying put would show
+            // "this project is gone" the instant it is renamed.
+            picking = false;
+            void goto(`${base}/projects/${eraId}/${encodeURIComponent(next)}`, {
+              replaceState: true
+            });
+          }}
+        />
       </div>
     {/if}
   </header>
