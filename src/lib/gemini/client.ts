@@ -45,6 +45,16 @@ export interface Part {
   inlineData?: { mimeType: string; data: string };
   functionCall?: { name: string; args: Record<string, unknown> };
   functionResponse?: { name: string; response: Record<string, unknown> };
+  /**
+   * Opaque token Gemini 3 attaches to a model part — always to the first
+   * function call of a turn. It must go back EXACTLY as received, on the same
+   * part, when that turn is sent back as history, or the next request is
+   * refused with a 400 ("Function call is missing a thought_signature"). Never
+   * construct, edit or move one; the only safe thing is to echo the parts.
+   */
+  thoughtSignature?: string;
+  /** A thought summary rather than the answer. Never shown as reply text. */
+  thought?: boolean;
 }
 
 export interface Content {
@@ -71,6 +81,12 @@ export interface GenerateOptions {
 export interface GenerateResult {
   text: string;
   functionCalls: { name: string; args: Record<string, unknown> }[];
+  /**
+   * The model's turn exactly as it arrived. Anything that sends this turn back
+   * as history must send THESE, not parts rebuilt from `functionCalls` — a
+   * rebuilt part has lost its thoughtSignature. See Part.thoughtSignature.
+   */
+  parts: Part[];
 }
 
 export class GeminiError extends Error {
@@ -124,6 +140,7 @@ export async function generate(opts: GenerateOptions): Promise<GenerateResult> {
 
   return {
     text: parts
+      .filter((p) => !p.thought)
       .map((p) => p.text)
       .filter(Boolean)
       .join('')
@@ -131,7 +148,8 @@ export async function generate(opts: GenerateOptions): Promise<GenerateResult> {
     functionCalls: parts
       .map((p) => p.functionCall)
       .filter((f): f is NonNullable<Part['functionCall']> => !!f)
-      .map((f) => ({ name: f.name, args: f.args ?? {} }))
+      .map((f) => ({ name: f.name, args: f.args ?? {} })),
+    parts
   };
 }
 

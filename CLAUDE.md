@@ -405,6 +405,24 @@ Do not "fix" these without talking to Toon first.
   available to new users" — and every AI feature died at once while the rest of the app
   looked perfectly healthy. Now on `gemini-3.6-flash`. If all AI stops working on a fresh
   key, check this first, and read the 404 body — it names the replacement.
+- **Gemini 3 refuses a tool round-trip that does not echo its thought
+  signature** ([assistant.ts](src/lib/gemini/assistant.ts),
+  [assistant.test.ts](src/lib/gemini/assistant.test.ts)). Reported as the
+  assistant dying with *"Gemini 400: Function call is missing a
+  thought_signature in functionCall parts"*. The model puts an opaque
+  `thoughtSignature` on the first function call of a turn, and when that turn
+  is sent back as history — which the assistant does every time it looks
+  something up — the signature must be on the same part, untouched. The loop
+  rebuilt the model's turn from `{name, args}`, which drops it, so every
+  question needing `query_state` failed. Gemini 2.5 tolerated this; the model
+  change is what made it fatal. **Send `GenerateResult.parts` back verbatim;
+  never reconstruct model parts.** Beside it, a second rule the old loop broke
+  too: every function call needs a `functionResponse`, in order — it answered
+  only the reads, so a lookup plus a write in one turn would have 400'd the
+  same way. Writes and navigations are answered with what happened to them
+  (proposed / offered), which also stops the model calling them again.
+  Only prior turns from EARLIER messages may be text-only, which is why
+  Assistant.svelte's history can keep just the reply.
 - **`Error 403: access_denied` at sign-in is a missing test user, not verification.**
   The screen says the app "has not completed the Google verification process", which sends
   you to the wrong place, and it has **no Advanced link** — it is a refusal, not the

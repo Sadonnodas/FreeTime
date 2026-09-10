@@ -75,6 +75,10 @@ export async function ask(history: Content[], message: string): Promise<Assistan
 
     for (const w of writes) {
       if (!isWrite(w.name)) continue;
+      // A model given the round-trip below sometimes calls the same write
+      // again on the next round. One proposal per distinct call.
+      const key = JSON.stringify([w.name, w.args]);
+      if (proposals.some((p) => JSON.stringify([p.name, p.args]) === key)) continue;
       proposals.push({ name: w.name, args: w.args, label: await describeWrite(w.name, w.args) });
     }
 
@@ -90,17 +94,28 @@ export async function ask(history: Content[], message: string): Promise<Assistan
     // No reads left to satisfy: the model has said what it is going to say.
     if (!reads.length || round === MAX_READ_ROUNDS) break;
 
-    contents.push({
-      role: 'model',
-      parts: result.functionCalls.map((c) => ({ functionCall: { name: c.name, args: c.args } }))
-    });
+    // The model's turn goes back VERBATIM. Rebuilding it from name and args
+    // drops the thoughtSignature Gemini 3 puts on the first call, and the next
+    // request is refused with a 400 — which is how this broke the assistant
+    // outright the day the model changed. See Part.thoughtSignature.
+    contents.push({ role: 'model', parts: result.parts });
+    // And EVERY call gets an answer, in order — Gemini refuses a turn where
+    // the answers do not match the calls. A write or a navigation has no
+    // result, so it is told what happened to it instead: a write that went
+    // unanswered would also invite the model to call it again.
     contents.push({
       role: 'user',
       parts: await Promise.all(
-        reads.map(async (c) => ({
+        result.functionCalls.map(async (c) => ({
           functionResponse: {
             name: c.name,
-            response: { result: await runQuery(c.args) }
+            response: {
+              result: isWrite(c.name)
+                ? 'Shown to them as a proposal. Nothing is written until they tap to confirm it.'
+                : isNavigation(c.name)
+                  ? 'Offered to them as a link.'
+                  : await runQuery(c.args)
+            }
           }
         }))
       )
