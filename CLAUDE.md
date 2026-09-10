@@ -170,6 +170,33 @@ Do not "fix" these without talking to Toon first.
   deterministically from its content** so two devices generate the same ones and merge
   instead of collide.
 
+- **The recording screen shows a live level meter, because a clock only proves
+  the timer is running** ([audio.ts](src/lib/audio.ts) `Recorder.level`,
+  [MemoRecorder.svelte](src/lib/components/MemoRecorder.svelte)). Asked for
+  straight after the microphone bug, and that is the right instinct: what you
+  want to know is whether anything is going IN, which a silent recording
+  answers far too late.
+  **`level` is `null`, never a constant zero, when the browser will not give us
+  an analyser.** A meter pinned at zero and a meter that does not exist look
+  identical and mean opposite things, and "it is recording silence" is the exact
+  fear this is here to settle — so no analyser means no meter on screen.
+  **Peak, not average**: an average over a thousand samples barely twitches at
+  speaking volume and would draw a flat line while the microphone works
+  perfectly. **A strip of recent history, not one dancing bar**: a single bar
+  has already fallen back to nothing by the time you look up, where two seconds
+  of history shows that it heard the thing you just sang.
+  The analyser's AudioContext is closed inside `releaseMic`, next to the tracks
+  — a second thing capable of holding the iOS audio session open is precisely
+  what the bug above was, so it exits by the same door.
+  **rAF fires ZERO times in the hidden preview pane**, so the strip cannot be
+  seen scrolling there; the analyser reading real signal WAS verified, by
+  handing getUserMedia a real MediaStream from an oscillator and watching the
+  bars land where the tone was loud. If this ever needs checking again, that is
+  the trick — the preview browser refuses the microphone but not a synthetic
+  stream.
+  Not added to the brain-dump recorder in VoiceCapture, which still shows only
+  a clock; `level` is available there for the asking.
+
 - **A live microphone track poisons playback on iOS, and the symptom looks like
   a broken recording** ([audio.ts](src/lib/audio.ts) `stop`,
   [audio.test.ts](src/lib/audio.test.ts)). Reported as a memo that would not

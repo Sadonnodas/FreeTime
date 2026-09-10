@@ -85,6 +85,16 @@ export interface Recorder {
   stop(): Promise<Blob>;
   cancel(): void;
   readonly mimeType: string;
+  /**
+   * How loud the microphone is RIGHT NOW, 0 to 1 — or null where the browser
+   * would not give us an analyser.
+   *
+   * Null rather than a constant zero on purpose: a meter pinned at zero and a
+   * meter that does not exist look identical on screen and mean opposite
+   * things, and "the app thinks it is recording silence" is exactly the fear
+   * this is here to answer.
+   */
+  readonly level: (() => number) | null;
 }
 
 export interface RecordOptions {
@@ -127,6 +137,38 @@ export async function startRecording(opts: RecordOptions = {}): Promise<Recorder
       }
     : {};
   const stream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
+
+  /*
+   * A tap off the live stream, purely to draw the meter.
+   *
+   * Deliberately NOT connected to ctx.destination: that would put the
+   * microphone through the speakers and howl.
+   *
+   * Its context is closed in releaseMic below, alongside the tracks, so it
+   * cannot become a second thing holding the iOS audio session open — which is
+   * the bug this file was just fixed for, and the reason a meter that needs an
+   * AudioContext deserves a second look rather than a shrug.
+   */
+  let meterCtx: AudioContext | null = null;
+  let analyser: AnalyserNode | null = null;
+  let samples: Uint8Array<ArrayBuffer> | null = null;
+  try {
+    const Ctx: typeof AudioContext =
+      window.AudioContext ??
+      (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext!;
+    meterCtx = new Ctx();
+    // Started from a tap, so this is allowed; iOS suspends it otherwise.
+    void meterCtx.resume?.();
+    analyser = meterCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    samples = new Uint8Array(analyser.fftSize);
+    meterCtx.createMediaStreamSource(stream).connect(analyser);
+  } catch {
+    // A meter is not worth failing a recording over. level stays null and the
+    // screen simply does not offer one.
+    meterCtx = null;
+    analyser = null;
+  }
   const mimeType = pickMimeType(opts.keep);
   const recorder = new MediaRecorder(stream, {
     ...(mimeType ? { mimeType } : {}),
@@ -142,10 +184,35 @@ export async function startRecording(opts: RecordOptions = {}): Promise<Recorder
   };
   recorder.start();
 
-  const releaseMic = () => stream.getTracks().forEach((t) => t.stop());
+  const releaseMic = () => {
+    stream.getTracks().forEach((t) => t.stop());
+    // Both, always, together. See the note on the meter above.
+    void meterCtx?.close();
+    meterCtx = null;
+    analyser = null;
+  };
 
   return {
     mimeType: recorder.mimeType || mimeType || 'audio/webm',
+    /*
+     * PEAK, not average. An average over a thousand samples barely twitches at
+     * speaking volume and would draw a flat line while the microphone is
+     * working perfectly — the exact false negative the meter exists to rule
+     * out. Peak moves the moment you make a sound.
+     */
+    level:
+      analyser && samples
+        ? () => {
+            if (!analyser || !samples) return 0;
+            analyser.getByteTimeDomainData(samples);
+            let peak = 0;
+            for (let i = 0; i < samples.length; i++) {
+              const v = Math.abs(samples[i]! - 128) / 128;
+              if (v > peak) peak = v;
+            }
+            return peak;
+          }
+        : null,
     cancel() {
       if (recorder.state !== 'inactive') recorder.stop();
       releaseMic();

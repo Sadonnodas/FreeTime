@@ -43,6 +43,7 @@
 
   onDestroy(() => {
     clearInterval(ticker);
+    stopMeter();
     recorder?.cancel();
   });
 
@@ -71,6 +72,8 @@
     // ten seconds and the recording has already started.
     locating = tryLocate();
 
+    startMeter();
+
     ticker = setInterval(() => {
       elapsed = Date.now() - startedAt;
       if (elapsed >= MAX_MEMO_MS) void stop();
@@ -79,8 +82,53 @@
 
   let locating: Promise<{ lat: number; lng: number } | null> = Promise.resolve(null);
 
+  /**
+   * A live meter off the microphone, so you can see it is hearing you.
+   *
+   * The clock alone only proves the timer is running. What people actually want
+   * to know — and asked for — is whether anything is going IN, which is a
+   * different question and the one a silent recording answers too late.
+   *
+   * BARS OF RECENT HISTORY, not one dancing level: a strip that keeps the last
+   * couple of seconds shows that it heard the thing you just sang, where a
+   * single bar has always already fallen back to nothing by the time you look
+   * up. Newest on the right, so it reads the way a waveform does.
+   */
+  const BARS = 44;
+  let levels = $state<number[]>(new Array(BARS).fill(0));
+  let metering = $state(false);
+  let frame = 0;
+  let lastSample = 0;
+
+  function meter() {
+    frame = requestAnimationFrame(meter);
+    const read = recorder?.level;
+    if (!read) return;
+    const nowMs = performance.now();
+    // ~25 a second rather than every frame: that puts about two seconds of
+    // history in the strip, and a 120Hz phone would otherwise scroll it away
+    // in a third of a second.
+    if (nowMs - lastSample < 40) return;
+    lastSample = nowMs;
+    levels = [...levels.slice(1), read()];
+  }
+
+  function startMeter() {
+    metering = !!recorder?.level;
+    if (!metering) return;
+    levels = new Array(BARS).fill(0);
+    frame = requestAnimationFrame(meter);
+  }
+
+  function stopMeter() {
+    cancelAnimationFrame(frame);
+    frame = 0;
+    metering = false;
+  }
+
   async function stop() {
     clearInterval(ticker);
+    stopMeter();
     if (!recorder) return;
     const blob = await recorder.stop();
     const mime = recorder.mimeType;
@@ -223,6 +271,26 @@
         <p class="mt-7 text-[2rem] font-semibold tabular-nums tracking-[-0.02em]">
           {mmss(elapsed)}
         </p>
+
+        {#if metering}
+          <!--
+            Decorative to a screen reader — the clock above already says it is
+            recording, and a bar chart of loudness read aloud is noise.
+          -->
+          <div
+            class="mt-5 flex h-14 w-full max-w-xs items-center justify-center gap-[3px]"
+            aria-hidden="true"
+          >
+            {#each levels as level, i (i)}
+              <span
+                class="w-[3px] shrink-0 rounded-full bg-red-400"
+                style="height: {Math.max(3, Math.min(1, level * 1.6) * 56)}px;
+                       opacity: {0.35 + Math.min(1, level * 1.6) * 0.65}"
+              ></span>
+            {/each}
+          </div>
+          <p class="footnote mt-1">Listening…</p>
+        {/if}
       {:else if phase === 'error'}
         <p class="title-2 text-center">That didn't work.</p>
         <p class="footnote mt-2 text-center">{message}</p>
