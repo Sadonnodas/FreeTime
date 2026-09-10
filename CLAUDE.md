@@ -197,6 +197,34 @@ Do not "fix" these without talking to Toon first.
   Not added to the brain-dump recorder in VoiceCapture, which still shows only
   a clock; `level` is available there for the asking.
 
+- **A project can be MOVED to another era, and put to SLEEP inside one**
+  (`moveProjectTag`, `setProjectTagSleeping`, `Project.sleepingTags`). Both came
+  out of one question: an era holding a mixing course, a wedding covers set and
+  twelve songs is four eras wearing one name, and twenty songs meant for one day
+  drown the three being worked on.
+  **Moving carries all five kinds** — to-dos, recordings, blocks, shopping and
+  the note — exactly as renaming does, with the same warning: miss one and it is
+  not deleted, it is invisible. Colour, description and sleep carry too, and
+  they are written to the destination BEFORE the tags change, because
+  `setProjectTags` prunes all three for names it cannot see — the same trap
+  `renameProjectTag` documents.
+  **It refuses when the destination already has that name rather than merging.**
+  Two projects called "Mixing" silently becoming one cannot be undone without
+  knowing which of the two each to-do came from.
+  **Sleeping is the user's word about their own attention, never the app's
+  guess.** Nothing infers it from a gap in activity — that would be the app
+  deciding you had abandoned something, which is the line habits already hold
+  with their three states. The era lists sleeping projects behind a plain
+  "Show sleeping (2)", with no badge and no colour: you put them down on
+  purpose, so the line exists to make them findable, not to make them felt.
+  **Free Time stops offering a sleeping project's to-dos**, since an app that
+  keeps suggesting the thing you deliberately shelved has ignored you — but the
+  project still opens and every to-do in it still ticks. The app stops
+  SUGGESTING and never forbids, the same asymmetry a blocked to-do follows.
+  The sleep key is era id AND name, not the bare name: `tag` means a name inside
+  ONE era, so a bare key would silence "Mixing" in every era at once. Pinned by
+  a test.
+
 - **The era and project live in the Drive FILENAME, not in a folder tree**
   ([memos.ts](src/lib/memos.ts) `fileName`, [sync.ts](src/lib/sync.ts),
   `Memo.driveName`). Asked as *"would it be an idea that the google drive folder

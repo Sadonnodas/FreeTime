@@ -1,9 +1,21 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from './db';
 import {
-  createProject, setProjectTags, getNote, saveNote, renameProjectTag, removeProjectTag,
-  createTodo, updateTodo, createBuyItem, updateBuyItem,
-  setProjectTagColor, setProjectTagDescription, projectTagColor
+  createProject,
+  setProjectTags,
+  getNote,
+  saveNote,
+  renameProjectTag,
+  removeProjectTag,
+  createTodo,
+  updateTodo,
+  createBuyItem,
+  updateBuyItem,
+  setProjectTagColor,
+  setProjectTagDescription,
+  projectTagColor,
+  moveProjectTag,
+  setProjectTagSleeping
 } from './store';
 import { addWidget, setWidgetTag, widgetsFor } from './widgets';
 
@@ -201,5 +213,103 @@ describe('removing a section', () => {
     // the lyrics come back, and nothing was silently clobbered.
     expect((await getNote(p))!.markdown).toBe('the project note');
     expect((await getNote(p, 'Remi'))!.markdown).toBe('the song lyrics');
+  });
+});
+
+/**
+ * Moving a whole project between eras.
+ *
+ * The same warning renaming carries: miss one of the five kinds and it is not
+ * deleted, it is invisible, which is worse.
+ */
+describe('moving a project to another era', () => {
+  beforeEach(reset);
+
+  it('takes its to-dos, recordings, blocks, shopping and note with it', async () => {
+    const music = await createProject('Music');
+    const learning = await createProject('Learning');
+    await setProjectTags(music, ['Mixing course']);
+
+    const todo = await createTodo('Watch module 3', { projectId: music, tag: 'Mixing course' });
+    await createBuyItem('Monitor stand', { projectId: music, tag: 'Mixing course' });
+    await db.memos.add({
+      id: 'm1', blob: new Blob(['x']), mime: 'audio/mp4', durationMs: 1,
+      recordedAt: '2026-09-01T10:00:00.000Z', projectId: music, tag: 'Mixing course',
+      createdAt: '2026-09-01T10:00:00.000Z', updatedAt: '2026-09-01T10:00:00.000Z'
+    });
+    await db.widgets.add({
+      id: 'w1', projectId: music, tag: 'Mixing course', kind: 'note', size: 'small',
+      order: 0, text: 'EQ cheatsheet',
+      createdAt: '2026-09-01T10:00:00.000Z', updatedAt: '2026-09-01T10:00:00.000Z'
+    });
+    await saveNote(music, 'notes on compression', 'Mixing course');
+
+    expect(await moveProjectTag(music, 'Mixing course', learning)).toBe('moved');
+
+    expect((await db.projects.get(learning))!.tags).toContain('Mixing course');
+    expect((await db.projects.get(music))!.tags).not.toContain('Mixing course');
+
+    expect((await db.todos.get(todo))!.projectId).toBe(learning);
+    expect((await db.memos.get('m1'))!.projectId).toBe(learning);
+    expect((await db.widgets.get('w1'))!.projectId).toBe(learning);
+    expect((await db.buyItems.toArray())[0]!.projectId).toBe(learning);
+    expect((await getNote(learning, 'Mixing course'))!.markdown).toBe('notes on compression');
+    // And nothing is left behind pointing at the era it came from.
+    expect(await getNote(music, 'Mixing course')).toBeUndefined();
+  });
+
+  it('carries the colour, so a moved project does not change identity', async () => {
+    const from = await createProject('Music');
+    const to = await createProject('Weddings');
+    await setProjectTags(from, ['Cover: Valerie']);
+    await setProjectTagColor(from, 'Cover: Valerie', '#4f9de8');
+    await setProjectTagDescription(from, 'Cover: Valerie', 'in G, capo 2');
+
+    await moveProjectTag(from, 'Cover: Valerie', to);
+
+    const dest = (await db.projects.get(to))!;
+    expect(dest.tagColors?.['Cover: Valerie']).toBe('#4f9de8');
+    expect(dest.tagDescriptions?.['Cover: Valerie']).toBe('in G, capo 2');
+    // And the era it left forgets it, rather than keeping a colour for a name
+    // it no longer has.
+    expect((await db.projects.get(from))!.tagColors?.['Cover: Valerie']).toBeUndefined();
+  });
+
+  it('refuses when the destination already has that name, rather than merging', async () => {
+    // Two projects called "Mixing" silently becoming one cannot be undone
+    // without knowing which of the two each to-do came from.
+    const from = await createProject('Music');
+    const to = await createProject('Learning');
+    await setProjectTags(from, ['Mixing']);
+    await setProjectTags(to, ['Mixing']);
+
+    expect(await moveProjectTag(from, 'Mixing', to)).toBe('name-taken');
+    expect((await db.projects.get(from))!.tags).toContain('Mixing');
+  });
+});
+
+describe('putting a project to sleep', () => {
+  beforeEach(reset);
+
+  it('is remembered by name, and wakes again', async () => {
+    const era = await createProject('Songwriting');
+    await setProjectTags(era, ['Bridge Kid', 'Valerie']);
+
+    await setProjectTagSleeping(era, 'Valerie', true);
+    expect((await db.projects.get(era))!.sleepingTags).toEqual(['Valerie']);
+
+    await setProjectTagSleeping(era, 'Valerie', false);
+    expect((await db.projects.get(era))!.sleepingTags).toEqual([]);
+  });
+
+  it('is forgotten when the project itself is gone', async () => {
+    // Same rule as colours and descriptions: the map must not fill up with
+    // names nothing points at any more.
+    const era = await createProject('Songwriting');
+    await setProjectTags(era, ['Valerie']);
+    await setProjectTagSleeping(era, 'Valerie', true);
+
+    await setProjectTags(era, []);
+    expect((await db.projects.get(era))!.sleepingTags).toEqual([]);
   });
 });

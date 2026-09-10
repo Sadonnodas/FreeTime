@@ -1,7 +1,7 @@
 import type {
   Todo, Energy, TimeBucket, BrainState, FreeTimeAnswers, SlotKind, PlannedSlot
 } from './types';
-import { openTodos, allTodos, projectPulses, type ProjectPulse } from './queries';
+import { openTodos, allTodos, allProjects, projectPulses, type ProjectPulse } from './queries';
 import { indexById, isBlocked } from './order';
 import { getDay } from './day';
 import { today } from './store';
@@ -78,9 +78,22 @@ export interface Planner {
  * every pick after that is synchronous, so reshuffling a slot is instant.
  */
 export async function createPlanner(answers: FreeTimeAnswers): Promise<Planner> {
-  const [open, all, pulses, day] = await Promise.all([
-    openTodos(), allTodos(), projectPulses(), getDay()
+  const [open, all, pulses, day, eras] = await Promise.all([
+    openTodos(), allTodos(), projectPulses(), getDay(), allProjects()
   ]);
+
+  /*
+   * Projects their owner has put to sleep.
+   *
+   * Set aside is a decision, and an app that keeps suggesting the thing you
+   * deliberately shelved has ignored it. Keyed era-and-name because that is
+   * what a to-do's `tag` means — a bare name would silence "Mixing" in every
+   * era at once.
+   */
+  const asleep = new Set(
+    eras.flatMap((era) => (era.sleepingTags ?? []).map((tag) => `${era.id}\u0000${tag}`))
+  );
+  const isAsleep = (t: Todo) => !!t.tag && asleep.has(`${t.projectId}\u0000${t.tag}`);
 
   const ceiling = effortCeiling(answers.brain);
   const alreadyToday = new Set(day?.slots ?? []);
@@ -100,6 +113,7 @@ export async function createPlanner(answers: FreeTimeAnswers): Promise<Planner> 
   const pool = open.filter(
     (t) =>
       !alreadyToday.has(t.id) &&
+      !isAsleep(t) &&
       !isBlocked(t, byId) &&
       fitsEffort(t, ceiling) &&
       fitsTime(t, answers.time)

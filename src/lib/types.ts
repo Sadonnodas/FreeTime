@@ -59,6 +59,18 @@ export interface Project extends Base {
    * in it and does not vanish when it is emptied.
    */
   tags?: string[];
+  /**
+   * Projects inside this era that have been put to sleep, by name.
+   *
+   * Not deleted and not finished — set aside. Twenty songs you mean to finish
+   * one day will drown the three you are actually working on, and the answer
+   * cannot be to throw seventeen of them away. A sleeping project keeps
+   * everything it has and is one tap from waking.
+   *
+   * Keyed by name like tagColors and tagDescriptions, for the same reason: that
+   * is what every `tag` field already points at.
+   */
+  sleepingTags?: string[];
 }
 
 /**

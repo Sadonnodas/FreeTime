@@ -17,6 +17,18 @@ export async function activeProjects(): Promise<Project[]> {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Every live era, archived ones included.
+ *
+ * The planner needs these to know which projects are asleep, and an archived
+ * era's sleeping list is still the truth about its projects — filtering to
+ * active ones here would quietly un-sleep everything inside an era that was
+ * put away.
+ */
+export async function allProjects(): Promise<Project[]> {
+  return (await db.projects.toArray()).filter(notDeleted);
+}
+
 export async function openTodos(projectId?: string): Promise<Todo[]> {
   const all = await db.todos.toArray();
   return all

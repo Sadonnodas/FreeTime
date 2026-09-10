@@ -5,13 +5,15 @@
   import { base } from '$app/paths';
   import WidgetBoard from '$lib/components/WidgetBoard.svelte';
   import BuyList from '$lib/components/BuyList.svelte';
-  import type { Todo, BuyItem, Note } from '$lib/types';
+  import type { Todo, BuyItem, Note, Project } from '$lib/types';
   import {
     createTodo, completeTodo, updateTodo, setTodoAfter, createBuyItem, markPurchased, saveNote, getNote,
     setProjectImage, setProjectTags, removeProjectTag, renameProjectTag,
     setProjectTagColor, setProjectTagDescription, PROJECT_COLORS,
-    archiveProject, projectTagColor, softDelete
+    archiveProject, projectTagColor, softDelete,
+    setProjectTagSleeping, moveProjectTag
   } from '$lib/store';
+  import { activeProjects } from '$lib/queries';
   import { goto } from '$app/navigation';
   import { resizeImage, COVER_EDGE } from '$lib/images';
   import { indexById, readyFirst, blockerOf, possibleBlockers } from '$lib/order';
@@ -31,6 +33,8 @@
   const projectId = $derived(id);
 
   const projectQ = $derived(liveQuery(() => db.projects.get(id)));
+  /** The other eras, for moving a project out of this one. */
+  const erasQ = liveQuery(() => activeProjects());
   const todosQ = $derived(
     liveQuery(async () =>
       (await db.todos.where('projectId').equals(id).toArray()).filter((t) => !t.deletedAt)
@@ -87,7 +91,36 @@
     openTodo = null;
   });
 
-  const tags = $derived($projectQ?.tags ?? []);
+  const allTags = $derived($projectQ?.tags ?? []);
+  const sleepingTags = $derived($projectQ?.sleepingTags ?? []);
+
+  /**
+   * Awake first, and the sleeping ones behind a tap.
+   *
+   * Twenty songs you mean to finish will drown the three you are on, and the
+   * answer cannot be to delete seventeen of them. Sleeping is a decision you
+   * made, so nothing here counts them, nags about them, or dresses the number
+   * up as a backlog — it is a list you asked to stop looking at.
+   */
+  const tags = $derived(allTags.filter((t) => !sleepingTags.includes(t)));
+  const asleep = $derived(allTags.filter((t) => sleepingTags.includes(t)));
+  let showSleeping = $state(false);
+
+  /** Where a project can be moved to: every other era. */
+  const otherEras = $derived(
+    (($erasQ as Project[] | undefined) ?? []).filter((p) => p.id !== id)
+  );
+  let moveNote = $state('');
+
+  async function moveTo(tag: string, toEraId: string) {
+    const result = await moveProjectTag(id, tag, toEraId);
+    moveNote =
+      result === 'name-taken'
+        ? `That era already has a project called "${tag}". Rename one of them first.`
+        : '';
+    if (result === 'moved') editingTag = null;
+    if (moveNote) setTimeout(() => (moveNote = ''), 5000);
+  }
 
   /**
    * Making a project inside an era.
@@ -320,6 +353,12 @@
   -->
   <h2 class="section-label mb-2">Projects</h2>
 
+  {#if moveNote}
+    <!-- Refused rather than merged: two projects of the same name becoming one
+         cannot be undone without knowing which of the two each to-do came from. -->
+    <p class="card-flat mb-3 p-3 text-sm text-ink-200">{moveNote}</p>
+  {/if}
+
   {#if tags.length}
     <ul class="mb-3 space-y-2">
       {#each tags as t (t)}
@@ -376,7 +415,40 @@
                     ></button>
                   {/each}
                 </div>
-                <div class="flex">
+                {#if otherEras.length}
+                  <!--
+                    Moving a whole project, with everything in it. An era turns
+                    out to be the wrong shape more often than anyone expects —
+                    "Music" holding a mixing course, a covers set and twelve
+                    songs is four eras wearing one name — and splitting it up
+                    should not mean rebuilding each project by hand.
+                  -->
+                  <label class="block">
+                    <span class="section-label mb-1 block">Move to another era</span>
+                    <select
+                      class="field press w-full text-sm"
+                      value=""
+                      onchange={(e) => {
+                        const to = e.currentTarget.value;
+                        e.currentTarget.value = '';
+                        if (to) void moveTo(t, to);
+                      }}
+                    >
+                      <option value="">Stay in {$projectQ?.name ?? 'this era'}</option>
+                      {#each otherEras as era (era.id)}
+                        <option value={era.id}>{era.name}</option>
+                      {/each}
+                    </select>
+                  </label>
+                {/if}
+
+                <div class="flex items-center gap-1">
+                  <button
+                    class="press tap-h rounded-lg px-3 text-sm text-ink-200"
+                    onclick={() => setProjectTagSleeping(id, t, !sleepingTags.includes(t))}
+                  >
+                    {sleepingTags.includes(t) ? 'Wake it up' : 'Let it sleep'}
+                  </button>
                   <span class="flex-1"></span>
                   <RemoveButton
                     label="Remove project"
@@ -449,6 +521,41 @@
       </div>
     </form>
   {:else}
+    {#if asleep.length}
+      <!--
+        A plain count and a way back. Deliberately NOT styled as a backlog: no
+        badge, no colour, nothing that reads as work you are behind on. You put
+        these down on purpose, and this line exists so they are findable, not so
+        they are felt.
+      -->
+      <button
+        class="press tap-h mb-3 rounded-lg px-1 text-sm text-ink-400"
+        onclick={() => (showSleeping = !showSleeping)}
+      >
+        {showSleeping ? 'Hide' : 'Show'} sleeping ({asleep.length})
+      </button>
+
+      {#if showSleeping}
+        <ul class="mb-3 space-y-1">
+          {#each asleep as t (t)}
+            <li class="card-flat flex items-center gap-1 px-4 py-3">
+              <a
+                href="{base}/projects/{id}/{encodeURIComponent(t)}"
+                class="press min-w-0 flex-1 truncate text-ink-200">{t}</a
+              >
+              <span class="footnote shrink-0 tabular-nums">{countFor(t) || '—'}</span>
+              <button
+                class="press tap-h shrink-0 rounded-lg px-3 text-sm text-accent"
+                onclick={() => setProjectTagSleeping(id, t, false)}
+              >
+                Wake
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    {/if}
+
     <button
       class="press tap mb-5 w-full rounded-xl border border-dashed border-line-2 text-sm text-ink-400"
       onclick={() => (adding = true)}

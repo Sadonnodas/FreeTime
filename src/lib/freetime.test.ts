@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from './db';
-import { createProject, createTodo, completeTodo, softDelete, today } from './store';
+import { createProject, createTodo, completeTodo, softDelete, today, setProjectTags, setProjectTagSleeping } from './store';
 import { effortCeiling, fitsTime, createPlanner, planDay } from './freetime';
 import type { FreeTimeAnswers } from './types';
 
@@ -232,5 +232,46 @@ describe('slot rules', () => {
 
   it('returns nothing when the pile is empty, without throwing', async () => {
     expect(await planDay(ask())).toEqual([]);
+  });
+});
+
+describe('a project that has been put to sleep', () => {
+  beforeEach(reset);
+
+  it('is not offered, because setting something aside is a decision', async () => {
+    const era = await createProject('Songwriting');
+    await setProjectTags(era, ['Bridge Kid', 'Valerie']);
+    await createTodo('finish the bridge', { projectId: era, tag: 'Bridge Kid' });
+    await createTodo('learn the horn line', { projectId: era, tag: 'Valerie' });
+    await setProjectTagSleeping(era, 'Valerie', true);
+
+    const planner = await createPlanner(ask());
+    expect(planner.pool.map((t) => t.title)).toEqual(['finish the bridge']);
+  });
+
+  it('comes back the moment it is woken', async () => {
+    const era = await createProject('Songwriting');
+    await setProjectTags(era, ['Valerie']);
+    await createTodo('learn the horn line', { projectId: era, tag: 'Valerie' });
+    await setProjectTagSleeping(era, 'Valerie', true);
+    await setProjectTagSleeping(era, 'Valerie', false);
+
+    const planner = await createPlanner(ask());
+    expect(planner.pool.map((t) => t.title)).toEqual(['learn the horn line']);
+  });
+
+  it('silences only that era, not every project sharing the name', async () => {
+    // `tag` means a name inside ONE era, so a bare name would put "Mixing" to
+    // sleep everywhere at once.
+    const music = await createProject('Music');
+    const learning = await createProject('Learning');
+    await setProjectTags(music, ['Mixing']);
+    await setProjectTags(learning, ['Mixing']);
+    await createTodo('mix the verse', { projectId: music, tag: 'Mixing' });
+    await createTodo('watch module 3', { projectId: learning, tag: 'Mixing' });
+    await setProjectTagSleeping(music, 'Mixing', true);
+
+    const planner = await createPlanner(ask());
+    expect(planner.pool.map((t) => t.title)).toEqual(['watch module 3']);
   });
 });

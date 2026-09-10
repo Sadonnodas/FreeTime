@@ -121,12 +121,118 @@ export async function setProjectTags(id: string, tags: string[]): Promise<void> 
     if (!tags.includes(tag)) delete descriptions[tag];
   }
 
+  // And the sleeping list, for the same reason again.
+  const sleeping = (project?.sleepingTags ?? []).filter((t) => tags.includes(t));
+
   await db.projects.update(id, {
     tags,
     tagColors: colors,
     tagDescriptions: descriptions,
+    sleepingTags: sleeping,
     updatedAt: now()
   });
+}
+
+/**
+ * Put one project inside an era to sleep, or wake it.
+ *
+ * Sleeping is a USER's word about their own attention, never the app's guess.
+ * Nothing infers it from a gap in activity — that would be the app deciding you
+ * had abandoned something, which is the same line habits hold with their three
+ * states, and for the same reason.
+ *
+ * What it changes: the era lists it under "Sleeping" instead of among the live
+ * ones, and Free Time stops offering its to-dos. What it does NOT change: the
+ * project still opens, still holds everything it held, and every one of its
+ * to-dos is still there to be ticked. The app stops SUGGESTING; it never
+ * forbids — the same asymmetry a blocked to-do already follows.
+ */
+export async function setProjectTagSleeping(
+  projectId: string,
+  tag: string,
+  sleeping: boolean
+): Promise<void> {
+  const project = await db.projects.get(projectId);
+  if (!project) return;
+  const current = project.sleepingTags ?? [];
+  const next = sleeping
+    ? current.includes(tag)
+      ? current
+      : [...current, tag]
+    : current.filter((t) => t !== tag);
+  await db.projects.update(projectId, { sleepingTags: next, updatedAt: now() });
+}
+
+export type MoveResult = 'moved' | 'name-taken' | 'nothing';
+
+/**
+ * Move a whole project from one era to another, with everything in it.
+ *
+ * Needed the moment an era turns out to be the wrong shape — "Music" holding a
+ * mixing course, a wedding covers set and twelve songs is four eras wearing one
+ * name, and splitting it up should not mean rebuilding every project by hand.
+ *
+ * CARRIES ALL FIVE KINDS, exactly as renaming does: to-dos, recordings, blocks,
+ * shopping and the note. Miss one and it is not deleted, it is invisible, which
+ * is worse — the same warning renameProjectTag carries.
+ *
+ * Refuses rather than merges when the destination already has a project of that
+ * name. Two projects called "Mixing" silently becoming one is unrecoverable
+ * without knowing which of the two each to-do came from.
+ */
+export async function moveProjectTag(
+  fromEraId: string,
+  tag: string,
+  toEraId: string
+): Promise<MoveResult> {
+  if (fromEraId === toEraId) return 'nothing';
+  const [from, to] = await Promise.all([
+    db.projects.get(fromEraId),
+    db.projects.get(toEraId)
+  ]);
+  if (!from || !to || !(from.tags ?? []).includes(tag)) return 'nothing';
+  if ((to.tags ?? []).includes(tag)) return 'name-taken';
+
+  // Colour, description and sleep carry over BEFORE the tags change, because
+  // setProjectTags prunes all three for names it cannot see — the same trap
+  // renameProjectTag documents.
+  const colour = from.tagColors?.[tag];
+  const description = from.tagDescriptions?.[tag];
+  const asleep = (from.sleepingTags ?? []).includes(tag);
+
+  await db.projects.update(toEraId, {
+    tagColors: { ...(to.tagColors ?? {}), ...(colour ? { [tag]: colour } : {}) },
+    tagDescriptions: {
+      ...(to.tagDescriptions ?? {}),
+      ...(description ? { [tag]: description } : {})
+    },
+    sleepingTags: asleep ? [...(to.sleepingTags ?? []), tag] : (to.sleepingTags ?? []),
+    updatedAt: now()
+  });
+
+  await setProjectTags(toEraId, [...(to.tags ?? []), tag]);
+  await setProjectTags(fromEraId, (from.tags ?? []).filter((t) => t !== tag));
+
+  const at = now();
+  const move = async (
+    table: 'todos' | 'memos' | 'widgets' | 'buyItems'
+  ): Promise<void> => {
+    const rows = (await db[table].where('projectId').equals(fromEraId).toArray()).filter(
+      (r) => !r.deletedAt && (r as { tag?: string }).tag === tag
+    );
+    await Promise.all(
+      rows.map((r) => db[table].update(r.id, { projectId: toEraId, updatedAt: at }))
+    );
+  };
+  await Promise.all([move('todos'), move('memos'), move('widgets'), move('buyItems')]);
+
+  // The note is one row per project per section, so it moves rather than merges.
+  const note = (await db.notes.where('projectId').equals(fromEraId).toArray()).find(
+    (n) => !n.deletedAt && n.tag === tag
+  );
+  if (note) await db.notes.update(note.id, { projectId: toEraId, updatedAt: at });
+
+  return 'moved';
 }
 
 /** Describe one project inside an era, or clear the description. */
