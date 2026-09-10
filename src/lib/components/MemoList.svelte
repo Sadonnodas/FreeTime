@@ -49,6 +49,27 @@
   let fetchingId = $state<string | null>(null);
   let fetchError = $state('');
 
+  /**
+   * Why the player is sitting there doing nothing.
+   *
+   * Until this existed, a recording the browser could not decode gave a dead
+   * scrubber and total silence — no error, nothing in the console, nothing to
+   * tell you whether the audio was broken, the format unsupported, or the tap
+   * simply not registering. Reported exactly that way, and it took reading four
+   * files to work out where to even look. An `<audio>` element fails by firing
+   * `error` and then saying nothing at all, so the saying has to be ours.
+   */
+  let playError = $state('');
+
+  function describeFailure(memo: Memo): string {
+    const size = memo.blob?.size ?? 0;
+    if (!size) return 'This one saved with no audio in it — nothing was recorded.';
+    const kb = size < 1024 ? `${size} bytes` : `${Math.round(size / 1024)} KB`;
+    // Naming the format is the point: it is the difference between "the file is
+    // damaged" and "this browser will not play WebM", which need opposite fixes.
+    return `This device will not play ${memo.mime || 'that format'} (${kb}).`;
+  }
+
   const elsewhere = (m: Memo): boolean => !m.blob && !!m.driveFileId;
   const lost = (m: Memo): boolean => !m.blob && !m.driveFileId;
 
@@ -58,6 +79,7 @@
     playing = false;
     position = 0;
     duration = 0;
+    playError = '';
   }
 
   onDestroy(revoke);
@@ -66,6 +88,7 @@
     revoke();
     openId = memo.id;
     fetchError = '';
+    playError = '';
     // Fall back to the recorded length: see onMeta for why the file's own
     // duration cannot be trusted.
     duration = memo.durationMs / 1000;
@@ -161,8 +184,16 @@
       subject = { ...memo, blob };
     }
     const result = await shareMemo(subject);
-    note = result === 'downloaded' ? 'Saved to your downloads.' : '';
-    if (note) setTimeout(() => (note = ''), 3000);
+    // 'cancelled' is the user backing out of the sheet and says itself. Every
+    // other outcome gets a word: a share button that silently does nothing is
+    // indistinguishable from a broken one, which is how this was reported.
+    note =
+      result === 'downloaded'
+        ? 'Saved to your downloads.'
+        : result === 'unsupported'
+          ? `Nothing to share — ${describeFailure(subject).toLowerCase()}`
+          : '';
+    if (note) setTimeout(() => (note = ''), 4000);
   }
 
   /** Two taps to delete, because the audio really does go. No dialog — the
@@ -270,7 +301,12 @@
                 }}
                 ontimeupdate={() => (position = audioEl?.currentTime ?? 0)}
                 onloadedmetadata={onMeta}
+                onerror={() => (playError = describeFailure(memo))}
               ></audio>
+
+              {#if playError}
+                <p class="footnote mb-2">{playError}</p>
+              {/if}
 
               <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div

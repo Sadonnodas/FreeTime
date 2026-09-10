@@ -170,6 +170,43 @@ Do not "fix" these without talking to Toon first.
   deterministically from its content** so two devices generate the same ones and merge
   instead of collide.
 
+- **A live microphone track poisons playback on iOS, and the symptom looks like
+  a broken recording** ([audio.ts](src/lib/audio.ts) `stop`,
+  [audio.test.ts](src/lib/audio.test.ts)). Reported as a memo that would not
+  play back, then — the message that solved it — *"I just closed the app on my
+  phone and reopened it, now it plays back"*. A relaunch fixing something is
+  proof it is STATE, not the file: the blob was fine all along.
+  The mic was released only inside `onstop`, and the other branch — taken when
+  the recorder has ALREADY stopped by itself — resolved the blob and left the
+  capture live. A MediaRecorder stops by itself whenever its track ends
+  underneath it: a phone call, Siri, another app taking the microphone, iOS
+  suspending a backgrounded PWA. iOS then keeps the audio session in RECORD mode
+  for as long as any track is live, so everything played afterwards goes to the
+  earpiece or nowhere, until the app is relaunched. The recording saves
+  perfectly the whole time, which is what makes it so hard to see.
+  **Every path out of `stop()` must release the microphone.** Pinned by a test
+  that fails against the old branch — checked by reverting the fix.
+
+- **A memo is KEPT, so it has to play back, which is a different requirement
+  from being recordable** ([audio.ts](src/lib/audio.ts) `KEEP_ORDER`). The mime
+  list was written for the brain-dump path — its comment says "something
+  MediaRecorder will produce and decodeAudioData will read back", both true of
+  WebM — and the memo path was handed the same list. But a memo has to play in
+  an `<audio>` element on every device it syncs to and straight out of Drive,
+  and **Safari will not play WebM at all**, so a memo recorded on a laptop is a
+  silent row on the phone. `startRecording({ keep: true })` prefers mp4/AAC, the
+  one container everything plays; the transient brain-dump keeps Opus, which is
+  better per byte and is re-encoded to WAV before it goes anywhere.
+
+- **A dead player and a dead Share button both used to say nothing at all**
+  ([MemoList.svelte](src/lib/components/MemoList.svelte) `describeFailure`). An
+  `<audio>` element fails by firing `error` and then sitting there, and
+  `shareMemo` returning 'unsupported' produced an empty note — so a recording
+  the browser could not decode gave silence, a dead scrubber, and nothing in the
+  console. Both now say what is wrong and NAME THE FORMAT AND SIZE, because "the
+  file is damaged" and "this browser will not play WebM" need opposite fixes and
+  are otherwise indistinguishable from the outside.
+
 - **getUserMedia's defaults destroy music.** `{audio: true}` turns on echo
   cancellation, noise suppression and auto gain, because the browser assumes a voice
   call. On a sung melody or an acoustic guitar this is audible immediately: noise

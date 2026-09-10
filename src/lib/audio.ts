@@ -34,15 +34,43 @@ const TARGET_SAMPLE_RATE = 16_000;
  * WAV before it leaves. It only has to be something MediaRecorder will produce
  * and decodeAudioData will read back.
  */
-function pickMimeType(): string | undefined {
-  const candidates = [
-    'audio/webm;codecs=opus',
-    'audio/webm',
-    'audio/mp4',
-    'audio/ogg;codecs=opus'
-  ];
+/**
+ * A recording that is transcribed and thrown away. Opus first: it is the best
+ * quality per byte, and everything on this path is re-encoded to WAV before it
+ * leaves, so nothing ever has to play the container back.
+ */
+const SEND_ORDER = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/mp4',
+  'audio/ogg;codecs=opus'
+];
+
+/**
+ * A recording that is KEPT, and that is a different requirement.
+ *
+ * A memo has to PLAY BACK — on this device, on every other device it syncs to,
+ * and straight out of Drive for someone who has never heard of this app. Being
+ * producible by MediaRecorder and readable by decodeAudioData is not the same
+ * thing, and the comment above this function used to say only those two,
+ * because it was written for the brain-dump path and the memo path was handed
+ * the same list.
+ *
+ * mp4/AAC is the one container every browser on every platform will play.
+ * WebM is a better codec and Safari will not play it, so a memo recorded as
+ * WebM on a laptop is a silent row on the phone — and one recorded as WebM on
+ * a phone that can record but not decode it is silent everywhere.
+ */
+const KEEP_ORDER = [
+  'audio/mp4',
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/ogg;codecs=opus'
+];
+
+function pickMimeType(keep = false): string | undefined {
   if (typeof MediaRecorder === 'undefined') return undefined;
-  return candidates.find((t) => MediaRecorder.isTypeSupported(t));
+  return (keep ? KEEP_ORDER : SEND_ORDER).find((t) => MediaRecorder.isTypeSupported(t));
 }
 
 export function canRecord(): boolean {
@@ -72,6 +100,14 @@ export interface RecordOptions {
    * wants all three OFF, and the difference is audible immediately.
    */
   music?: boolean;
+  /**
+   * The recording is being KEPT rather than transcribed and discarded.
+   *
+   * Changes the container to one that plays everywhere — see KEEP_ORDER. It is
+   * a separate flag from `music` on purpose: one is about how the microphone is
+   * configured, the other about what the file has to survive.
+   */
+  keep?: boolean;
 }
 
 /**
@@ -91,7 +127,7 @@ export async function startRecording(opts: RecordOptions = {}): Promise<Recorder
       }
     : {};
   const stream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
-  const mimeType = pickMimeType();
+  const mimeType = pickMimeType(opts.keep);
   const recorder = new MediaRecorder(stream, {
     ...(mimeType ? { mimeType } : {}),
     // The default is around 40 kbps, which is fine for speech and audibly
@@ -116,12 +152,30 @@ export async function startRecording(opts: RecordOptions = {}): Promise<Recorder
     },
     stop() {
       return new Promise<Blob>((resolve) => {
-        recorder.onstop = () => {
+        /*
+         * THE MICROPHONE MUST BE RELEASED ON EVERY PATH OUT OF HERE.
+         *
+         * It used to be released only inside `onstop`, and the branch below —
+         * taken when the recorder has ALREADY stopped by itself — resolved
+         * without it, leaving the capture live for the rest of the app's life.
+         * A MediaRecorder stops by itself whenever the track ends underneath
+         * it: a phone call, Siri, another app taking the microphone, iOS
+         * suspending a backgrounded PWA.
+         *
+         * The symptom is not "recording is broken" — the recording is fine and
+         * saves normally. It is that iOS keeps the audio session in RECORD mode
+         * while any track is live, so everything played afterwards goes to the
+         * earpiece or nowhere at all, and stays that way until the app is
+         * relaunched. Which is exactly how it was reported: a memo that would
+         * not play back, and then did after closing and reopening the app.
+         */
+        const finish = () => {
           releaseMic();
           resolve(new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
         };
+        recorder.onstop = finish;
         if (recorder.state !== 'inactive') recorder.stop();
-        else resolve(new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
+        else finish();
       });
     }
   };

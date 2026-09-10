@@ -50,7 +50,9 @@
     try {
       // `music: true` turns off noise suppression and auto gain, which would
       // otherwise gate a sustained note and pump the level between phrases.
-      recorder = await startRecording({ music: true });
+      // `keep: true` asks for a container that will still play on the other
+      // devices this memo syncs to, and straight out of Drive.
+      recorder = await startRecording({ music: true, keep: true });
     } catch (err) {
       message =
         (err as Error).name === 'NotAllowedError'
