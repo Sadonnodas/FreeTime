@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { startRecording } from './audio';
+import { startRecording, isRecording, onRecordingChange } from './audio';
 
 /**
  * The microphone has to be handed back on every path.
@@ -43,11 +43,26 @@ function install(state: 'recording' | 'inactive') {
   }
 
   vi.stubGlobal('MediaRecorder', FakeRecorder);
-  vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: async () => stream } });
+  vi.stubGlobal('navigator', {
+    mediaDevices: { getUserMedia: async () => stream },
+    mediaSession
+  });
   return track;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+/** The remote-control buttons: a car's, the lock screen's, AirPods'. */
+const handlers = new Map<string, (() => void) | null>();
+const mediaSession = {
+  setActionHandler(action: string, fn: (() => void) | null) {
+    handlers.set(action, fn);
+  }
+};
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+  handlers.clear();
+});
 
 describe('handing the microphone back', () => {
   it('releases it on a normal stop', async () => {
@@ -80,5 +95,73 @@ describe('handing the microphone back', () => {
     install('recording');
     const rec = await startRecording({ keep: true });
     expect(rec.mimeType).toBe('audio/mp4');
+    rec.cancel();
+  });
+});
+
+/**
+ * Found in a car: an old memo started playing over a new recording. Opening
+ * the microphone over Bluetooth switches the car to its call profile, the car
+ * answers with PLAY, and iOS resumes whatever this app last played. The app
+ * has to be able to say "a recording is starting" so players can empty
+ * themselves, and it has to hold the remote buttons while the mic is live.
+ */
+describe('recording as a signal', () => {
+  it('announces the start before the microphone opens, and the end on stop', async () => {
+    install('recording');
+    const heard: boolean[] = [];
+    const stop = onRecordingChange((live) => heard.push(live));
+    const rec = await startRecording({ keep: true });
+    expect(isRecording()).toBe(true);
+    await rec.stop();
+    expect(heard).toEqual([true, false]);
+    expect(isRecording()).toBe(false);
+    stop();
+  });
+
+  it('never stays "recording" when the microphone is refused', async () => {
+    // Stuck on true, the lock screen's buttons would be swallowed for good.
+    install('recording');
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: async () => {
+          throw new DOMException('denied', 'NotAllowedError');
+        }
+      },
+      mediaSession
+    });
+    await expect(startRecording()).rejects.toThrow();
+    expect(isRecording()).toBe(false);
+  });
+
+  it('hands the microphone back when the recorder cannot be built', async () => {
+    const track = install('recording');
+    vi.stubGlobal(
+      'MediaRecorder',
+      class {
+        constructor() {
+          throw new Error('NotSupportedError');
+        }
+        static isTypeSupported() {
+          return false;
+        }
+      }
+    );
+    await expect(startRecording()).rejects.toThrow();
+    expect(track.stopped).toBe(true);
+    expect(isRecording()).toBe(false);
+  });
+
+  it('swallows the remote buttons while live, and a little past the end', async () => {
+    vi.useFakeTimers();
+    install('recording');
+    const rec = await startRecording({ keep: true });
+    // Claimed, and claimed by something that does nothing.
+    expect(typeof handlers.get('play')).toBe('function');
+    await rec.stop();
+    // The switch back to the music profile sends PLAY too, just after release.
+    expect(typeof handlers.get('play')).toBe('function');
+    vi.advanceTimersByTime(5000);
+    expect(handlers.get('play')).toBeNull();
   });
 });

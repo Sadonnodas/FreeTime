@@ -120,6 +120,67 @@ export interface RecordOptions {
   keep?: boolean;
 }
 
+/*
+ * A recording in progress, as a signal the rest of the app can hear.
+ *
+ * Found in a car: recording a memo, and an OLD memo started playing over it.
+ * Starting a recording over Bluetooth switches the car from its music profile
+ * to its phone-call profile (the only one that carries a microphone), and many
+ * head units answer a profile change by sending PLAY — which iOS delivers to
+ * whatever this app last played. That was a memo player on the same screen,
+ * still loaded with the last take opened. The car was being a car; the bug is
+ * that the app left something loaded for it to find, and did not stop
+ * playback when you pressed record.
+ *
+ * So two things happen while a recording is live. Every memo player hears
+ * this and unloads (MemoList), so there is nothing to resume. And the page
+ * takes the remote-control buttons — the car's, the lock screen's, AirPods' —
+ * and does nothing with them, so a stray PLAY lands on nothing. They are held
+ * a few seconds past the end, because the switch BACK to the music profile,
+ * which happens as the microphone is released, sends another one.
+ */
+const listeners = new Set<(live: boolean) => void>();
+let live = false;
+let releaseGuard: ReturnType<typeof setTimeout> | null = null;
+const REMOTE_ACTIONS = [
+  'play', 'pause', 'stop', 'seekbackward', 'seekforward', 'previoustrack', 'nexttrack'
+] as const;
+/** How long the remote buttons stay swallowed after the mic is released. */
+const REMOTE_GUARD_TAIL_MS = 4000;
+
+export function isRecording(): boolean {
+  return live;
+}
+
+/** Called with true when a recording starts and false when it ends. */
+export function onRecordingChange(fn: (live: boolean) => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+function guardRemote(on: boolean) {
+  const session = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined;
+  if (!session) return;
+  for (const action of REMOTE_ACTIONS) {
+    // An action this browser does not know throws; that one stays unguarded.
+    try {
+      session.setActionHandler(action, on ? () => {} : null);
+    } catch {
+      /* unsupported action */
+    }
+  }
+}
+
+function setLive(on: boolean) {
+  if (live === on) return;
+  live = on;
+  if (releaseGuard) clearTimeout(releaseGuard);
+  releaseGuard = null;
+  if (on) guardRemote(true);
+  else releaseGuard = setTimeout(() => !live && guardRemote(false), REMOTE_GUARD_TAIL_MS);
+  for (const fn of listeners) fn(on);
+}
+
 /**
  * Starts recording. Throws if the user denies the microphone.
  *
@@ -136,7 +197,16 @@ export async function startRecording(opts: RecordOptions = {}): Promise<Recorder
         channelCount: 2
       }
     : {};
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
+  // BEFORE getUserMedia: opening the microphone is the moment the car switches
+  // profile, so anything playing has to have stopped by then. See setLive.
+  setLive(true);
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
+  } catch (err) {
+    setLive(false);
+    throw err;
+  }
 
   /*
    * A tap off the live stream, purely to draw the meter.
@@ -169,28 +239,36 @@ export async function startRecording(opts: RecordOptions = {}): Promise<Recorder
     meterCtx = null;
     analyser = null;
   }
-  const mimeType = pickMimeType(opts.keep);
-  const recorder = new MediaRecorder(stream, {
-    ...(mimeType ? { mimeType } : {}),
-    // The default is around 40 kbps, which is fine for speech and audibly
-    // grainy on music. Opus at 128 kbps is transparent enough for a demo and
-    // still only ~1 MB a minute.
-    ...(opts.music ? { audioBitsPerSecond: 128_000 } : {})
-  });
-  const chunks: Blob[] = [];
-
-  recorder.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data);
-  };
-  recorder.start();
-
   const releaseMic = () => {
     stream.getTracks().forEach((t) => t.stop());
     // Both, always, together. See the note on the meter above.
     void meterCtx?.close();
     meterCtx = null;
     analyser = null;
+    setLive(false);
   };
+
+  const mimeType = pickMimeType(opts.keep);
+  const chunks: Blob[] = [];
+  let recorder: MediaRecorder;
+  // The microphone is already open by here, so a recorder that refuses to be
+  // built must hand it back like every other way out — see stop() below.
+  try {
+    recorder = new MediaRecorder(stream, {
+      ...(mimeType ? { mimeType } : {}),
+      // The default is around 40 kbps, which is fine for speech and audibly
+      // grainy on music. Opus at 128 kbps is transparent enough for a demo and
+      // still only ~1 MB a minute.
+      ...(opts.music ? { audioBitsPerSecond: 128_000 } : {})
+    });
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+    recorder.start();
+  } catch (err) {
+    releaseMic();
+    throw err;
+  }
 
   return {
     mimeType: recorder.mimeType || mimeType || 'audio/webm',

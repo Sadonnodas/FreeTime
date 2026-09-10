@@ -5,6 +5,7 @@
     deleteMemo, updateMemo, shareMemo, mmss, whenLabel, monthLabel, displayTitle
   } from '$lib/memos';
   import { downloadMemoAudio } from '$lib/sync';
+  import { onRecordingChange } from '$lib/audio';
 
   /**
    * A list of recordings, with its own transport.
@@ -119,6 +120,21 @@
   const elsewhere = (m: Memo): boolean => !m.blob && !!m.driveFileId;
   const lost = (m: Memo): boolean => !m.blob && !m.driveFileId;
 
+  /**
+   * Stop AND empty the player, not just pause it.
+   *
+   * A paused player is still loaded, and a loaded player is what iOS resumes
+   * when a car, AirPods or the lock screen sends PLAY — found as an old take
+   * starting up over a new recording in the car. Emptying the source is what
+   * leaves nothing to resume.
+   */
+  function unload() {
+    if (!audioEl) return;
+    audioEl.pause();
+    audioEl.removeAttribute('src');
+    audioEl.load();
+  }
+
   function revoke() {
     if (url) URL.revokeObjectURL(url);
     url = null;
@@ -128,7 +144,14 @@
     playError = '';
   }
 
-  onDestroy(revoke);
+  // Leaving the screen closes the row properly too. An element that is merely
+  // detached can still be the one iOS thinks is "now playing".
+  onDestroy(() => close());
+
+  // Pressing record anywhere closes whatever is open here. Recording over a
+  // take that is still playing puts that take into the new one, and a take
+  // left loaded is exactly what the car resumed. See setLive in audio.ts.
+  onDestroy(onRecordingChange((live) => live && openId && close()));
 
   async function open(memo: Memo) {
     revoke();
@@ -161,7 +184,7 @@
   }
 
   function close() {
-    audioEl?.pause();
+    unload();
     revoke();
     openId = null;
   }

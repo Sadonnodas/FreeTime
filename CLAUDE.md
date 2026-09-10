@@ -302,6 +302,29 @@ Do not "fix" these without talking to Toon first.
   **Every path out of `stop()` must release the microphone.** Pinned by a test
   that fails against the old branch — checked by reverting the fix.
 
+- **Pressing record empties every memo player, and holds the remote buttons
+  while the mic is live** ([audio.ts](src/lib/audio.ts) `setLive`,
+  [MemoList.svelte](src/lib/components/MemoList.svelte) `unload`). Found in a
+  car: *"while I was recording another recording started playing"*. Opening
+  the microphone over Bluetooth switches the car from its music profile to its
+  call profile — the only one with a mic — and many head units answer a
+  profile change by sending PLAY, which iOS hands to whatever this app last
+  played. On a project page or Brain that was the memo list's player, still
+  LOADED with the last take opened: `close()` only paused it, and nothing
+  closed it when recording started. The car was being a car.
+  Now `startRecording` announces itself BEFORE getUserMedia (that is the
+  moment of the switch), every MemoList closes its row and empties the source
+  — a paused player is still a resumable one — and the page claims the Media
+  Session buttons with no-ops, so a stray PLAY lands on nothing. The claim is
+  held 4s past release, because switching BACK sends another PLAY.
+  **The flag must drop on every path out**, including a refused microphone and
+  a MediaRecorder that will not construct (which also used to leave the mic
+  open — the same leak class as the entry below). Stuck on, it would swallow
+  the lock screen's buttons for good. Pinned in
+  [audio.test.ts](src/lib/audio.test.ts).
+  Not done, and worth knowing: over car Bluetooth the recording itself comes
+  from the CAR's microphone, on a call-quality line. Fine for a hummed idea;
+  not a take.
 - **A memo is KEPT, so it has to play back, which is a different requirement
   from being recordable** ([audio.ts](src/lib/audio.ts) `KEEP_ORDER`). The mime
   list was written for the brain-dump path — its comment says "something
