@@ -22,13 +22,59 @@
     memos,
     projects = [],
     grouped = true,
-    showProject = true
+    showProject = true,
+    controls = false
   }: {
     memos: Memo[];
     projects?: Project[];
     grouped?: boolean;
     showProject?: boolean;
+    /**
+     * Show the search / order / era controls above the list.
+     *
+     * Off by default: the same component draws the whole library in Brain, a
+     * single project's recordings, and the handful behind a map pin. A search
+     * box over four recordings is furniture.
+     */
+    controls?: boolean;
   } = $props();
+
+  let query = $state('');
+  let order = $state<'newest' | 'oldest'>('newest');
+  let filterProject = $state('');
+
+  /**
+   * What a search matches.
+   *
+   * Everything the row can show, not just the title — most memos never get one,
+   * which is the whole point of capturing date, place and project without
+   * asking. Searching only titles would miss almost the entire library.
+   */
+  const haystack = (m: Memo): string =>
+    [
+      m.title,
+      projects.find((p) => p.id === m.projectId)?.name,
+      m.tag,
+      m.place,
+      // Both the machine form and the readable one, so "sep" and "2026-09" work.
+      m.recordedAt,
+      whenLabel(m.recordedAt),
+      monthLabel(m.recordedAt)
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+  const shown = $derived.by(() => {
+    if (!controls) return memos;
+    const q = query.trim().toLowerCase();
+    const out = memos
+      .filter((m) => (filterProject ? m.projectId === filterProject : true))
+      .filter((m) => (q ? haystack(m).includes(q) : true));
+    // memos arrives newest-first; oldest is the same list read backwards, so
+    // the month headings stay in the order the list is actually in.
+    return order === 'oldest' ? [...out].reverse() : out;
+  });
 
   let openId = $state<string | null>(null);
   let url = $state<string | null>(null);
@@ -218,9 +264,9 @@
 
   // Month headings, computed once per list rather than per row.
   const groups = $derived.by(() => {
-    if (!grouped) return [{ label: '', items: memos }];
+    if (!grouped) return [{ label: '', items: shown }];
     const out: { label: string; items: Memo[] }[] = [];
-    for (const m of memos) {
+    for (const m of shown) {
       const label = monthLabel(m.recordedAt);
       const last = out.at(-1);
       if (last?.label === label) last.items.push(m);
@@ -229,6 +275,54 @@
     return out;
   });
 </script>
+
+{#if controls}
+  <!--
+    Search, order and era. The MAP has had a project filter and a period filter
+    since it was built and the LIST had neither, which is backwards: the map is
+    for "where was I", and the list is where you go when you know what you are
+    looking for and just need to reach it.
+  -->
+  <div class="mb-3 space-y-2">
+    <input
+      bind:value={query}
+      placeholder="Search recordings"
+      class="field w-full"
+      aria-label="Search recordings"
+    />
+    <div class="flex flex-wrap gap-2">
+      <select bind:value={filterProject} class="field press text-sm">
+        <option value="">All eras</option>
+        {#each projects as p (p.id)}
+          <option value={p.id}>{p.name}</option>
+        {/each}
+      </select>
+      <select bind:value={order} class="field press text-sm" aria-label="Order">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+      </select>
+      {#if query || filterProject}
+        <button
+          class="press tap rounded-xl px-3 text-sm text-ink-400"
+          onclick={() => {
+            query = '';
+            filterProject = '';
+          }}
+        >
+          Clear
+        </button>
+      {/if}
+    </div>
+    {#if query || filterProject}
+      <!-- Said out loud: a filtered library that does not say so is how you come
+           to believe recordings have gone missing. -->
+      <p class="footnote">
+        {shown.length} of {memos.length}
+        {memos.length === 1 ? 'recording' : 'recordings'}.
+      </p>
+    {/if}
+  </div>
+{/if}
 
 {#if note}
   <p class="footnote mb-2 text-good">{note}</p>
@@ -350,6 +444,54 @@
                 placeholder="Untitled"
                 class="field mt-2 w-full text-sm"
               />
+
+              <!--
+                WHERE IT BELONGS, DECIDED LATER.
+
+                A memo could only be filed in the panel that appears the moment
+                you stop recording — which is exactly the trap to-dos were in,
+                and the principle is already written down: nothing has to be
+                filed at capture, but that only holds if it can be moved
+                afterwards. You hum something in a car park; which song it turns
+                out to belong to is not knowable for another week.
+              -->
+              <p class="section-label mt-3 mb-2">Belongs to</p>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  class="chip press {memo.projectId ? '' : 'chip-on'}"
+                  onclick={() => updateMemo(memo.id, { projectId: undefined, tag: undefined })}
+                >
+                  Nowhere yet
+                </button>
+                {#each projects as p (p.id)}
+                  <button
+                    class="chip press {memo.projectId === p.id ? 'chip-on' : ''}"
+                    onclick={() =>
+                      updateMemo(memo.id, {
+                        projectId: memo.projectId === p.id ? undefined : p.id,
+                        // The old project belonged to the old era.
+                        tag: undefined
+                      })}
+                  >
+                    {p.name}
+                  </button>
+                {/each}
+              </div>
+
+              {@const eraTags = projects.find((p) => p.id === memo.projectId)?.tags ?? []}
+              {#if eraTags.length}
+                <p class="section-label mt-3 mb-2">Project</p>
+                <div class="flex flex-wrap gap-2">
+                  {#each eraTags as t (t)}
+                    <button
+                      class="chip press {memo.tag === t ? 'chip-on' : ''}"
+                      onclick={() => updateMemo(memo.id, { tag: memo.tag === t ? undefined : t })}
+                    >
+                      {t}
+                    </button>
+                  {/each}
+                </div>
+              {/if}
             {/if}
 
             <div class="mt-1 flex flex-wrap items-center gap-1">

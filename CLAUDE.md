@@ -197,6 +197,26 @@ Do not "fix" these without talking to Toon first.
   Not added to the brain-dump recorder in VoiceCapture, which still shows only
   a clock; `level` is available there for the asking.
 
+- **The memo LIST can be searched, ordered and filtered, and a memo can be
+  re-filed afterwards** ([MemoList.svelte](src/lib/components/MemoList.svelte),
+  `controls`). The MAP had a project filter and a period filter from the day it
+  was built and the list had neither, which is backwards: the map answers
+  "where was I", and the list is where you go already knowing what you want.
+  **Search matches everything a row can show**, not just the title — era,
+  project, place, the ISO date and the readable one — because most memos never
+  get a title, which is the entire point of capturing when and where without
+  asking. Title-only search would miss almost the whole library.
+  `controls` is off by default: the same component draws the whole library in
+  Brain, one project's recordings, and the handful behind a map pin, and a
+  search box over four recordings is furniture.
+  **Re-filing was the real gap.** A memo could only be given an era and a
+  project in the panel that appears the moment you stop recording — the exact
+  trap to-dos were in, against a principle already written down here: nothing
+  has to be filed at capture, but that only holds if it can be moved later. You
+  hum something in a car park; which song it belongs to is not knowable for
+  another week. The "Belongs to" row is now in the row editor, same shape as
+  ideas and buy items.
+
 - **A live microphone track poisons playback on iOS, and the symptom looks like
   a broken recording** ([audio.ts](src/lib/audio.ts) `stop`,
   [audio.test.ts](src/lib/audio.test.ts)). Reported as a memo that would not

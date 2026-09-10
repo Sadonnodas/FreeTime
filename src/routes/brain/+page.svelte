@@ -800,6 +800,7 @@
         <MemoList
           memos={($memosQ as Memo[] | undefined) ?? []}
           projects={($projectsQ as Project[] | undefined) ?? []}
+          controls
         />
       {/if}
       {#if storage}
