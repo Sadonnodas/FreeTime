@@ -6,7 +6,7 @@ import { getAccessToken, isConnected } from './google/auth';
 import { clearCalendarCache } from './google/calendar';
 import {
   ensureFolders, list, readFile, readJsonArray, writeFile, writeBlob, readBlob,
-  deleteFile, DriveAuthError
+  deleteFile, renameFile, DriveAuthError
 } from './google/drive';
 import type { Memo } from './types';
 import { fileName } from './memos';
@@ -234,13 +234,26 @@ async function syncMemos(token: string, memosFolderId: string): Promise<void> {
     }
   }
 
+  /*
+   * Names carry the era and the project, so the flat folder in Drive groups
+   * itself and Drive's own search finds "every Valerie recording" without the
+   * app. Resolved here because a memo stores ids, and a file name has to be
+   * words — and words that follow a rename.
+   */
+  const eras = await db.projects.toArray();
+  const whereOf = (memo: Memo) => {
+    const era = eras.find((p) => p.id === memo.projectId);
+    return { era: era?.name, project: memo.tag };
+  };
+
   // Upload anything recorded here that Drive has not got yet.
   const fresh = await db.memos.toArray();
   let uploaded = false;
   for (const memo of fresh) {
     if (memo.deletedAt || memo.driveFileId || !memo.blob) continue;
+    const name = fileName(memo, whereOf(memo));
     const id = await writeBlob(token, {
-      name: fileName(memo),
+      name,
       parentId: memosFolderId,
       blob: memo.blob,
       mimeType: memo.mime
@@ -248,11 +261,44 @@ async function syncMemos(token: string, memosFolderId: string): Promise<void> {
     // Bookkeeping, so it must not look like a user edit to the next merge.
     applyingRemote = true;
     try {
-      await db.memos.update(memo.id, { driveFileId: id, updatedAt: now() });
+      await db.memos.update(memo.id, { driveFileId: id, driveName: name, updatedAt: now() });
     } finally {
       applyingRemote = false;
     }
     uploaded = true;
+  }
+
+  /*
+   * And keep the names true afterwards.
+   *
+   * A memo filed a week later, an era renamed, a title finally typed — all
+   * change where the recording belongs, and a file called after the old answer
+   * is worse than one called nothing, because it reads as fact. `driveName`
+   * remembers what it is called so this costs one comparison rather than
+   * fetching every file's metadata every time.
+   */
+  for (const memo of fresh) {
+    if (memo.deletedAt || !memo.driveFileId) continue;
+    /*
+     * Never rename on the strength of something this device does not know yet.
+     *
+     * A memo pointing at an era whose record has not arrived here resolves to
+     * no era, and renaming on that would STRIP the era from the file — then the
+     * device that does know would put it back on its next sync, and the two
+     * would take turns renaming the same file forever. The generic table loop
+     * runs before this and brings the eras down, so the gap is small; small is
+     * not the same as closed.
+     */
+    if (memo.projectId && !eras.some((p) => p.id === memo.projectId)) continue;
+    const want = fileName(memo, whereOf(memo));
+    if (want === memo.driveName) continue;
+    await renameFile(token, memo.driveFileId, want);
+    applyingRemote = true;
+    try {
+      await db.memos.update(memo.id, { driveName: want, updatedAt: now() });
+    } finally {
+      applyingRemote = false;
+    }
   }
 
   // Audio the user deleted goes for real, on every device and in Drive.

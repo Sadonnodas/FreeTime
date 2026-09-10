@@ -217,6 +217,29 @@ export async function deleteFile(token: string, id: string): Promise<void> {
   }
 }
 
+/**
+ * Rename a file in place.
+ *
+ * This is the whole reason the era and project live in the NAME rather than in
+ * a folder tree. Re-file a memo or rename an era and correcting Drive is one
+ * metadata patch on one file — where a tree would mean moving files between
+ * folders, creating the ones that do not exist yet, and leaving a half-moved
+ * structure behind if any of it fails or the device is offline.
+ */
+export async function renameFile(token: string, id: string, name: string): Promise<void> {
+  try {
+    await call(token, `${API}/files/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+  } catch (err) {
+    if (err instanceof DriveAuthError) throw err;
+    // A name is cosmetic. The audio is still there under the old one, and the
+    // next sync tries again — never worth failing a sync over.
+  }
+}
+
 /** File contents as text, or null if the id no longer resolves. */
 export async function readFile(token: string, id: string): Promise<string | null> {
   try {

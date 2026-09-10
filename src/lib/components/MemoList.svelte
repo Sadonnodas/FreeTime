@@ -229,7 +229,10 @@
       }
       subject = { ...memo, blob };
     }
-    const result = await shareMemo(subject);
+    const result = await shareMemo(subject, {
+      era: projects.find((p) => p.id === subject.projectId)?.name,
+      project: subject.tag
+    });
     // 'cancelled' is the user backing out of the sheet and says itself. Every
     // other outcome gets a word: a share button that silently does nothing is
     // indistinguishable from a broken one, which is how this was reported.

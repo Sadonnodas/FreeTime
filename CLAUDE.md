@@ -197,6 +197,33 @@ Do not "fix" these without talking to Toon first.
   Not added to the brain-dump recorder in VoiceCapture, which still shows only
   a clock; `level` is available there for the asking.
 
+- **The era and project live in the Drive FILENAME, not in a folder tree**
+  ([memos.ts](src/lib/memos.ts) `fileName`, [sync.ts](src/lib/sync.ts),
+  `Memo.driveName`). Asked as *"would it be an idea that the google drive folder
+  gets structured like our app"* — and the answer is the name, which does the
+  same job for a fraction of the moving parts. A file is
+  `Weddings – Cover- Valerie – 2026-08-14 22.40 – key check.m4a`: era and
+  project FIRST, so a flat folder groups itself and Drive's own search finds
+  every recording for one song without the app.
+  **Why not folders.** A tree is a second index that has to stay true. Rename an
+  era and every file underneath has to move; re-file a memo and a file moves;
+  do either offline or on two devices and the tree is half-moved and no longer
+  matches the app — which is the app's data claiming to be somewhere it is not.
+  Correcting a NAME is one metadata patch on one file (`renameFile`), and a
+  failed patch leaves the audio exactly where it was.
+  **Names are kept true afterwards**, since a memo filed a week later or an era
+  renamed both change the answer, and a file named after the old one is worse
+  than one named nothing because it reads as fact. `driveName` remembers the
+  current name so this costs a string compare rather than fetching every file's
+  metadata every sync. Memos uploaded before this get renamed once, which is the
+  migration.
+  **A rename is SKIPPED when the era cannot be resolved locally.** A memo
+  pointing at an era whose record has not arrived on this device resolves to no
+  era, and renaming on that would strip the era from the file — then the device
+  that does know would put it back, and the two would take turns renaming the
+  same file forever. The generic table loop runs before `syncMemos` and brings
+  the eras down first, so the gap is small; small is not closed.
+
 - **The memo LIST can be searched, ordered and filtered, and a memo can be
   re-filed afterwards** ([MemoList.svelte](src/lib/components/MemoList.svelte),
   `controls`). The MAP had a project filter and a period filter from the day it

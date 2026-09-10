@@ -118,12 +118,35 @@ const EXTENSIONS: Record<string, string> = {
 };
 
 /** A filename a bandmate can read in a chat thread. */
-export function fileName(memo: Memo): string {
+/** Where a memo belongs, in words rather than ids. */
+export interface MemoWhere {
+  era?: string;
+  project?: string;
+}
+
+/**
+ * What the file is called in Drive.
+ *
+ * ERA AND PROJECT FIRST, then the timestamp. Drive shows one flat folder, so
+ * putting them at the front makes the list group itself — every recording for
+ * one song lands together — and Drive's own search finds them wherever they
+ * sit. Asked for as a folder tree mirroring the app; the name does the same job
+ * for a fraction of the moving parts, because renaming one file is a metadata
+ * patch while re-parenting it is a tree that can end up half-moved.
+ *
+ * Every part is optional, which is the point: an unfiled memo hummed in a car
+ * park still gets a sensible name, and gains the rest if it is ever filed.
+ */
+export function fileName(memo: Memo, where: MemoWhere = {}): string {
   const base = memo.mime.split(';')[0] ?? '';
   const ext = EXTENSIONS[base] ?? 'audio';
   const stamp = memo.recordedAt.slice(0, 16).replace('T', ' ').replace(':', '.');
-  const name = memo.title?.trim();
-  return `${stamp}${name ? ` ${name}` : ''}.${ext}`.replace(/[/\\?%*:|"<>]/g, '-');
+  const parts = [where.era, where.project, stamp, memo.title?.trim()]
+    .map((v) => v?.trim())
+    .filter(Boolean);
+  // The separator is an en dash with spaces: a hyphen is far too common inside
+  // song titles to read as a divider.
+  return `${parts.join(' – ')}.${ext}`.replace(/[/\\?%*:|"<>]/g, '-');
 }
 
 // ------------------------------------------------------------------ device
@@ -202,9 +225,11 @@ export type ShareResult = 'shared' | 'downloaded' | 'cancelled' | 'unsupported';
  * that is unavailable (most desktop browsers) it falls back to saving the file,
  * which at least gets it somewhere the user can attach it from.
  */
-export async function shareMemo(memo: Memo): Promise<ShareResult> {
+export async function shareMemo(memo: Memo, where: MemoWhere = {}): Promise<ShareResult> {
   if (!memo.blob) return 'unsupported';
-  const file = new File([memo.blob], fileName(memo), { type: memo.mime });
+  // The same name Drive uses, so a recording sent to a bandmate arrives called
+  // the same thing it is called everywhere else.
+  const file = new File([memo.blob], fileName(memo, where), { type: memo.mime });
 
   if (navigator.canShare?.({ files: [file] })) {
     try {

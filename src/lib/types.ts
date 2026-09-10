@@ -336,6 +336,16 @@ export interface Memo extends Base {
    * different thing from gone.
    */
   driveFileId?: string;
+  /**
+   * What that file is currently CALLED in Drive.
+   *
+   * Remembered so a rename can be spotted without fetching every file's
+   * metadata on every sync: the desired name is computed from the era, the
+   * project, the date and the title, and if it differs from this one the file
+   * is renamed and this is updated. Absent on memos uploaded before names
+   * carried the era, which simply get renamed on the next sync.
+   */
+  driveName?: string;
 }
 
 /**

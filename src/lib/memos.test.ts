@@ -97,14 +97,33 @@ describe('naming', () => {
 
   it('builds a shareable filename with the right extension', () => {
     expect(fileName(memo({ title: 'Chorus', mime: 'audio/webm;codecs=opus' }))).toBe(
-      '2026-08-14 22.40 Chorus.webm'
+      '2026-08-14 22.40 – Chorus.webm'
     );
     // Safari records mp4; .m4a is what mail clients and phones expect to see.
     expect(fileName(memo({ mime: 'audio/mp4' }))).toBe('2026-08-14 22.40.m4a');
   });
 
+  it('leads with the era and the project, so a flat Drive folder groups itself', () => {
+    // The answer to "where do I find every recording for that cover" without
+    // a folder tree that has to be kept true.
+    expect(
+      fileName(memo({ title: 'key check', mime: 'audio/mp4' }), {
+        era: 'Weddings',
+        project: 'Cover: Valerie'
+      })
+    ).toBe('Weddings – Cover- Valerie – 2026-08-14 22.40 – key check.m4a');
+  });
+
+  it('drops the parts a memo does not have, rather than leaving gaps', () => {
+    // An unfiled memo hummed in a car park still gets a sensible name, and
+    // gains the rest of it if it is ever filed.
+    expect(fileName(memo({ mime: 'audio/mp4' }), { era: 'Songwriting' })).toBe(
+      'Songwriting – 2026-08-14 22.40.m4a'
+    );
+  });
+
   it('strips characters that are illegal in a filename', () => {
-    expect(fileName(memo({ title: 'a/b:c?d' }))).toBe('2026-08-14 22.40 a-b-c-d.webm');
+    expect(fileName(memo({ title: 'a/b:c?d' }))).toBe('2026-08-14 22.40 – a-b-c-d.webm');
   });
 });
 
