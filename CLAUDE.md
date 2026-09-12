@@ -648,6 +648,33 @@ one came close to a hard rule, the reasoning is recorded here.
   Bare URLs are linkified because that is how links actually arrive — nobody types
   the brackets — with trailing punctuation left outside the href.
 
+- **A to-do can carry a photo, and it is the SAME control a buy item uses**
+  (`Todo.image`, [PhotoPicker.svelte](src/lib/components/PhotoPicker.svelte),
+  [PhotoThumb.svelte](src/lib/components/PhotoThumb.svelte),
+  [PhotoViewer.svelte](src/lib/components/PhotoViewer.svelte)). Asked for from
+  a real morning: a screenshot of something broken, a to-do written about it,
+  and nowhere to put the screenshot. Shopping photos already worked and had
+  worked for months — the gap was to-dos, and the work was mostly EXTRACTING
+  what BuyList already had so the two cannot drift into offering different
+  things in different places.
+  Four surfaces show it: Brain, the project screen, the era overview and a
+  Today card. **On Today the thumb sits opposite the tick and is smaller than
+  it (40 vs 44), so a card with a photo is exactly as tall as one without** —
+  measured at 375×812, both 106px. That page has to stay calm.
+  **A thumbnail must be a SIBLING of the row's own button, never inside it.**
+  Every one of these rows is a big button that opens the editor, and a button
+  inside a button is invalid — the inner one silently stops working.
+  **THUMB_EDGE, the same cap as a shopping photo, and the cap is the load-
+  bearing part.** These ride inside `todos.json`, which the generic sync
+  re-uploads WHOLE whenever any to-do changes — so a phone photo left at full
+  size would put 4 MB on the wire every time anything is ticked. At 480px a
+  screenshot lands around 5 KB. If these ever grow into the hundreds, the fix
+  is to move photos into a file of their own, NOT to raise the cap: to-dos are
+  never deleted, so their photos accumulate forever by design.
+  `PhotoThumb` owns its own viewer rather than reporting the tap upwards,
+  because every list wants the identical thing to happen and a list holding its
+  own `viewing` variable is a list that can forget to render the overlay.
+
 - **A buy item stores the price of ONE, never the line total** (`BuyItem.qty`,
   `priceCents`, [buy.test.ts](src/lib/buy.test.ts)). Storing the total was the
   alternative and it is a quiet trap: changing the quantity afterwards would leave
@@ -1303,6 +1330,36 @@ device; there is nothing to build. Memos are the exception, below.
   rather than growing a fourth slot or failing quietly. The DayFullError catch
   is still needed even though the button hides itself: the cap lives in data
   and two devices share one day.
+
+- **A suspended phone never renews its Google token, and that is why a day
+  away ended signed out** ([auth.ts](src/lib/google/auth.ts)
+  `startRenewalWatch`, [auth.test.ts](src/lib/google/auth.test.ts),
+  [ReconnectNotice.svelte](src/lib/components/ReconnectNotice.svelte)).
+  Reported as *"I get logged out of Google a lot. If I don't interact for a
+  day it logs out."* `renewIfSafe`'s own comment said it runs at "app start, or
+  returning to a backgrounded app" — and only the app-start caller was ever
+  wired, in the layout's `onMount`. An installed app on iOS is SUSPENDED rather
+  than closed, so onMount may not run for weeks: the app comes back holding an
+  hour-old token, sync pauses on `no-token`, and nothing ever tries again. The
+  calendar cache, the theme and the update check all learned this same lesson
+  — a device that has been asleep has to be told to look again — and this file
+  is where that belonged the first time.
+  **The renewal is refused while a field has focus.** It is a full-page
+  redirect; prompt=none returns immediately, but "immediately" is still a page
+  load, and losing a half-written capture to a token refresh would be worse
+  than the bug being fixed.
+  **And when Google will not renew quietly, the app now says so on every
+  screen** rather than only in Settings, which is the last place anyone looks
+  when nothing appears wrong. One state only: connected before, no usable token
+  now. Not offline (the network is broken, not the app), not signed out (there
+  is nothing to reconnect to). No dismiss, for the update notice's reason — a
+  warning you can wave away leaves you believing everything synced. It names
+  what is still true ("Everything is still saved here"), because "sync has
+  stopped" reads as "your work is at risk" and it is not.
+  **This reduces the frequency; it cannot guarantee a renewal succeeds.**
+  prompt=none needs a live Google session in this browser, and an installed
+  iOS web app does not necessarily share Safari's. When Google declines, a tap
+  is the only way through — which is what the notice is for.
 
 - **"Connected" with a dead token had no way forward but Disconnect**
   ([settings/+page.svelte](src/routes/settings/+page.svelte) `needsFreshSignIn`).

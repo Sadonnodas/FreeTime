@@ -3,7 +3,8 @@
   import { markPurchased, updateBuyItem, softDelete, toggleBuyNeeded } from '$lib/store';
   import RenameField from '$lib/components/RenameField.svelte';
   import { money } from '$lib/format';
-  import { resizeImage, THUMB_EDGE } from '$lib/images';
+  import PhotoThumb from './PhotoThumb.svelte';
+  import PhotoPicker from './PhotoPicker.svelte';
   import RemoveButton from './RemoveButton.svelte';
 
   /**
@@ -52,24 +53,6 @@
     return Number.isFinite(n) && n > 1 ? n : undefined;
   }
 
-  let uploadError = $state('');
-  async function onPhoto(item: BuyItem, e: Event) {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    uploadError = '';
-    try {
-      await updateBuyItem(item.id, { image: await resizeImage(file, THUMB_EDGE) });
-    } catch (err) {
-      uploadError = (err as Error).message;
-    }
-    // Lets the same file be picked twice running, which otherwise fires no
-    // change event and looks like the app ignored the tap.
-    input.value = '';
-  }
-
-  /** The photo opened full size. */
-  let viewing = $state<BuyItem | null>(null);
 
   /** The shop, shown as its domain — "bol.com" is more use at a glance than
    *  eighty characters of tracking parameters. */
@@ -183,13 +166,7 @@
         {#if item.image}
           <!-- A thumbnail, because "the bracket" and "the other bracket" are
                the same six words and not the same part. -->
-          <button
-            class="press h-10 w-10 shrink-0 overflow-hidden rounded-lg"
-            onclick={() => (viewing = item)}
-            aria-label="View photo of {item.name}"
-          >
-            <img src={item.image} alt="" class="h-full w-full object-cover" />
-          </button>
+          <PhotoThumb image={item.image} label={item.name} />
         {/if}
 
         <button
@@ -275,24 +252,11 @@
             class="field w-full text-sm"
           />
 
-          <div class="flex items-center gap-2">
-            <label class="press tap flex flex-1 items-center justify-center rounded-xl bg-surface-2 text-sm">
-              <input type="file" accept="image/*" class="hidden" onchange={(e) => onPhoto(item, e)} />
-              <span class="text-accent">{item.image ? 'Change photo' : 'Add a photo'}</span>
-            </label>
-            {#if item.image}
-              <button
-                type="button"
-                class="press tap-h rounded-lg px-3 text-sm text-ink-400"
-                onclick={() => updateBuyItem(item.id, { image: undefined })}
-              >
-                Remove photo
-              </button>
-            {/if}
-          </div>
-          {#if uploadError}
-            <p class="footnote text-accent-2">{uploadError}</p>
-          {/if}
+          <PhotoPicker
+            image={item.image}
+            onpick={(image) => updateBuyItem(item.id, { image })}
+            onremove={() => updateBuyItem(item.id, { image: undefined })}
+          />
 
           {#if showProject}
             <div class="flex flex-wrap gap-2">
@@ -352,23 +316,3 @@
   </div>
 {/if}
 
-{#if viewing?.image}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="glass-strong rise fixed inset-0 z-50 flex flex-col"
-    onclick={() => (viewing = null)}
-  >
-    <div class="flex items-center justify-between gap-3 px-4 pt-safe">
-      <p class="section-label truncate py-3">{viewing.name}</p>
-      <button
-        class="press tap-h px-2 text-[22px] leading-none text-ink-400"
-        onclick={() => (viewing = null)}
-        aria-label="Close">×</button
-      >
-    </div>
-    <div class="flex min-h-0 flex-1 items-center justify-center p-3 pb-safe">
-      <img src={viewing.image} alt={viewing.name} class="max-h-full max-w-full object-contain" />
-    </div>
-  </div>
-{/if}

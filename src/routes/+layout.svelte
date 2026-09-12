@@ -6,16 +6,18 @@
   import { migrateToFourKinds, needsMigration } from '$lib/migrate';
   import { base } from '$app/paths';
   import { onDestroy } from 'svelte';
-  import { handleRedirect, renewIfSafe } from '$lib/google/auth';
+  import { handleRedirect, renewIfSafe, startRenewalWatch } from '$lib/google/auth';
   import { startSync } from '$lib/sync';
   import { processQueue } from '$lib/gemini/commit';
   import { startThemeWatch } from '$lib/theme';
   import UpdateNotice from '$lib/components/UpdateNotice.svelte';
+  import ReconnectNotice from '$lib/components/ReconnectNotice.svelte';
 
   let { children } = $props();
 
   let stopSync: (() => void) | undefined;
   let stopUpdates: (() => void) | undefined;
+  let stopRenewal: (() => void) | undefined;
   // Started outside onMount so the theme is settled before the first render,
   // rather than a frame after it. The pre-paint script in app.html has already
   // set the attribute; this keeps `system` following the OS live afterwards.
@@ -25,6 +27,7 @@
   onDestroy(() => {
     stopSync?.();
     stopUpdates?.();
+    stopRenewal?.();
     stopTheme();
     window.removeEventListener('online', drainQueue);
   });
@@ -127,6 +130,10 @@
     // fresh token — nothing is half-typed yet. If this redirects, everything
     // below simply runs again on the way back.
     await renewIfSafe();
+    // And again whenever the app comes back to the front. A suspended phone
+    // never runs this function twice, which is why a day away used to end
+    // signed out. See startRenewalWatch.
+    stopRenewal = startRenewalWatch();
     stopSync = startSync();
 
     // Recordings made with no signal are turned into items as soon as there is
@@ -189,6 +196,7 @@
   <!-- Above the scrolling area, so it is seen without being fixed over the
        content or eating into a page's own safe-area padding. -->
   <UpdateNotice />
+  <ReconnectNotice />
 
   <main class="min-h-0 flex-1 overflow-y-auto">
     <div class="page h-full">

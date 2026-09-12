@@ -20,6 +20,7 @@
   import FreeTime from '$lib/components/FreeTime.svelte';
   import Dino from '$lib/components/Dino.svelte';
   import Burst from '$lib/components/Burst.svelte';
+  import PhotoThumb from '$lib/components/PhotoThumb.svelte';
   import { randomSticker, stickerUrl } from '$lib/stickers';
   import { pickScene, pickQuip } from '$lib/freeTimeScenes';
 
@@ -473,6 +474,12 @@
                 </div>
               {/if}
             </div>
+            {#if todo.image}
+              <!-- Opposite the tick, and smaller than it, so a card with a
+                   photo is exactly as tall as one without. This is the screen
+                   that has to stay calm. -->
+              <PhotoThumb image={todo.image} label={todo.title} />
+            {/if}
           </div>
         </div>
       {/each}

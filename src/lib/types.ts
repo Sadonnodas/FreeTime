@@ -117,6 +117,18 @@ export interface Todo extends Base {
    */
   after?: string;
   date?: string; // YYYY-MM-DD
+  /**
+   * A photo of the thing, resized hard (THUMB_EDGE) — the screenshot of the
+   * error you are going to fix, the wall you are going to drill.
+   *
+   * Same shape and same cap as `BuyItem.image`, on purpose: one editor control
+   * serves both, so they cannot end up offering different things in different
+   * places. The cap is the load-bearing part — a to-do row rides inside
+   * todos.json on every sync, and that file is re-uploaded whole whenever any
+   * to-do changes. If these ever grow into hundreds, the fix is to move photos
+   * into a file of their own rather than to raise the cap.
+   */
+  image?: string;
   completedAt?: string;
 }
 

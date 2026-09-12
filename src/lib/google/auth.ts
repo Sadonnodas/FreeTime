@@ -199,6 +199,41 @@ export async function renewIfSafe(): Promise<void> {
   if (await needsSilentRenewal()) await beginSignIn(true);
 }
 
+/**
+ * The SECOND safe moment, which this file described for months and nobody
+ * wired up.
+ *
+ * `renewIfSafe` was called once, from the layout's onMount — a COLD LAUNCH. An
+ * installed app on iOS is suspended rather than closed, so a phone picked up
+ * the next morning never runs onMount again: it comes back holding an hour-old
+ * token, sync pauses on `no-token`, and nothing ever tries to renew. Reported
+ * exactly that way — *"if I don't interact for a day it logs out"*. The
+ * calendar cache and the theme both learned this same lesson; a device that
+ * has been asleep has to be told to look again.
+ *
+ * A renewal is a full-page redirect, so it is refused while a field has focus.
+ * prompt=none comes straight back, but "straight back" is still a page load,
+ * and losing a half-written capture to a token refresh would be a far worse
+ * bug than the one this fixes. When it is refused, nothing is lost: the app
+ * keeps working offline and the reconnect notice offers the trip explicitly.
+ */
+export function startRenewalWatch(): () => void {
+  const onVisible = () => {
+    if (document.visibilityState !== 'visible') return;
+    if (isTyping()) return;
+    void renewIfSafe();
+  };
+  document.addEventListener('visibilitychange', onVisible);
+  return () => document.removeEventListener('visibilitychange', onVisible);
+}
+
+function isTyping(): boolean {
+  const el = document.activeElement as HTMLElement | null;
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
+}
+
 /** Forgets the token locally. Does not revoke — the user can do that from
  *  their Google account page, and pretending otherwise would be a lie. */
 export async function signOut(): Promise<void> {

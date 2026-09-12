@@ -19,6 +19,8 @@
   import DurationPicker from '$lib/components/DurationPicker.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
   import RenameField from '$lib/components/RenameField.svelte';
+  import PhotoThumb from '$lib/components/PhotoThumb.svelte';
+  import PhotoPicker from '$lib/components/PhotoPicker.svelte';
   import AddField from '$lib/components/AddField.svelte';
   import PlanToday from '$lib/components/PlanToday.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
@@ -525,6 +527,9 @@
               onclick={() => !t.completedAt && completeTodo(t.id)}
               aria-label="Complete">{t.completedAt ? '✓' : '○'}</button
             >
+            {#if t.image}
+              <PhotoThumb image={t.image} label={t.title} />
+            {/if}
             <button
               class="min-w-0 flex-1 py-3 text-left"
               onclick={() => (openTodo = openTodo === t.id ? null : t.id)}
@@ -605,6 +610,14 @@
                   <EnergyPicker value={t.energy} onpick={(energy) => updateTodo(t.id, { energy })} />
                 </div>
               {/if}
+              <div>
+                <p class="section-label mb-2">Photo</p>
+                <PhotoPicker
+                  image={t.image}
+                  onpick={(image) => updateTodo(t.id, { image })}
+                  onremove={() => updateTodo(t.id, { image: undefined })}
+                />
+              </div>
               <!--
                 Down here with the actions, deliberately far from the When
                 chips above. Those set a DATE — the day it is promised for —

@@ -25,6 +25,8 @@
   import DurationPicker from '$lib/components/DurationPicker.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
   import RenameField from '$lib/components/RenameField.svelte';
+  import PhotoThumb from '$lib/components/PhotoThumb.svelte';
+  import PhotoPicker from '$lib/components/PhotoPicker.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import PlanToday from '$lib/components/PlanToday.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
@@ -606,6 +608,9 @@
                 onclick={() => completeTodo(todo.id)}
                 aria-label="Complete">○</button
               >
+              {#if todo.image}
+                <PhotoThumb image={todo.image} label={todo.title} />
+              {/if}
               <button
                 class="min-w-0 flex-1 py-3 text-left"
                 onclick={() => (openTodo = openTodo === todo.id ? null : todo.id)}
@@ -662,6 +667,15 @@
                   <EnergyPicker
                     value={todo.energy}
                     onpick={(energy) => updateTodo(todo.id, { energy })}
+                  />
+                </div>
+
+                <div>
+                  <p class="section-label mb-2">Photo</p>
+                  <PhotoPicker
+                    image={todo.image}
+                    onpick={(image) => updateTodo(todo.id, { image })}
+                    onremove={() => updateTodo(todo.id, { image: undefined })}
                   />
                 </div>
 
