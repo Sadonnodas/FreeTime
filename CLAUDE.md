@@ -642,6 +642,30 @@ one came close to a hard rule, the reasoning is recorded here.
   Brain and a card on Eras cannot disagree. It leads the row, ahead of any
   photo, because a column of dots is scannable and dots at varying x positions
   are not — the same finding as the Today picker.
+  **The dot became the whole row a day later, and the row needs TWO colours.**
+  Asked for as *"you can color the whole box, not just give them a color dot. I
+  like that you can visually quickly see what to-dos kind of belong to the same
+  things"* — a different question from "which project is this": it is about
+  grouping, and a wash of colour is what answers grouping at a glance.
+  The wash is the PROJECT's colour and the left edge is the ERA's, because a
+  project's colour is only unique inside its era — the palette restarts for
+  each one, so the first project of Campervan and the first project of Coding
+  are both orange. On a project screen that never mattered; Brain shows every
+  era at once, where two identical washes would claim a kinship that is not
+  there. Fill says which project, edge says which era, and the pair stays
+  distinct when the fill does not (`.row-tint`, `--row` and `--edge`). Mixed
+  into the surface rather than laid over it, so it darkens on paper and
+  lightens on ink like every other surface token; checked in both themes.
+  **The four kind-tabs carry the same palette** (`SECTION_TABS`), muted when
+  unselected and filled when on, so Brain reads as coloured without four
+  full-strength labels shouting over the list underneath.
+  **And the filter panel is exactly one row**: three selects sharing the width,
+  with "Closed" moved up beside the header, because a filter panel taller than
+  the list it filters is the clutter this was supposed to remove. The labels
+  are short ("Energy", "Date") since "Any energy" and "Dated or not" were
+  written for a full-width row that no longer exists. They cannot simply be set
+  smaller — any form control under 16px makes iOS zoom in and never zoom back,
+  which is a trap recorded above.
 
 - **Brain is four kinds, not six** ([brain/+page.svelte](src/routes/brain/+page.svelte),
   [migrate.ts](src/lib/migrate.ts)). Inbox and Lists both folded into Ideas, because all
@@ -756,7 +780,16 @@ one came close to a hard rule, the reasoning is recorded here.
   was also the only thing in that row with nowhere else to live; the kept-audio
   recorder is one tap away at Brain → Memos, and the brain-dump recorder is
   inside the assistant itself.
-  It is a small ✦ Ask at the bottom right, hidden entirely without a Gemini key
+  **It is a round floating button, and the first attempt was not.** It shipped
+  as a small labelled button sitting alone in the bar the capture row used to
+  fill, and came back as *"a sad little button now that sits at the bottom. It
+  feels very out of place"* — fairly: a bar exists to hold a ROW of things, so
+  a bar holding one thing reads as the leftovers of something taken away. A
+  circle floating over the page means one action and implies no missing row,
+  and it hands Today back its full width instead of spending a hairline and a
+  band of glass on a single button. Deliberately small and quiet beside the
+  Free Time circle: this screen has one hero and it is not this.
+  It is hidden entirely without a Gemini key
   like every other AI surface — so with no key Today simply has nothing at the
   bottom, which is the decluttered state anyway. **If the capture field is ever
   wanted back, it is one component and one line in Today**, and the argument
