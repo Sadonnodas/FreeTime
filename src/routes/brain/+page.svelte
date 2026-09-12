@@ -5,7 +5,7 @@
   import {
     promoteIdea, completeTodo, createTodo, createIdea, createBuyItem,
     setIdeaProject, toggleIdeaDone, updateTodo, setTodoAfter, softDelete, today, updateIdea,
-    uncompleteTodo, projectTagColor
+    uncompleteTodo, projectTagColor, PROJECT_COLORS
   } from '$lib/store';
   import { eraColor } from '$lib/colors';
   import Controls from '$lib/components/Controls.svelte';
@@ -165,6 +165,15 @@
   const projectName = (id?: string) =>
     (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === id)?.name;
 
+  /** The four kinds, and the colour each one wears. SECTIONS above is the
+   *  route's own list and stays the plain keys. */
+  const SECTION_TABS: { key: Section; label: string; color: string }[] = [
+    { key: 'todos', label: 'To-dos', color: PROJECT_COLORS[1]! },
+    { key: 'ideas', label: 'Ideas', color: PROJECT_COLORS[4]! },
+    { key: 'buy', label: 'Buy', color: PROJECT_COLORS[2]! },
+    { key: 'memos', label: 'Memos', color: PROJECT_COLORS[3]! }
+  ];
+
   /**
    * What the folded filter header says. Empty when nothing is on, so the
    * header is just "Filter" until it has something to report.
@@ -200,10 +209,32 @@
    * harder to read down than an occasional gap. Same reasoning, and the same
    * shape, as the Today picker.
    */
-  const rowColor = (projectId?: string, tag?: string): string | undefined => {
+  /**
+   * Two colours, because one is not enough on a screen that mixes eras.
+   *
+   * The WASH is the project's own colour, so a row here and that project's
+   * screen agree — that rule is not negotiable, it is why the colour is
+   * derived through `projectTagColor` rather than stored anywhere new. But a
+   * project's colour is only unique INSIDE its era: the palette restarts for
+   * every era, so the first project of Campervan and the first project of
+   * Coding are both orange. On a project screen you only ever see one era and
+   * that is fine. Brain shows all of them at once, where two identical oranges
+   * would say "these belong together" about things that do not.
+   *
+   * So the left EDGE carries the era's own hue. Fill answers "which project",
+   * edge answers "which era", and the pair is distinct even when the fill is
+   * not. An era-level row has no project, so it washes in the era's colour
+   * too; an unfiled row gets neither, because unfiled is a valid resting state
+   * and must not be dressed up as something filed.
+   */
+  const rowTint = (
+    projectId?: string,
+    tag?: string
+  ): { fill: string; edge: string } | undefined => {
     const era = eraOf(projectId);
     if (!era) return undefined;
-    return tag ? projectTagColor(era.tags, era.tagColors, tag) : eraColor(era.name);
+    const edge = eraColor(era.name);
+    return { fill: tag ? projectTagColor(era.tags, era.tagColors, tag) : edge, edge };
   };
 
   /**
@@ -384,10 +415,16 @@
     <h1 class="large-title">Brain</h1>
   </header>
 
+  <!--
+    The four kinds, each with a colour of its own. Taken from the same palette
+    projects are coloured from, so nothing new was invented and the app has one
+    set of colours rather than two.
+  -->
   <div class="segmented mb-4">
-    {#each [['todos', 'To-dos'], ['ideas', 'Ideas'], ['buy', 'Buy'], ['memos', 'Memos']] as const as [key, label]}
+    {#each SECTION_TABS as { key, label, color } (key)}
       <button
-        class="press segment {section === key ? 'segment-on' : ''}"
+        class="press segment segment-tint {section === key ? 'segment-on' : ''}"
+        style:--seg={color}
         onclick={() => (section = key)}
       >{label}</button>
     {/each}
@@ -510,43 +547,44 @@
     </AddField>
 
     <Controls summary={filterSummary}>
-      <div class="flex flex-wrap gap-2 text-sm">
-      <select
-        bind:value={fProject}
-        class="field press"
-      >
-        <option value="">All eras</option>
-        {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
-          <option value={p.id}>{p.name}</option>
-        {/each}
-      </select>
-      <select
-        bind:value={fEnergy}
-        class="field press"
-      >
-        <option value="">Any energy</option>
-        <option value="quick">Quick</option>
-        <option value="moderate">Moderate</option>
-        <option value="focus">Focus</option>
-      </select>
-      {#if !day}
-        <select
-          bind:value={fDated}
-          class="field press"
+      {#snippet action()}
+        <!-- In the header, not the panel. Three selects and this made two rows
+             on a phone, and a filter panel taller than the list it filters is
+             the clutter this was meant to remove. -->
+        <button
+          class="press tap-h shrink-0 rounded-xl border border-line-1 px-2.5 text-xs {showClosed
+            ? 'text-good'
+            : 'text-ink-400'}"
+          onclick={() => (showClosed = !showClosed)}
+          aria-pressed={showClosed}
         >
-          <option value="">Dated or not</option>
-          <option value="yes">Has a date</option>
-          <option value="no">No date</option>
+          Closed
+        </button>
+      {/snippet}
+      <!-- One row: each select takes an equal share and truncates rather than
+           wrapping. The labels are short for the same reason — "Any energy" and
+           "Dated or not" were written for a full-width row that no longer
+           exists. -->
+      <div class="flex gap-2 text-sm">
+        <select bind:value={fProject} class="field press min-w-0 flex-1">
+          <option value="">All eras</option>
+          {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
+            <option value={p.id}>{p.name}</option>
+          {/each}
         </select>
-      {/if}
-      <button
-        class="press tap rounded-xl border border-line-1 px-3 text-sm {showClosed
-          ? 'text-good'
-          : 'text-ink-400'}"
-        onclick={() => (showClosed = !showClosed)}
-      >
-        {showClosed ? 'Showing closed' : 'Show closed'}
-      </button>
+        <select bind:value={fEnergy} class="field press min-w-0 flex-1">
+          <option value="">Energy</option>
+          <option value="quick">Quick</option>
+          <option value="moderate">Moderate</option>
+          <option value="focus">Focus</option>
+        </select>
+        {#if !day}
+          <select bind:value={fDated} class="field press min-w-0 flex-1">
+            <option value="">Date</option>
+            <option value="yes">Dated</option>
+            <option value="no">Undated</option>
+          </select>
+        {/if}
       </div>
     </Controls>
 
@@ -566,7 +604,12 @@
 
     <ul class="space-y-1">
       {#each filteredTodos as t (t.id)}
-        <li class="card-flat px-3">
+        {@const tint = rowTint(t.projectId, t.tag)}
+        <li
+          class="card-flat px-3 {tint ? 'row-tint' : ''}"
+          style:--row={tint?.fill}
+          style:--edge={tint?.edge}
+        >
           <div class="flex items-center gap-3">
             <button
               class="press tap shrink-0 {t.completedAt ? 'text-good' : 'text-ink-400'}"
@@ -574,14 +617,6 @@
               aria-label={t.completedAt ? 'Mark not done' : 'Complete'}
               >{t.completedAt ? '✓' : '○'}</button
             >
-            <!-- The dot leads, so the colours read as a column down the left
-                 edge. Behind a photo they would sit at varying x positions,
-                 which is the arrangement the Today picker already rejected. -->
-            <span
-              class="h-2 w-2 shrink-0 rounded-full"
-              style="background: {rowColor(t.projectId, t.tag) ?? 'transparent'}"
-              aria-hidden="true"
-            ></span>
             {#if t.image}
               <PhotoThumb image={t.image} label={t.title} />
             {/if}
@@ -799,7 +834,12 @@
 
     <ul class="space-y-1">
       {#each visibleIdeas as i (i.id)}
-        <li class="card-flat px-3">
+        {@const tint = rowTint(i.projectId)}
+        <li
+          class="card-flat px-3 {tint ? 'row-tint' : ''}"
+          style:--row={tint?.fill}
+          style:--edge={tint?.edge}
+        >
           <div class="flex items-center gap-3">
           <!-- Finishing a want is a real thing — a book gets read — and it
                counts as a win without ever having been a task. -->
@@ -810,12 +850,6 @@
           >
             {i.doneAt ? '✓' : '○'}
           </button>
-
-          <span
-            class="h-2 w-2 shrink-0 rounded-full"
-            style="background: {rowColor(i.projectId) ?? 'transparent'}"
-            aria-hidden="true"
-          ></span>
 
           <button
             class="min-w-0 flex-1 py-3 text-left"

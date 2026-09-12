@@ -22,15 +22,24 @@
   let {
     label = 'Filter',
     summary = '',
-    children
-  }: { label?: string; summary?: string; children: Snippet } = $props();
+    children,
+    action
+  }: {
+    label?: string;
+    summary?: string;
+    children: Snippet;
+    /** A control that stays in the header rather than folding away — the one
+     *  that would otherwise push the panel onto a second row. */
+    action?: Snippet;
+  } = $props();
 
   let open = $state(false);
 </script>
 
 <div class="mb-3">
+  <div class="flex items-center gap-2">
   <button
-    class="press tap-h flex w-full items-center gap-2 text-left"
+    class="press tap-h flex min-w-0 flex-1 items-center gap-2 text-left"
     onclick={() => (open = !open)}
     aria-expanded={open}
   >
@@ -44,6 +53,8 @@
       <span class="footnote min-w-0 flex-1 truncate text-accent">{summary}</span>
     {/if}
   </button>
+  {#if action}{@render action()}{/if}
+  </div>
 
   {#if open}
     <div class="mt-2">{@render children()}</div>

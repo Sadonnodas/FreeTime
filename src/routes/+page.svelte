@@ -749,11 +749,13 @@
       </section>
     {/if}
 
-    <div class="h-8"></div>
+    <!-- Room for the floating assistant button to sit over, so the last habit
+         is never underneath it. -->
+    <div class="h-20"></div>
   </div>
-
-  <AskBar />
 </div>
+
+<AskBar />
 
 {#if showClose}
   <DayClose onDismiss={() => (showClose = false)} />
