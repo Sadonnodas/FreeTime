@@ -607,6 +607,42 @@ one came close to a hard rule, the reasoning is recorded here.
   August is "30 February", which rolls forward into March — a chart quietly missing the
   end of February. `monthsAgoIso` clamps the day to the target month's length. Caught by
   a test, not by anyone noticing the numbers were wrong.
+- **A to-do can be re-filed after it is written, which it could not be**
+  (Brain → To-dos row editor, "Belongs to"). Reported directly: *"I just added
+  a to do in the to do page. But after adding it, I cannot seem to associate it
+  with a project."* Exactly right, and worse than an oversight — this file
+  already claimed it worked, under *An era never requires a project first*,
+  because the fix landed on the PROJECT screen's rows and never on Brain's. The
+  add form asks for era and project; the row editor then offered the title, the
+  order, the date, both sizes and a photo, and no way to say where it lives.
+  **Changing the era clears the project**, because a project name belongs to
+  one era — carrying "Mixing" from Music into Garden would point at a project
+  that does not exist there, which is the invisible-not-deleted failure that
+  renaming already warns about.
+  **If a capability is claimed in this file, check the screen that was
+  reported, not the one you fixed.** Second time: `uncompleteTodo` existed and
+  no screen called it.
+
+- **Brain's filters fold away, and rows are colour-coded by where they live**
+  ([Controls.svelte](src/lib/components/Controls.svelte),
+  [colors.ts](src/lib/colors.ts)). Asked for as decluttering. Brain opened as a
+  control panel — three selects and a toggle over To-dos, a search box and two
+  more over Memos — read past on every visit, competing with the list you came
+  for. Same instinct, and the same answer, as the add field that starts closed.
+  **THE SUMMARY IS THE LOAD-BEARING PART, not the fold.** Hiding a filter makes
+  the app's oldest trap easier to reach: a filtered list that does not say so is
+  how you come to believe your other to-dos have gone. So the folded header
+  names whatever is on — "Filter · Coding · closed shown" — in the accent, and
+  the state is deliberately NOT remembered between visits, because a filter you
+  cannot see and did not set today is that same trap with a longer fuse.
+  **The dot is derived, never stored**: a project's own colour when it has one,
+  the era's name-derived hue when it only has an era, nothing when it is
+  unfiled — and unfiled must keep looking like a valid resting state rather
+  than a mistake. `eraHue` moved out of ProjectCover into colors.ts so a dot in
+  Brain and a card on Eras cannot disagree. It leads the row, ahead of any
+  photo, because a column of dots is scannable and dots at varying x positions
+  are not — the same finding as the Today picker.
+
 - **Brain is four kinds, not six** ([brain/+page.svelte](src/routes/brain/+page.svelte),
   [migrate.ts](src/lib/migrate.ts)). Inbox and Lists both folded into Ideas, because all
   three were the same shape — a thought with no action attached. An unfiled capture is
@@ -699,6 +735,32 @@ one came close to a hard rule, the reasoning is recorded here.
   personal tab. `/settings` and `/settings/import` are top-level routes now; Me is
   habits and wins only. Five is the ceiling: six starts to crowd the bar on a phone,
   where each tab gets 75px.
+- **Today's capture row is gone, and the assistant is what is left of it**
+  ([AskBar.svelte](src/lib/components/AskBar.svelte); CaptureBox.svelte is
+  deleted). The two entries below describe that row and are kept because their
+  reasoning still applies wherever capture lives — but the row itself was
+  removed, on the plainest possible grounds: *"I don't have the reflex to just
+  add a random thing and then assign it later. If I have a to-do for a project
+  in Family, I just go there and add it there."* A prominent field nobody types
+  into is furniture, and it was furniture at the bottom of the one screen that
+  has to stay calm — the screen whose hero was already shrunk once for pushing
+  habits off the bottom.
+  **Spec principle 1 is untouched and that had to be checked, not assumed.**
+  "Capture takes one field and no required fields, ever" is a hard rule about
+  the APP, not about the Today screen: Brain → Ideas still takes a thought in
+  one field with no required fields, and the project chips there file it if you
+  want. What moved is which screen carries it.
+  **The assistant stays because it was named as the one thing worth keeping** —
+  "so you can talk to it and make it add stuff wherever you want", which is the
+  same instinct as walking to the project, with the walking done for you. It
+  was also the only thing in that row with nowhere else to live; the kept-audio
+  recorder is one tap away at Brain → Memos, and the brain-dump recorder is
+  inside the assistant itself.
+  It is a small ✦ Ask at the bottom right, hidden entirely without a Gemini key
+  like every other AI surface — so with no key Today simply has nothing at the
+  bottom, which is the decluttered state anyway. **If the capture field is ever
+  wanted back, it is one component and one line in Today**, and the argument
+  for it is spec principle 1's speed, not habit.
 - **One record button in the capture row, not two.** The waveform keeps your audio; the
   brain-dump — which feeds the recording to Gemini and then discards it — now lives
   inside the assistant. It was always a Gemini interaction wearing a capture button's
@@ -918,6 +980,9 @@ device; there is nothing to build. Memos are the exception, below.
   not: its project could only be set at the moment it was typed, so everything
   written before the first project existed was stuck on the era for good. Tapping a
   to-do now opens the same "Belongs to" row the ideas list and the buy list use.
+  That landed on the PROJECT screens only, and this entry read as though it were
+  everywhere — Brain kept the gap for months afterwards. See *A to-do can be
+  re-filed after it is written* below.
 - **A tick could not be untapped, and the undo had been sitting in store.ts
   the whole time** (`uncompleteTodo`, [day.ts](src/lib/day.ts)
   `reopenDayIfIncomplete`, [day.test.ts](src/lib/day.test.ts)). Reported as

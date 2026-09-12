@@ -6,6 +6,7 @@
   } from '$lib/memos';
   import { downloadMemoAudio } from '$lib/sync';
   import { onRecordingChange } from '$lib/audio';
+  import Controls from './Controls.svelte';
 
   /**
    * A list of recordings, with its own transport.
@@ -43,6 +44,22 @@
   let query = $state('');
   let order = $state<'newest' | 'oldest'>('newest');
   let filterProject = $state('');
+
+  /**
+   * What the folded header reports. The controls fold away to keep a library
+   * looking like a library rather than a search form — but a filtered list
+   * that does not say so is how you come to believe recordings have gone, so
+   * anything that is on is named here.
+   */
+  const controlSummary = $derived(
+    [
+      query ? `\u201c${query}\u201d` : null,
+      filterProject ? projects.find((p) => p.id === filterProject)?.name : null,
+      order === 'oldest' ? 'oldest first' : null
+    ]
+      .filter(Boolean)
+      .join(' \u00b7 ')
+  );
 
   /**
    * What a search matches.
@@ -309,7 +326,8 @@
     for "where was I", and the list is where you go when you know what you are
     looking for and just need to reach it.
   -->
-  <div class="mb-3 space-y-2">
+  <Controls label="Search &amp; order" summary={controlSummary}>
+    <div class="space-y-2">
     <input
       bind:value={query}
       placeholder="Search recordings"
@@ -347,7 +365,8 @@
         {memos.length === 1 ? 'recording' : 'recordings'}.
       </p>
     {/if}
-  </div>
+    </div>
+  </Controls>
 {/if}
 
 {#if note}

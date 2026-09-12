@@ -13,7 +13,7 @@
     ensureDay, addToDay, removeFromDay, maybeCloseDay,
     canUnlockOneMore, unlockOneMore, reopenDayIfIncomplete, DayFullError, STARTING_SLOTS
   } from '$lib/day';
-  import CaptureBox from '$lib/components/CaptureBox.svelte';
+  import AskBar from '$lib/components/AskBar.svelte';
   import DayClose from '$lib/components/DayClose.svelte';
   import MonthlySummary from '$lib/components/MonthlySummary.svelte';
   import CalendarStrip from '$lib/components/CalendarStrip.svelte';
@@ -752,7 +752,7 @@
     <div class="h-8"></div>
   </div>
 
-  <CaptureBox />
+  <AskBar />
 </div>
 
 {#if showClose}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { stickerFrom, stickerUrl, isStickerRef } from '$lib/stickers';
+  import { eraHue } from '$lib/colors';
 
   /**
    * A project's picture: a chosen dinosaur, a photo, or neither.
@@ -38,13 +39,9 @@
   // A dino: reference we cannot resolve is a retired sticker, not a photo.
   const photo = $derived(isStickerRef(image) ? undefined : image);
 
-  function hue(text: string): number {
-    let h = 0;
-    for (const ch of text) h = (h * 31 + ch.charCodeAt(0)) % 360;
-    return h;
-  }
-
-  const h = $derived(hue(name));
+  // Shared with Brain's row dots, so a colour cannot mean one era here and
+  // another one there. See colors.ts.
+  const h = $derived(eraHue(name));
 </script>
 
 {#if sticker}

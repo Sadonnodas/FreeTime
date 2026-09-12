@@ -140,7 +140,7 @@
   <div class="flex flex-1 flex-col items-center justify-center px-6">
     {#if !supported}
       <p class="footnote text-center">
-        This browser can't record audio. Use the text box on Today instead.
+        This browser can't record audio. Type it into Brain instead.
       </p>
     {:else if phase === 'idle'}
       <button

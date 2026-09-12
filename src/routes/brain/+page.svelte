@@ -5,8 +5,10 @@
   import {
     promoteIdea, completeTodo, createTodo, createIdea, createBuyItem,
     setIdeaProject, toggleIdeaDone, updateTodo, setTodoAfter, softDelete, today, updateIdea,
-    uncompleteTodo
+    uncompleteTodo, projectTagColor
   } from '$lib/store';
+  import { eraColor } from '$lib/colors';
+  import Controls from '$lib/components/Controls.svelte';
   import { indexById, blockerOf, possibleBlockers } from '$lib/order';
   import { tomorrow, dayLabel, dayPhrase } from '$lib/days';
   import { activeProjects } from '$lib/queries';
@@ -162,6 +164,47 @@
 
   const projectName = (id?: string) =>
     (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === id)?.name;
+
+  /**
+   * What the folded filter header says. Empty when nothing is on, so the
+   * header is just "Filter" until it has something to report.
+   */
+  const filterSummary = $derived(
+    [
+      fProject ? projectName(fProject) : null,
+      fEnergy ? fEnergy : null,
+      fDated === 'yes' ? 'has a date' : fDated === 'no' ? 'no date' : null,
+      showClosed ? 'closed shown' : null
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  );
+
+  const eraOf = (id?: string) =>
+    (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === id);
+
+  /** The projects inside one era, for the Belongs-to picker on a row. */
+  const tagsOf = (id?: string) => eraOf(id)?.tags ?? [];
+
+  /**
+   * The colour down the leading edge of a row: where this thing lives.
+   *
+   * A project's own stored colour when it has one, the era's name-derived hue
+   * when it only has an era, and nothing when it is unfiled — which is still a
+   * valid resting state and must not be made to look like a mistake. Derived
+   * through `projectTagColor` and `eraColor` rather than stored anywhere new,
+   * so a row can never carry a colour that disagrees with the era screen it
+   * came from.
+   *
+   * The dot is rendered even when it is transparent: a ragged left edge is
+   * harder to read down than an occasional gap. Same reasoning, and the same
+   * shape, as the Today picker.
+   */
+  const rowColor = (projectId?: string, tag?: string): string | undefined => {
+    const era = eraOf(projectId);
+    if (!era) return undefined;
+    return tag ? projectTagColor(era.tags, era.tagColors, tag) : eraColor(era.name);
+  };
 
   /**
    * Everything worth knowing about a to-do at a glance, in one line.
@@ -466,7 +509,8 @@
       {/snippet}
     </AddField>
 
-    <div class="mb-3 flex flex-wrap gap-2 text-sm">
+    <Controls summary={filterSummary}>
+      <div class="flex flex-wrap gap-2 text-sm">
       <select
         bind:value={fProject}
         class="field press"
@@ -503,7 +547,8 @@
       >
         {showClosed ? 'Showing closed' : 'Show closed'}
       </button>
-    </div>
+      </div>
+    </Controls>
 
     {#if !filteredTodos.length}
       {#if day}
@@ -529,6 +574,14 @@
               aria-label={t.completedAt ? 'Mark not done' : 'Complete'}
               >{t.completedAt ? '✓' : '○'}</button
             >
+            <!-- The dot leads, so the colours read as a column down the left
+                 edge. Behind a photo they would sit at varying x positions,
+                 which is the arrangement the Today picker already rejected. -->
+            <span
+              class="h-2 w-2 shrink-0 rounded-full"
+              style="background: {rowColor(t.projectId, t.tag) ?? 'transparent'}"
+              aria-hidden="true"
+            ></span>
             {#if t.image}
               <PhotoThumb image={t.image} label={t.title} />
             {/if}
@@ -568,6 +621,65 @@
                   onrename={(title) => updateTodo(t.id, { title })}
                 />
               </div>
+              <!--
+                BELONGS TO. A to-do written here used to be stuck wherever it
+                landed: the add form asks for an era and a project, and the row
+                editor then offered its title, its order, its date and both
+                sizes — everything EXCEPT where it lives. Reported plainly, and
+                it contradicted the rule this app already holds for ideas, buy
+                items and memos: nothing has to be filed at capture, but that
+                only holds if it can be filed afterwards.
+
+                Changing the era clears the project, because a project name
+                belongs to ONE era — carrying "Mixing" from Music into Garden
+                would point at a project that does not exist there, which is
+                the invisible-not-deleted failure renaming already warns about.
+              -->
+              <div>
+                <p class="section-label mb-2">Belongs to</p>
+                <div class="flex flex-wrap gap-2">
+                  <label class="min-w-0 flex-1">
+                    <span class="footnote mb-1 block">Era</span>
+                    <select
+                      value={t.projectId ?? ''}
+                      class="field press w-full text-sm"
+                      onchange={(e) =>
+                        updateTodo(t.id, {
+                          projectId: e.currentTarget.value || undefined,
+                          tag: undefined
+                        })}
+                    >
+                      <option value="">No era</option>
+                      {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
+                        <option value={p.id}>{p.name}</option>
+                      {/each}
+                    </select>
+                  </label>
+
+                  <label class="min-w-0 flex-1">
+                    <span class="footnote mb-1 block">Project</span>
+                    <select
+                      value={t.tag ?? ''}
+                      class="field press w-full text-sm"
+                      disabled={!tagsOf(t.projectId).length}
+                      onchange={(e) =>
+                        updateTodo(t.id, { tag: e.currentTarget.value || undefined })}
+                    >
+                      <option value="">
+                        {t.projectId
+                          ? tagsOf(t.projectId).length
+                            ? 'No project'
+                            : 'None in this era'
+                          : 'Pick an era first'}
+                      </option>
+                      {#each tagsOf(t.projectId) as tag (tag)}
+                        <option value={tag}>{tag}</option>
+                      {/each}
+                    </select>
+                  </label>
+                </div>
+              </div>
+
               {#if !t.completedAt}
                 <div>
                   <p class="section-label mb-2">Comes after</p>
@@ -699,6 +811,12 @@
             {i.doneAt ? '✓' : '○'}
           </button>
 
+          <span
+            class="h-2 w-2 shrink-0 rounded-full"
+            style="background: {rowColor(i.projectId) ?? 'transparent'}"
+            aria-hidden="true"
+          ></span>
+
           <button
             class="min-w-0 flex-1 py-3 text-left"
             onclick={() => (openIdea = openIdea === i.id ? null : i.id)}
@@ -764,7 +882,7 @@
       {:else}
         {#if unfiledOnly}
           <Empty
-            line="Nothing unfiled. Anything you type into the box on Today lands here."
+            line="Nothing unfiled. A thought with no home yet lands here."
             quip="A tidy nest, for once."
           />
         {:else if activeProject}
@@ -774,7 +892,7 @@
           />
         {:else}
           <Empty
-            line="Nothing yet. Anything you type into the box on Today lands here."
+            line="Nothing yet. Add one below, or ask the assistant to."
             quip="Go on, plant a seed. These things take an era."
           />
         {/if}
