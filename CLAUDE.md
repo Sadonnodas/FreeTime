@@ -1295,6 +1295,18 @@ device; there is nothing to build. Memos are the exception, below.
   and a client meeting are told apart at a glance; the primary calendar is left
   unnamed, since saying it on every card says nothing.
 
+- **The calendar strip folds, and the count in its header is what makes that
+  safe** ([CalendarStrip.svelte](src/lib/components/CalendarStrip.svelte)).
+  Asked for as decluttering Today. It reuses the project screens'
+  `Collapsible` rather than growing a second fold mechanism — same triangle,
+  same per-device localStorage key (`today/calendar`), so whether your calendar
+  is folded stays a fact about that phone and never syncs to the laptop.
+  **Folded it still says "Calendar 3".** A day with three meetings on it that
+  looks like an empty day is worse than the clutter, and the whole reason the
+  strip hides itself entirely when there is nothing to show is that same rule
+  read the other way: the header must never claim more or less than there is.
+  Default is unfolded, so nothing changes for anyone who does not fold it.
+
 - **The calendar cache expired at midnight and at no other time.** It was a
   module variable keyed on the DATE, so on a phone — where an installed app is
   suspended rather than closed — adding an event in Google and coming back
