@@ -918,6 +918,30 @@ device; there is nothing to build. Memos are the exception, below.
   not: its project could only be set at the moment it was typed, so everything
   written before the first project existed was stuck on the era for good. Tapping a
   to-do now opens the same "Belongs to" row the ideas list and the buy list use.
+- **A tick could not be untapped, and the undo had been sitting in store.ts
+  the whole time** (`uncompleteTodo`, [day.ts](src/lib/day.ts)
+  `reopenDayIfIncomplete`, [day.test.ts](src/lib/day.test.ts)). Reported as
+  *"I clicked a to do by accident and now it's marked as done but actually
+  isn't. How do I reverse?"* — and the answer was that you could not. The
+  function existed from the first week, labelled "Undo, for a mis-tap", and
+  NOTHING called it: Today's tick was `disabled` once complete, Brain's was
+  `!t.completedAt && completeTodo(...)`, and both project screens drew a closed
+  row's ✓ as an inert `<span>`. Third time this shape has appeared — the dead
+  "+ New project" button and `Project.archived` with no way to set it — so it
+  is worth stating as a rule: **a store function with no call site is a feature
+  that does not exist.** Grep for one before assuming a capability is reachable.
+  Every tick toggles now, and a completed Today card carries a named **"Not
+  done after all"**, because tapping the green tick again is where the hand
+  already is but nothing on screen said so.
+  **Undoing the THIRD completion reopens the day.** Closing is a consequence of
+  the tick, so undoing the tick has to undo it, or the header goes on saying
+  "Day closed" over a day with two things done and the close screen sits in
+  front of the to-dos. `unlockedCount` is deliberately NOT wound back: the
+  unlock really happened and may already hold a to-do, and a day holding more
+  slots than it admits to is a worse state than one with a spare.
+  Undo fires no celebration, for the same reason a habit's confetti only plays
+  on the way in.
+
 - **A control has to name what it acts on.** Removing a block meant finding "Edit" —
   small grey text beside a big dashed button, below the blocks, saying nothing about
   what it edits — and then a bare ✕ at the end of a row of three other unlabelled

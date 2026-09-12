@@ -119,6 +119,28 @@ export async function maybeCloseDay(date = today()): Promise<boolean> {
 }
 
 /**
+ * Undoing a completion has to be able to undo the day closing with it.
+ *
+ * Reported as *"I clicked a to do by accident and now it's marked as done but
+ * actually isn't"* — and if that mis-tap was the THIRD one, it did two things:
+ * ticked the to-do and closed the day. Clearing the tick alone would leave the
+ * header saying "Day closed" over a day with two things done, and the to-dos
+ * behind the closed-day screen, which reads as the undo having half worked.
+ *
+ * `unlockedCount` is deliberately NOT wound back. Unlocking a fourth slot is
+ * something that actually happened and may already hold a to-do; shrinking the
+ * count would leave the day holding more slots than it admits to having.
+ */
+export async function reopenDayIfIncomplete(date = today()): Promise<boolean> {
+  const day = await getDay(date);
+  if (!day || !day.closedAt) return false;
+  const done = await completedInDay(day);
+  if (done.length >= STARTING_SLOTS) return false;
+  await db.days.update(day.id, { closedAt: undefined, updatedAt: now() });
+  return true;
+}
+
+/**
  * The "one more?" affordance. Only ever available on an already-closed day, and
  * only one at a time — the next one is not visible in advance.
  */

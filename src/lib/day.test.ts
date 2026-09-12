@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from './db';
-import { createTodo, completeTodo } from './store';
+import { createTodo, completeTodo, uncompleteTodo } from './store';
 import {
   ensureDay, addToDay, removeFromDay, setDaySlots, maybeCloseDay,
-  canUnlockOneMore, unlockOneMore, DayFullError, STARTING_SLOTS
+  canUnlockOneMore, unlockOneMore, reopenDayIfIncomplete, DayFullError, STARTING_SLOTS
 } from './day';
 
 /**
@@ -123,5 +123,61 @@ describe('the unlock rule', () => {
     await addToDay(id);
     await addToDay(id);
     expect((await ensureDay()).slots).toEqual([id]);
+  });
+});
+
+/**
+ * A tick landed on by accident was permanent: `uncompleteTodo` existed in the
+ * store from the first week and no screen ever called it. Undoing the third
+ * one has to undo the day closing with it, or the header keeps saying "Day
+ * closed" over a day with two things done.
+ */
+describe('undoing a mis-tap', () => {
+  beforeEach(reset);
+
+  it('reopens a day that only closed because of the tap being undone', async () => {
+    const ids = await Promise.all(['a', 'b', 'c'].map((t) => createTodo(t)));
+    for (const id of ids) await addToDay(id);
+    for (const id of ids) await completeTodo(id);
+    await maybeCloseDay();
+    expect((await ensureDay()).closedAt).toBeTruthy();
+
+    await uncompleteTodo(ids[2]!);
+    expect(await reopenDayIfIncomplete()).toBe(true);
+    expect((await ensureDay()).closedAt).toBeUndefined();
+    // And the day can close again when it is really finished.
+    await completeTodo(ids[2]!);
+    expect(await maybeCloseDay()).toBe(true);
+  });
+
+  it('leaves a day that is still finished alone', async () => {
+    const ids = await Promise.all(['a', 'b', 'c', 'd'].map((t) => createTodo(t)));
+    for (const id of ids.slice(0, 3)) await addToDay(id);
+    for (const id of ids.slice(0, 3)) await completeTodo(id);
+    await maybeCloseDay();
+
+    // A fourth, unlocked and completed: undoing it still leaves three done.
+    await unlockOneMore();
+    await addToDay(ids[3]!);
+    await completeTodo(ids[3]!);
+    await uncompleteTodo(ids[3]!);
+
+    expect(await reopenDayIfIncomplete()).toBe(false);
+    expect((await ensureDay()).closedAt).toBeTruthy();
+  });
+
+  it('does not wind back a slot that was already unlocked', async () => {
+    const ids = await Promise.all(['a', 'b', 'c'].map((t) => createTodo(t)));
+    for (const id of ids) await addToDay(id);
+    for (const id of ids) await completeTodo(id);
+    await maybeCloseDay();
+    await unlockOneMore();
+
+    await uncompleteTodo(ids[0]!);
+    await reopenDayIfIncomplete();
+
+    // Unlocking happened and may already hold a to-do; a day holding more
+    // slots than it admits to is worse than a day with a spare one.
+    expect((await ensureDay()).unlockedCount).toBe(STARTING_SLOTS + 1);
   });
 });

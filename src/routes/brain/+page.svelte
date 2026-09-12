@@ -4,7 +4,8 @@
   import type { Todo, Idea, BuyItem, Project, Energy, TimeBucket, Memo } from '$lib/types';
   import {
     promoteIdea, completeTodo, createTodo, createIdea, createBuyItem,
-    setIdeaProject, toggleIdeaDone, updateTodo, setTodoAfter, softDelete, today, updateIdea
+    setIdeaProject, toggleIdeaDone, updateTodo, setTodoAfter, softDelete, today, updateIdea,
+    uncompleteTodo
   } from '$lib/store';
   import { indexById, blockerOf, possibleBlockers } from '$lib/order';
   import { tomorrow, dayLabel, dayPhrase } from '$lib/days';
@@ -524,8 +525,9 @@
           <div class="flex items-center gap-3">
             <button
               class="press tap shrink-0 {t.completedAt ? 'text-good' : 'text-ink-400'}"
-              onclick={() => !t.completedAt && completeTodo(t.id)}
-              aria-label="Complete">{t.completedAt ? '✓' : '○'}</button
+              onclick={() => (t.completedAt ? uncompleteTodo(t.id) : completeTodo(t.id))}
+              aria-label={t.completedAt ? 'Mark not done' : 'Complete'}
+              >{t.completedAt ? '✓' : '○'}</button
             >
             {#if t.image}
               <PhotoThumb image={t.image} label={t.title} />

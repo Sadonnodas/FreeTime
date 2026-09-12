@@ -7,7 +7,7 @@
   import BuyList from '$lib/components/BuyList.svelte';
   import type { Todo, BuyItem, Note, Project } from '$lib/types';
   import {
-    createTodo, completeTodo, updateTodo, setTodoAfter, createBuyItem, markPurchased, saveNote, getNote,
+    createTodo, completeTodo, uncompleteTodo, updateTodo, setTodoAfter, createBuyItem, markPurchased, saveNote, getNote,
     setProjectImage, setProjectTags, removeProjectTag, renameProjectTag,
     setProjectTagColor, setProjectTagDescription, PROJECT_COLORS,
     archiveProject, projectTagColor, softDelete,
@@ -727,7 +727,14 @@
       <ul class="space-y-1">
         {#each closed.slice(0, 20) as todo (todo.id)}
           <li class="flex items-center gap-3 rounded-2xl bg-surface-1 px-3 text-ink-400">
-            <span class="shrink-0 text-good">✓</span>
+            <!-- The tick undoes. A closed row used to be an inert ✓, so a
+                 to-do ticked by accident could not be untitled from the one
+                 screen that lists it. -->
+            <button
+              class="press tap shrink-0 text-good"
+              onclick={() => uncompleteTodo(todo.id)}
+              aria-label="Mark {todo.title} not done">✓</button
+            >
             <span class="flex-1 py-3">{todo.title}</span>
           </li>
         {/each}

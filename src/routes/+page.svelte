@@ -2,14 +2,16 @@
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
   import type { Todo, Habit, Day, Project } from '$lib/types';
-  import { completeTodo, toggleHabitLog, today, projectTagColor } from '$lib/store';
+  import {
+    completeTodo, uncompleteTodo, toggleHabitLog, today, projectTagColor
+  } from '$lib/store';
   import { allTodos, activeProjects } from '$lib/queries';
   import { ENERGIES, DURATIONS, energyLabel, durationLabel } from '$lib/sizes';
   import { indexById, blockerOf } from '$lib/order';
   import { tomorrow } from '$lib/days';
   import {
     ensureDay, addToDay, removeFromDay, maybeCloseDay,
-    canUnlockOneMore, unlockOneMore, DayFullError, STARTING_SLOTS
+    canUnlockOneMore, unlockOneMore, reopenDayIfIncomplete, DayFullError, STARTING_SLOTS
   } from '$lib/day';
   import CaptureBox from '$lib/components/CaptureBox.svelte';
   import DayClose from '$lib/components/DayClose.svelte';
@@ -170,6 +172,22 @@
     // The day closes the instant the third slot is done — before any "one
     // more?" is offered. That ordering is the whole mechanic (spec 5.3).
     if (await maybeCloseDay()) showClose = true;
+  }
+
+  /**
+   * The way back from a mis-tap.
+   *
+   * `uncompleteTodo` has existed in store.ts since the beginning — labelled
+   * "Undo, for a mis-tap" — and NOTHING called it, so a tick landed on by
+   * accident was permanent. Reported exactly that way.
+   *
+   * No celebration on the way out, obviously, and the day reopens if that tap
+   * was the third: closing is a consequence of the tick, so undoing the tick
+   * undoes it too.
+   */
+  async function onUndo(todo: Todo) {
+    await uncompleteTodo(todo.id);
+    await reopenDayIfIncomplete();
   }
 
   async function pick(todo: Todo) {
@@ -422,9 +440,10 @@
                 class:nudge-ring={nudged === todo.id}
                 class:tick-pop={celebrating === todo.id}
                 style="width:44px;height:44px"
-                onclick={() => onComplete(todo)}
-                disabled={!!todo.completedAt}
-                aria-label={todo.completedAt ? 'Completed' : `Complete ${todo.title}`}
+                onclick={() => (todo.completedAt ? onUndo(todo) : onComplete(todo))}
+                aria-label={todo.completedAt
+                  ? `Mark ${todo.title} not done`
+                  : `Complete ${todo.title}`}
               >
                 {#if todo.completedAt}✓{/if}
               </button>
@@ -470,6 +489,21 @@
                     onclick={() => removeFromDay(todo.id)}
                   >
                     Not today
+                  </button>
+                </div>
+              {:else}
+                <!--
+                  Tapping the green tick again undoes it, which is where the
+                  hand already is — but nothing on screen said so, and "how do
+                  I reverse this" is not a question anyone should have to ask
+                  twice. Named, for the same reason "Tomorrow instead" is.
+                -->
+                <div class="-ml-2 mt-1 flex items-center gap-1">
+                  <button
+                    class="press tap-h rounded-lg px-2 text-xs text-ink-400"
+                    onclick={() => onUndo(todo)}
+                  >
+                    Not done after all
                   </button>
                 </div>
               {/if}
