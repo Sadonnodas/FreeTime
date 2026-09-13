@@ -1,3 +1,6 @@
+import type { Project } from './types';
+import { projectTagColor } from './store';
+
 /**
  * The colour an ERA wears, derived from its name.
  *
@@ -21,4 +24,24 @@ export function eraHue(name: string): number {
 /** A dot-sized version of that hue: readable on both themes at 8px. */
 export function eraColor(name: string): string {
   return `hsl(${eraHue(name)} 52% 62%)`;
+}
+
+/**
+ * The two colours a row wears: a wash for its project, an edge for its era.
+ *
+ * Shared by Brain and Today so a to-do is the same colours on both. The wash
+ * alone is not enough on any screen that mixes eras: a project's colour is only
+ * unique INSIDE its era, since the palette restarts for each one, so the first
+ * project of two different eras is the same orange. The edge is what tells
+ * those apart. An era-level row washes in its era's colour; an unfiled row gets
+ * nothing, because unfiled is a valid resting state and must not be dressed up
+ * as something filed.
+ */
+export function tintFor(
+  era: Pick<Project, 'name' | 'tags' | 'tagColors'> | undefined,
+  tag?: string
+): { fill: string; edge: string } | undefined {
+  if (!era) return undefined;
+  const edge = eraColor(era.name);
+  return { fill: tag ? projectTagColor(era.tags, era.tagColors, tag) : edge, edge };
 }

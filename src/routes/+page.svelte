@@ -14,8 +14,11 @@
     canUnlockOneMore, unlockOneMore, reopenDayIfIncomplete, DayFullError, STARTING_SLOTS
   } from '$lib/day';
   import AskBar from '$lib/components/AskBar.svelte';
+  import { tintFor } from '$lib/colors';
   import DayClose from '$lib/components/DayClose.svelte';
   import MonthlySummary from '$lib/components/MonthlySummary.svelte';
+  import WeeklySummary from '$lib/components/WeeklySummary.svelte';
+  import { pendingWeeklySummary, type WeeklySummary as WeeklySummaryData } from '$lib/weekly';
   import CalendarStrip from '$lib/components/CalendarStrip.svelte';
   import { pendingMonthlySummary, type MonthlySummary as Summary } from '$lib/monthly';
   import { onMount } from 'svelte';
@@ -155,8 +158,15 @@
 
   // Arrives on the first open on or after the 1st, then never again that month.
   let monthly = $state<Summary | null>(null);
+  // And last week, on the first open of a new one. See weekly.ts.
+  let weekly = $state<WeeklySummaryData | null>(null);
   onMount(async () => {
     monthly = await pendingMonthlySummary();
+    // NEVER BOTH ON ONE OPEN. When a month and a week turn over together, two
+    // full-screen look-backs stacked on top of each other is the app talking
+    // over you. The month goes first; the week is not asked for, so it is not
+    // marked shown either, and simply arrives on the next open that week.
+    if (!monthly) weekly = await pendingWeeklySummary();
   });
 
   $effect(() => {
@@ -419,9 +429,21 @@
       {/if}
       <div class="space-y-3">
       {#each slotTodos as todo (todo.id)}
+        <!--
+          Tinted like Brain's rows — the same two colours from the same helper,
+          so a to-do does not change colour between the screens. Only while it
+          is open: a finished card turns green, and a project wash on top of
+          that would bury the one colour on this page that carries meaning.
+          The nudge still works over it: the walking dinosaur paints above the
+          card's background and below its text, tint or no tint.
+        -->
+        {@const tint = todo.completedAt ? undefined : tintFor(eraOf(todo.projectId), todo.tag)}
         <div
           class="card rise p-4 transition-colors
-                 {todo.completedAt ? 'border-good/30 bg-good/[0.06]' : ''}"
+                 {todo.completedAt ? 'border-good/30 bg-good/[0.06]' : ''}
+                 {tint ? 'row-tint' : ''}"
+          style:--row={tint?.fill}
+          style:--edge={tint?.edge}
           class:nudge={nudged === todo.id}
           style:--dino-src={nudged === todo.id ? dinoSrc : undefined}
           style:--dino-face={nudged === todo.id ? dinoFace : undefined}
@@ -770,4 +792,6 @@
 
 {#if monthly}
   <MonthlySummary summary={monthly} onDismiss={() => (monthly = null)} />
+{:else if weekly}
+  <WeeklySummary summary={weekly} onDismiss={() => (weekly = null)} />
 {/if}

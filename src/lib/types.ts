@@ -456,6 +456,8 @@ export interface Settings {
 
   lastSyncAt?: string;
   lastMonthlySummaryShown?: string; // YYYY-MM
+  /** The Monday (YYYY-MM-DD) of the week the weekly look-back was last shown in. */
+  lastWeeklySummaryShown?: string;
   /** questionId -> ISO timestamp last shown, so nothing repeats within 7 days. */
   questionHistory?: Record<string, string>;
   updatedAt: string;

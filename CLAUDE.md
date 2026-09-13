@@ -132,6 +132,29 @@ Do not "fix" these without talking to Toon first.
 
 - **Import defaults every project name to "leave unassigned"**. Auto-creating a project
   per workstream is how the old system grew nine projects of boilerplate.
+- **There is a WEEKLY look-back, and it is the monthly summary's sibling, not
+  a weekly view** ([weekly.ts](src/lib/weekly.ts),
+  [WeeklySummary.svelte](src/lib/components/WeeklySummary.svelte),
+  [weekly.test.ts](src/lib/weekly.test.ts)). Asked for as *"a week overview
+  that shows your achievements when you open the app"*. The spec bans "weekly
+  planning" by name, so this was checked against the rule rather than around
+  it: planning looks FORWARD and sets something to fall short of; this looks
+  BACK at what happened, which nothing can fall short of. The spec itself
+  already does exactly that twice — the monthly arrival, and day-close showing
+  "everything closed this week". The rules that keep it there are all pinned:
+  **once a week**, on the first open on or after Monday, keyed on SHOWN like
+  the monthly one ("when you open the app" taken literally is a greeting on
+  every open, which is a nag); **silent when the week was empty**, marked shown
+  so it is not re-checked; **no comparison, trend or target**; and **habits as
+  days, never "out of 7"**, which would be a completion percentage wearing a
+  disguise. What counts is the definition already argued for "where the work
+  went" — closed, finished, bought, RECORDED — because for someone writing
+  songs a hummed idea is the work of that day.
+  **Never both summaries on one open.** When a month and a week turn over
+  together the monthly goes first, and the weekly is not even asked for — so
+  it is not marked shown either, and arrives on the next open that week.
+  Grouped by era and project in the same two colours as Brain and Today, so a
+  good week for the campervan is a patch of one colour before a word is read.
 - **The monthly summary is keyed on being *shown*, not acknowledged**
   ([monthly.ts](src/lib/monthly.ts)). One that waits to be properly received comes back,
   and anything returning uninvited is a nag.
@@ -656,6 +679,14 @@ one came close to a hard rule, the reasoning is recorded here.
   distinct when the fill does not (`.row-tint`, `--row` and `--edge`). Mixed
   into the surface rather than laid over it, so it darkens on paper and
   lightens on ink like every other surface token; checked in both themes.
+  **Today's cards wear the same two colours**, from the same `tintFor` in
+  colors.ts, so a to-do does not change colour between screens. Only while
+  open: a finished card turns green, and a project wash over that would bury
+  the one colour on the page that means something. A full `.card` needs its
+  own `.card.row-tint` rule, because box-shadow is one property and the edge
+  would otherwise replace the card's highlight and drop shadow and leave the
+  tinted cards looking flat beside the plain ones. The walking dinosaur still
+  paints above the tint and below the text.
   **The four kind-tabs carry the same palette** (`SECTION_TABS`), muted when
   unselected and filled when on, so Brain reads as coloured without four
   full-strength labels shouting over the list underneath.
@@ -789,6 +820,21 @@ one came close to a hard rule, the reasoning is recorded here.
   and it hands Today back its full width instead of spending a hairline and a
   band of glass on a single button. Deliberately small and quiet beside the
   Free Time circle: this screen has one hero and it is not this.
+  **And it can be dragged anywhere**, because a fixed corner is always over
+  somebody's content — which strip of the page it covers depends on the hand
+  holding the phone and on what is on the day. Press and drag to move; a press
+  that moves under 8px is a TAP, and without that slop every slightly wobbly
+  tap would read as a tiny drag and open nothing. It settles against the
+  nearer side (parked mid-screen it would sit over the middle of every card)
+  and remembers side and height in localStorage, per device and never synced:
+  where a thumb reaches is a fact about that phone. Clamped above the tab bar
+  and re-clamped on resize, so a spot chosen in portrait cannot strand it off
+  screen in landscape. `touch-action: none` is load-bearing — without it the
+  browser takes the drag as a scroll and the page slides under a button that
+  stays put.
+  **In the hidden preview pane the settle animation never finishes**, so the
+  button measures at its old spot while its style already says the new one.
+  A reload applies the saved position with no transition and shows the truth.
   It is hidden entirely without a Gemini key
   like every other AI surface — so with no key Today simply has nothing at the
   bottom, which is the decluttered state anyway. **If the capture field is ever

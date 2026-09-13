@@ -5,9 +5,9 @@
   import {
     promoteIdea, completeTodo, createTodo, createIdea, createBuyItem,
     setIdeaProject, toggleIdeaDone, updateTodo, setTodoAfter, softDelete, today, updateIdea,
-    uncompleteTodo, projectTagColor, PROJECT_COLORS
+    uncompleteTodo, PROJECT_COLORS
   } from '$lib/store';
-  import { eraColor } from '$lib/colors';
+  import { tintFor } from '$lib/colors';
   import Controls from '$lib/components/Controls.svelte';
   import { indexById, blockerOf, possibleBlockers } from '$lib/order';
   import { tomorrow, dayLabel, dayPhrase } from '$lib/days';
@@ -209,33 +209,8 @@
    * harder to read down than an occasional gap. Same reasoning, and the same
    * shape, as the Today picker.
    */
-  /**
-   * Two colours, because one is not enough on a screen that mixes eras.
-   *
-   * The WASH is the project's own colour, so a row here and that project's
-   * screen agree — that rule is not negotiable, it is why the colour is
-   * derived through `projectTagColor` rather than stored anywhere new. But a
-   * project's colour is only unique INSIDE its era: the palette restarts for
-   * every era, so the first project of Campervan and the first project of
-   * Coding are both orange. On a project screen you only ever see one era and
-   * that is fine. Brain shows all of them at once, where two identical oranges
-   * would say "these belong together" about things that do not.
-   *
-   * So the left EDGE carries the era's own hue. Fill answers "which project",
-   * edge answers "which era", and the pair is distinct even when the fill is
-   * not. An era-level row has no project, so it washes in the era's colour
-   * too; an unfiled row gets neither, because unfiled is a valid resting state
-   * and must not be dressed up as something filed.
-   */
-  const rowTint = (
-    projectId?: string,
-    tag?: string
-  ): { fill: string; edge: string } | undefined => {
-    const era = eraOf(projectId);
-    if (!era) return undefined;
-    const edge = eraColor(era.name);
-    return { fill: tag ? projectTagColor(era.tags, era.tagColors, tag) : edge, edge };
-  };
+  /** Wash for the project, edge for the era. See `tintFor` in colors.ts. */
+  const rowTint = (projectId?: string, tag?: string) => tintFor(eraOf(projectId), tag);
 
   /**
    * Everything worth knowing about a to-do at a glance, in one line.
