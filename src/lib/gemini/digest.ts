@@ -39,10 +39,17 @@ export async function buildDigest(): Promise<Digest> {
 
   const lines: string[] = [];
 
-  lines.push('PROJECTS (name — last touched, closed in 30d, open count):');
+  // ERAS, with their ids and the projects inside each. The ids spare the model a
+  // query_state round trip before every write, and the project names are what
+  // it needs to file anything below era level — without them "add this to MTG
+  // simulator" could only ever land on the era.
+  lines.push(
+    'ERAS (name [id] — projects inside it — last touched, closed in 30d, open count):'
+  );
   for (const p of pulses) {
+    const inside = (p.project.tags ?? []).join(', ') || 'no projects yet';
     lines.push(
-      `- ${p.project.name} — touched ${ago(p.lastTouchedAt)}, ${p.closedLast30} closed, ${p.openCount} open`
+      `- ${p.project.name} [${p.project.id}] — ${inside} — touched ${ago(p.lastTouchedAt)}, ${p.closedLast30} closed, ${p.openCount} open`
     );
   }
 

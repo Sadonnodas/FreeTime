@@ -2,12 +2,12 @@ import { db } from '../db';
 import {
   createTodo, createIdea, createBuyItem,
   createProject, completeTodo, toggleHabitLog, today, createHabit,
-  getNote, saveNote
+  getNote, saveNote, setProjectTags, setProjectTagDescription, promoteIdea, ideaToProject
 } from '../store';
 import { activeProjects, openTodos, closedTodos } from '../queries';
 import { allMemos, displayTitle } from '../memos';
 import type { FunctionDeclaration } from './client';
-import type { Energy } from '../types';
+import type { Energy, Project } from '../types';
 
 /**
  * The assistant's tools (spec 7.1).
@@ -27,8 +27,8 @@ import type { Energy } from '../types';
 
 export const WRITE_TOOLS = [
   'create_todo', 'create_idea', 'create_buy_item',
-  'create_project', 'complete_todo', 'log_habit',
-  'create_habit', 'append_note'
+  'create_project', 'add_project_to_era', 'complete_todo', 'log_habit',
+  'create_habit', 'append_note', 'idea_to_todo', 'idea_to_project'
 ] as const;
 
 export type WriteTool = (typeof WRITE_TOOLS)[number];
@@ -53,6 +53,30 @@ export const isNavigation = (name: string): boolean => name === 'navigate';
 
 const str = (description: string) => ({ type: 'string', description });
 
+/*
+ * THE ADDRESS OF A THING: an era, then optionally a project inside it.
+ *
+ * `projectId` is the ERA — a schema name that predates the vocabulary change,
+ * kept because argument keys are schema, not copy (see CLAUDE.md on Eras and
+ * Projects). `projectInEra` is the new half: the NAME of a project inside that
+ * era, because a project is addressed by its name everywhere else in the app.
+ *
+ * `projectId` accepts the era's NAME as well as its id. That is what lets one
+ * reply say "make a Coding era, and a project in it, and a to-do in that" —
+ * the era's id does not exist yet when the model writes the later calls, but
+ * its name does. Both halves are resolved when the user taps Add, in order,
+ * so everything created earlier in the same batch is already there.
+ */
+const ERA = str(
+  'The era: its id from the digest or query_state, or its exact name if it is ' +
+    'being created earlier in this same reply. Leave out if they named no era.'
+);
+const PROJECT_IN_ERA = str(
+  'Optional. The NAME of a project inside that era — FreeTime inside Coding, ' +
+    'Furniture inside Campervan. Only if they named one, or it is being added ' +
+    'earlier in this same reply. Never invent one.'
+);
+
 export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: 'create_todo',
@@ -61,7 +85,8 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       type: 'object',
       properties: {
         title: str('What to do, in their words.'),
-        projectId: str('Only if they named an era — Music, Family, Crafting.'),
+        projectId: ERA,
+        projectInEra: PROJECT_IN_ERA,
         energy: { type: 'string', enum: ['quick', 'moderate', 'focus'] },
         date: str('YYYY-MM-DD. ONLY for a real obligation they stated. Never inferred.')
       },
@@ -77,8 +102,11 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       type: 'object',
       properties: {
         text: str('The thought.'),
-        projectId: str('Optional. An era, if one obviously fits. Ideas are ' +
-          'allowed to belong nowhere — leave it out rather than guessing.')
+        projectId: str(
+          'Optional. The era, as for create_todo, if one obviously fits. Ideas are ' +
+            'allowed to belong nowhere — leave it out rather than guessing.'
+        ),
+        projectInEra: PROJECT_IN_ERA
       },
       required: ['text']
     }
@@ -92,7 +120,8 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
         name: str('What to buy.'),
         url: str('Optional link.'),
         priceCents: { type: 'integer', description: 'Optional, in cents.' },
-        projectId: str('Optional.')
+        projectId: ERA,
+        projectInEra: PROJECT_IN_ERA
       },
       required: ['name']
     }
@@ -107,6 +136,58 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
       type: 'object',
       properties: { name: str('Name of the era.') },
       required: ['name']
+    }
+  },
+  {
+    name: 'add_project_to_era',
+    description:
+      'Add a PROJECT inside an existing era — a piece of work such as "MTG ' +
+      'simulator" inside Coding, or "Trigger pad" inside Crafting. This is how ' +
+      'projects are made; create_project makes an era and must not be used for ' +
+      'this. Projects never go inside other projects.',
+    parameters: {
+      type: 'object',
+      properties: {
+        projectId: ERA,
+        name: str('Name of the new project, short, in their words.'),
+        description: str(
+          'Optional one-line tagline shown under its name. Only if they gave a ' +
+            'description. Something they want WRITTEN IN THE NOTES goes to ' +
+            'append_note instead.'
+        )
+      },
+      required: ['projectId', 'name']
+    }
+  },
+  {
+    name: 'idea_to_todo',
+    description:
+      'Turn an existing idea into a to-do, in the same era and project. Use ' +
+      'query_state kind=ideas to find its id. Only when they say so: an idea is ' +
+      'allowed to stay an idea.',
+    parameters: {
+      type: 'object',
+      properties: { id: str('The idea id.') },
+      required: ['id']
+    }
+  },
+  {
+    name: 'idea_to_project',
+    description:
+      'Grow an existing idea into a project of its own. The project is created ' +
+      'next to the others in the era, never inside another project, and the idea ' +
+      'moves into it. Use query_state kind=ideas to find its id.',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: str('The idea id.'),
+        name: str('Short name for the project. The idea text is kept as its description.'),
+        projectId: str(
+          "The era to create it in. Leave out to use the idea's own era; required " +
+            'if the idea belongs to no era.'
+        )
+      },
+      required: ['id', 'name']
     }
   },
   {
@@ -141,12 +222,17 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: 'append_note',
     description:
-      "Add a few lines to the end of an era's notes. Never rewrites or " +
-      'replaces what is already there.',
+      "Add a few lines to the end of the notes of an era, or of a project inside " +
+      'one. Never rewrites or replaces what is already there.',
     parameters: {
       type: 'object',
       properties: {
-        projectId: str('Id of the era. Use query_state to find it.'),
+        projectId: ERA,
+        projectInEra: str(
+          'The NAME of the project whose notes these are, if they are for a ' +
+            'project rather than the era as a whole — including one added earlier ' +
+            'in this same reply.'
+        ),
         text: str('The lines to add, in their words.')
       },
       required: ['projectId', 'text']
@@ -164,7 +250,8 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
           type: 'string',
           enum: ['today', 'projects', 'project', 'brain', 'memos', 'lists', 'buy', 'habits']
         },
-        projectId: str("Required when screen is 'project' — the id of the era.")
+        projectId: str("Required when screen is 'project' — the id of the era."),
+        projectInEra: str('Optional, with screen project: the name of a project inside that era.')
       },
       required: ['screen']
     }
@@ -184,7 +271,7 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
             'ideas', 'memos'
           ]
         },
-        projectName: str('Optional filter by era name.')
+        projectName: str('Optional filter by ERA name.')
       },
       required: ['kind']
     }
@@ -207,11 +294,17 @@ export async function runQuery(args: Args): Promise<unknown> {
 
   switch (kind) {
     case 'projects':
-      return projects.map((p) => ({ id: p.id, name: p.name }));
+      // "projects" here means ERAS, for schema reasons — so each one lists the
+      // projects inside it, which is what the model needs to file into one.
+      return projects.map((p) => ({ id: p.id, name: p.name, projects: p.tags ?? [] }));
     case 'open_todos':
-      return (await openTodos(projectId))
-        .slice(0, 100)
-        .map((t) => ({ id: t.id, title: t.title, project: nameFor(t.projectId), date: t.date }));
+      return (await openTodos(projectId)).slice(0, 100).map((t) => ({
+        id: t.id,
+        title: t.title,
+        era: nameFor(t.projectId),
+        projectInEra: t.tag,
+        date: t.date
+      }));
     case 'closed_todos':
       return (await closedTodos(projectId))
         .slice(0, 50)
@@ -223,7 +316,7 @@ export async function runQuery(args: Args): Promise<unknown> {
     case 'buy':
       return (await db.buyItems.toArray())
         .filter((b) => !b.deletedAt && !b.purchasedAt)
-        .map((b) => ({ id: b.id, name: b.name, project: nameFor(b.projectId) }));
+        .map((b) => ({ id: b.id, name: b.name, era: nameFor(b.projectId), projectInEra: b.tag }));
     case 'ideas':
       return (await db.ideas.toArray())
         .filter((i) => !i.deletedAt && (projectId ? i.projectId === projectId : true))
@@ -231,9 +324,12 @@ export async function runQuery(args: Args): Promise<unknown> {
         .map((i) => ({
           id: i.id,
           text: i.text,
-          project: nameFor(i.projectId),
+          era: nameFor(i.projectId),
+          projectInEra: i.tag,
           group: i.group,
-          done: !!i.doneAt
+          done: !!i.doneAt,
+          alreadyATodo: !!i.promotedToTodoId,
+          startedAProject: !!i.becameProjectAt
         }));
     case 'memos':
       // Metadata only. The audio never goes near the model — it is the
@@ -254,6 +350,54 @@ export async function runQuery(args: Args): Promise<unknown> {
   }
 }
 
+/**
+ * An era, by id or by name — resolved when the write is APPLIED, not when it
+ * is proposed. That is what makes a batch work: "add a project to Coding and
+ * write this in its notes" is two proposals, and the project the note is for
+ * does not exist until the first one has been applied.
+ */
+export async function resolveEra(ref?: string): Promise<Project | undefined> {
+  if (!ref) return undefined;
+  const eras = await activeProjects();
+  const lower = ref.toLowerCase();
+  return eras.find((e) => e.id === ref) ?? eras.find((e) => e.name.toLowerCase() === lower);
+}
+
+/**
+ * A project inside an era, matched without regard to case but returned with
+ * the era's own spelling.
+ *
+ * A name the era does not have is DROPPED, never stored. A tag pointing at a
+ * project that does not exist is not filed somewhere wrong, it is invisible —
+ * no screen shows it — so a to-do the model filed into a misheard project
+ * falls back to the era, where it can be seen and moved.
+ */
+export function resolveProjectInEra(era: Project | undefined, name?: string): string | undefined {
+  if (!era || !name) return undefined;
+  const lower = name.trim().toLowerCase();
+  return (era.tags ?? []).find((t) => t.toLowerCase() === lower);
+}
+
+/**
+ * The order confirmed writes are applied in: things that CREATE a place first,
+ * then things that go into one. The model usually writes its calls in that
+ * order anyway, but "put this in the MTG simulator notes — oh, and make that
+ * project" is a perfectly natural sentence, and applying it as spoken would
+ * file the note before its project existed. Stable, so within each rank the
+ * model's own order is kept.
+ */
+const APPLY_RANK: Partial<Record<WriteTool, number>> = {
+  create_project: 0,
+  add_project_to_era: 1,
+  idea_to_project: 2
+};
+export function orderForApply<T extends { name: WriteTool }>(writes: T[]): T[] {
+  return writes
+    .map((w, i) => ({ w, i }))
+    .sort((a, b) => (APPLY_RANK[a.w.name] ?? 3) - (APPLY_RANK[b.w.name] ?? 3) || a.i - b.i)
+    .map(({ w }) => w);
+}
+
 /** A write the model wants to make, held until the user agrees to it. */
 export interface ProposedWrite {
   name: WriteTool;
@@ -263,19 +407,27 @@ export interface ProposedWrite {
 }
 
 export async function describeWrite(name: WriteTool, args: Args): Promise<string> {
-  const projects = await activeProjects();
-  const nameFor = (id?: string) => projects.find((p) => p.id === id)?.name;
-  const inProject = (id?: string) => (nameFor(id) ? ` in ${nameFor(id)}` : '');
+  // Named from what the model said, not only from what exists: the era or
+  // project may be created by an earlier proposal in the same batch.
+  const era = await resolveEra(s(args.projectId));
+  const eraName = era?.name ?? s(args.projectId);
+  const where = () => {
+    const parts = [eraName, s(args.projectInEra)].filter(Boolean);
+    return parts.length ? ` in ${parts.join(' · ')}` : '';
+  };
+  const short = (text: string) => (text.length > 60 ? `${text.slice(0, 57)}…` : text);
 
   switch (name) {
     case 'create_todo':
-      return `To-do: ${s(args.title) ?? '?'}${inProject(s(args.projectId))}`;
+      return `To-do: ${s(args.title) ?? '?'}${where()}`;
     case 'create_idea':
-      return `Idea: ${s(args.text) ?? '?'}${inProject(s(args.projectId))}`;
+      return `Idea: ${s(args.text) ?? '?'}${where()}`;
     case 'create_buy_item':
-      return `Buy: ${s(args.name) ?? '?'}`;
+      return `Buy: ${s(args.name) ?? '?'}${where()}`;
     case 'create_project':
       return `New era: ${s(args.name) ?? '?'}`;
+    case 'add_project_to_era':
+      return `New project: ${s(args.name) ?? '?'}${eraName ? ` in ${eraName}` : ''}`;
     case 'complete_todo': {
       const todo = await db.todos.get(s(args.id) ?? '');
       return `Complete: ${todo?.title ?? s(args.id)}`;
@@ -286,37 +438,59 @@ export async function describeWrite(name: WriteTool, args: Args): Promise<string
     }
     case 'create_habit':
       return `New habit: ${s(args.name) ?? '?'}`;
-    case 'append_note': {
-      const text = s(args.text) ?? '';
-      const short = text.length > 60 ? `${text.slice(0, 57)}…` : text;
-      return `Note${inProject(s(args.projectId))}: ${short}`;
+    case 'append_note':
+      return `Note${where()}: ${short(s(args.text) ?? '')}`;
+    case 'idea_to_todo': {
+      const idea = await db.ideas.get(s(args.id) ?? '');
+      return `Make a to-do: ${short(idea?.text ?? s(args.id) ?? '?')}`;
+    }
+    case 'idea_to_project': {
+      const idea = await db.ideas.get(s(args.id) ?? '');
+      return `Idea → project: ${s(args.name) ?? '?'} (from “${short(idea?.text ?? '?')}”)`;
     }
   }
 }
 
 /** Runs a write the user has confirmed. Same store as every manual edit. */
 export async function applyWrite(name: WriteTool, args: Args): Promise<void> {
+  // Resolved now, at apply time — see resolveEra.
+  const era = await resolveEra(s(args.projectId));
+  const tag = resolveProjectInEra(era, s(args.projectInEra));
+
   switch (name) {
     case 'create_todo':
       await createTodo(s(args.title) ?? '', {
-        projectId: s(args.projectId),
+        projectId: era?.id,
+        tag,
         energy: s(args.energy) as Energy | undefined,
         date: s(args.date)
       });
       break;
     case 'create_idea':
-      await createIdea(s(args.text) ?? '', { projectId: s(args.projectId) });
+      await createIdea(s(args.text) ?? '', { projectId: era?.id, tag });
       break;
     case 'create_buy_item':
       await createBuyItem(s(args.name) ?? '', {
         url: s(args.url),
         priceCents: typeof args.priceCents === 'number' ? args.priceCents : undefined,
-        projectId: s(args.projectId)
+        projectId: era?.id,
+        tag
       });
       break;
     case 'create_project':
       await createProject(s(args.name) ?? '');
       break;
+    case 'add_project_to_era': {
+      const projectName = s(args.name);
+      if (!era || !projectName) break;
+      // Already there (any capitalisation): nothing to add. A second "Mixing"
+      // beside the first would be two projects that cannot be told apart.
+      if (resolveProjectInEra(era, projectName)) break;
+      await setProjectTags(era.id, [...(era.tags ?? []), projectName]);
+      const description = s(args.description);
+      if (description) await setProjectTagDescription(era.id, projectName, description);
+      break;
+    }
     case 'complete_todo':
       await completeTodo(s(args.id) ?? '');
       break;
@@ -329,11 +503,26 @@ export async function applyWrite(name: WriteTool, args: Args): Promise<void> {
     case 'append_note': {
       // Append, never replace. A voice command that overwrites a page of notes
       // is unrecoverable, and there is no undo in this app.
-      const projectId = s(args.projectId);
       const text = s(args.text);
-      if (!projectId || !text) break;
-      const existing = (await getNote(projectId))?.markdown ?? '';
-      await saveNote(projectId, existing ? `${existing.trimEnd()}\n\n${text}` : text);
+      if (!era || !text) break;
+      const existing = (await getNote(era.id, tag))?.markdown ?? '';
+      await saveNote(era.id, existing ? `${existing.trimEnd()}\n\n${text}` : text, tag);
+      break;
+    }
+    case 'idea_to_todo': {
+      const idea = await db.ideas.get(s(args.id) ?? '');
+      // Once is enough: a second to-do from the same idea is a duplicate.
+      if (!idea || idea.deletedAt || idea.promotedToTodoId) break;
+      await promoteIdea(idea.id);
+      break;
+    }
+    case 'idea_to_project': {
+      const idea = await db.ideas.get(s(args.id) ?? '');
+      const projectName = s(args.name);
+      if (!idea || idea.deletedAt || idea.becameProjectAt || !projectName) break;
+      const target = era?.id ?? idea.projectId;
+      if (!target) break;
+      await ideaToProject(idea.id, target, projectName);
       break;
     }
   }
@@ -348,8 +537,13 @@ export function navigationTarget(args: Args): { label: string; path: string } | 
       return { label: 'Today', path: '/' };
     case 'projects':
       return { label: 'Projects', path: '/projects' };
-    case 'project':
-      return projectId ? { label: 'the project', path: `/projects/${projectId}` } : null;
+    case 'project': {
+      if (!projectId) return null;
+      const inEra = s(args.projectInEra);
+      return inEra
+        ? { label: inEra, path: `/projects/${projectId}/${encodeURIComponent(inEra)}` }
+        : { label: 'the era', path: `/projects/${projectId}` };
+    }
     case 'brain':
       return { label: 'Brain', path: '/brain' };
     case 'memos':

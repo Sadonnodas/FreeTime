@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { db } from '../db';
 import { setApiKey } from './client';
 import { ask } from './assistant';
+import { createProject } from '../store';
 
 /**
  * Gemini 3 puts an opaque thoughtSignature on the first function call of a
@@ -92,5 +93,42 @@ describe('the assistant round-trip', () => {
     );
     const turn = await ask([], 'pots');
     expect(turn.proposals).toHaveLength(1);
+  });
+
+  it('turns "add a project and write in its notes" into two proposals, writing nothing', async () => {
+    const coding = await createProject('Coding');
+    stub([
+      { functionCall: { name: 'add_project_to_era', args: { projectId: coding, name: 'MTG simulator' } }, thoughtSignature: 'S' },
+      {
+        functionCall: {
+          name: 'append_note',
+          args: { projectId: coding, projectInEra: 'MTG simulator', text: 'App to create decks and simulate magic games' }
+        }
+      },
+      { text: 'Here you go.' }
+    ]);
+
+    const turn = await ask(
+      [],
+      'inside coding era add a project named MTG simulator and in the notes write: app to create decks and simulate magic games'
+    );
+
+    expect(turn.proposals.map((p) => p.label)).toEqual([
+      'New project: MTG simulator in Coding',
+      'Note in Coding · MTG simulator: App to create decks and simulate magic games'
+    ]);
+    // Proposals only. Nothing exists until the user taps Add.
+    expect((await db.projects.get(coding))!.tags ?? []).toEqual([]);
+    expect(await db.notes.count()).toBe(0);
+  });
+
+  it('tells the model which projects live inside each era', async () => {
+    const coding = await createProject('Coding');
+    await db.projects.update(coding, { tags: ['FreeTime'] });
+    stub([{ text: 'ok' }]);
+    await ask([], 'hi');
+    const system = (bodies[0] as unknown as { systemInstruction: { parts: { text: string }[] } })
+      .systemInstruction.parts[0]!.text;
+    expect(system).toContain(`Coding [${coding}] — FreeTime`);
   });
 });

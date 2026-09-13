@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Content } from '$lib/gemini/client';
   import type { ProposedWrite } from '$lib/gemini/tools';
-  import { applyWrite } from '$lib/gemini/tools';
+  import { applyWrite, orderForApply } from '$lib/gemini/tools';
   import { ask, type Suggestion } from '$lib/gemini/assistant';
   import { base } from '$app/paths';
   import { goto } from '$app/navigation';
@@ -129,7 +129,10 @@
   }
 
   async function commit() {
-    for (const p of pending) await applyWrite(p.name, p.args);
+    // Places before the things that go into them — see orderForApply. One at a
+    // time, awaited, because each may create the era or project the next one
+    // is filed under.
+    for (const p of orderForApply(pending)) await applyWrite(p.name, p.args);
     const n = pending.length;
     pending = [];
     bubbles = [...bubbles, { role: 'it', text: `Added ${n}.` }];

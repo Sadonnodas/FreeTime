@@ -159,9 +159,45 @@ Do not "fix" these without talking to Toon first.
   a list mixes projects; inside one project every row would wear the same
   colour, which says nothing and made the ideas look like a different kind of
   thing from the plain to-dos above them.
-  **Not done: the assistant cannot file into a PROJECT**, only into an era —
-  and that is true of `create_todo` and `create_buy_item` too, not just ideas.
-  Worth doing as one change across all three tools rather than for ideas alone.
+  The assistant can do all of it too — see the next entry.
+
+- **The assistant files into projects, makes them, and writes their notes**
+  ([gemini/tools.ts](src/lib/gemini/tools.ts), `add_project_to_era`,
+  `idea_to_todo`, `idea_to_project`, `projectInEra` on every create and on
+  `append_note`; [tools.test.ts](src/lib/gemini/tools.test.ts)). Asked for as a
+  sentence to be able to say: *"inside coding era add a project named MTG
+  simulator and in the notes write: app to create decks and simulate magic
+  games."* It could not do any part of that: every write stopped at the era,
+  and `create_project` makes an ERA and is told to refuse anything else.
+  **`projectInEra` is a NAME, `projectId` is still the era.** Argument keys are
+  schema and stayed; the new half says what it is. `projectId` also accepts an
+  era's NAME, which is what lets one reply create an era and file into it
+  before its id exists.
+  **Names are resolved when the user taps Add, not when the model proposes.**
+  That sentence is two proposals and the second is filed under something the
+  first creates; resolving at proposal time would find no "MTG simulator" and
+  put the note on the era. And `orderForApply` applies places before the
+  things that go into them — create an era, add a project, grow an idea into
+  one, then everything else — because "write this in the MTG notes, oh and
+  make that project" is a natural thing to say and applied as spoken it files
+  the note first. Stable, so the model's own order is kept within a rank.
+  **A project name the era does not have is DROPPED, never stored**: a to-do
+  filed under a misheard project lands on the era where it can be seen, instead
+  of on a tag no screen shows. Matched case-insensitively and stored in the
+  era's own spelling, because both speech-to-text and models lowercase.
+  `add_project_to_era` will not make a second project of the same name, and has
+  no way to put one inside another — a test asserts it has no such argument.
+  The digest now lists each era's id and the projects inside it, which saves a
+  query_state round trip before every write and is the only way the model can
+  know a project's name at all. "In the notes write…" is `append_note`; a
+  project's description is its one-line tagline — the prompt spells out the
+  difference, since the example sentence says "notes" and a model left to
+  itself reaches for the field called description.
+  **Not verifiable from here:** the key lives only on Toon's devices, so the
+  machinery is tested end to end against a stubbed Gemini (the example
+  sentence's two calls come back as two proposals and write nothing), but
+  whether the live model picks these tools reliably is only knowable by
+  asking it.
 
 - **Import defaults every project name to "leave unassigned"**. Auto-creating a project
   per workstream is how the old system grew nine projects of boilerplate.

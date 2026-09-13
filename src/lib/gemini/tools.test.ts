@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from '../db';
 import {
   TOOL_DECLARATIONS, isWrite, isNavigation, WRITE_TOOLS, SAFE_TOOLS,
-  runQuery, applyWrite, navigationTarget
+  runQuery, applyWrite, navigationTarget, orderForApply, describeWrite, type WriteTool
 } from './tools';
-import { createProject, createTodo, getNote, saveNote } from '../store';
+import {
+  createProject, createTodo, getNote, saveNote, setProjectTags, createIdea
+} from '../store';
 
 /**
  * The read/write split is the assistant's entire safety model: reads run
@@ -140,5 +142,162 @@ describe('applying a confirmed write', () => {
   it('ignores an append with no project rather than writing it nowhere', async () => {
     await applyWrite('append_note', { text: 'orphan' });
     expect(await db.notes.count()).toBe(0);
+  });
+});
+
+/**
+ * Asked for in one sentence: *"inside coding era add a project named MTG
+ * simulator and in the notes write: app to create decks and simulate magic
+ * games"*. That is two proposals where the second is filed under something the
+ * first creates, so names are resolved when the user taps Add — not when the
+ * model proposes — and places are applied before the things that go into them.
+ */
+describe('filing into a project, as a conversation would', () => {
+  beforeEach(reset);
+
+  /** What Assistant.svelte does when the user taps Add. */
+  async function commit(writes: { name: WriteTool; args: Record<string, unknown> }[]) {
+    for (const w of orderForApply(writes)) await applyWrite(w.name, w.args);
+  }
+
+  it('adds a project to an era and writes in its notes, in one reply', async () => {
+    const coding = await createProject('Coding');
+    await saveNote(coding, 'The era note stays as it was.');
+
+    await commit([
+      { name: 'add_project_to_era', args: { projectId: coding, name: 'MTG simulator' } },
+      {
+        name: 'append_note',
+        // Lower case, as speech-to-text and models both tend to produce it.
+        args: {
+          projectId: 'coding',
+          projectInEra: 'mtg simulator',
+          text: 'App to create decks and simulate magic games'
+        }
+      }
+    ]);
+
+    expect((await db.projects.get(coding))!.tags).toEqual(['MTG simulator']);
+    // Under the project's own spelling, not the model's.
+    expect((await getNote(coding, 'MTG simulator'))!.markdown).toBe(
+      'App to create decks and simulate magic games'
+    );
+    expect((await getNote(coding))!.markdown).toBe('The era note stays as it was.');
+  });
+
+  it('still works when the note is asked for before its project', async () => {
+    const coding = await createProject('Coding');
+    await commit([
+      { name: 'append_note', args: { projectId: coding, projectInEra: 'MTG simulator', text: 'Decks' } },
+      { name: 'add_project_to_era', args: { projectId: coding, name: 'MTG simulator' } }
+    ]);
+    expect((await getNote(coding, 'MTG simulator'))!.markdown).toBe('Decks');
+  });
+
+  it('creates an era, a project in it and a to-do in that, by name', async () => {
+    await commit([
+      { name: 'create_todo', args: { title: 'Card database', projectId: 'Games', projectInEra: 'MTG simulator' } },
+      { name: 'add_project_to_era', args: { projectId: 'Games', name: 'MTG simulator' } },
+      { name: 'create_project', args: { name: 'Games' } }
+    ]);
+    const era = (await db.projects.toArray())[0]!;
+    const todo = (await db.todos.toArray())[0]!;
+    expect([era.name, era.tags]).toEqual(['Games', ['MTG simulator']]);
+    expect([todo.projectId, todo.tag]).toEqual([era.id, 'MTG simulator']);
+  });
+
+  it('files ideas and shopping into a project too', async () => {
+    const van = await createProject('Campervan');
+    await setProjectTags(van, ['Furniture']);
+    await commit([
+      { name: 'create_idea', args: { text: 'Fold-down table', projectId: van, projectInEra: 'Furniture' } },
+      { name: 'create_buy_item', args: { name: 'Hinges', projectId: van, projectInEra: 'furniture' } }
+    ]);
+    expect((await db.ideas.toArray())[0]!.tag).toBe('Furniture');
+    expect((await db.buyItems.toArray())[0]!.tag).toBe('Furniture');
+  });
+
+  it('drops a project that does not exist rather than filing into nothing', async () => {
+    const coding = await createProject('Coding');
+    await applyWrite('create_todo', { title: 'Misheard', projectId: coding, projectInEra: 'Nope' });
+    const todo = (await db.todos.toArray())[0]!;
+    // On the era, where it can be seen and moved — not on a tag no screen shows.
+    expect([todo.projectId, todo.tag]).toEqual([coding, undefined]);
+  });
+
+  it('does not add a second project with the same name', async () => {
+    const coding = await createProject('Coding');
+    await setProjectTags(coding, ['FreeTime']);
+    await applyWrite('add_project_to_era', { projectId: coding, name: 'freetime' });
+    expect((await db.projects.get(coding))!.tags).toEqual(['FreeTime']);
+  });
+
+  it('never creates a project inside a project', async () => {
+    // There is no argument for it: add_project_to_era takes an era and a name.
+    const tool = TOOL_DECLARATIONS.find((t) => t.name === 'add_project_to_era')!;
+    const props = Object.keys((tool.parameters as { properties: object }).properties);
+    expect(props).not.toContain('projectInEra');
+  });
+
+  it('describes a note for a project that is only about to exist', async () => {
+    const coding = await createProject('Coding');
+    const label = await describeWrite('append_note', {
+      projectId: coding, projectInEra: 'MTG simulator', text: 'App to create decks'
+    });
+    expect(label).toBe('Note in Coding · MTG simulator: App to create decks');
+  });
+});
+
+describe('ideas, through the assistant', () => {
+  beforeEach(reset);
+
+  it('turns an idea into a to-do in the same project, once', async () => {
+    const coding = await createProject('Coding');
+    await setProjectTags(coding, ['FreeTime']);
+    const idea = await createIdea('Swipe to tick', { projectId: coding, tag: 'FreeTime' });
+
+    await applyWrite('idea_to_todo', { id: idea });
+    await applyWrite('idea_to_todo', { id: idea });
+    const todos = await db.todos.toArray();
+    expect(todos).toHaveLength(1);
+    expect(todos[0]!.tag).toBe('FreeTime');
+  });
+
+  it('grows an idea into a project in its own era', async () => {
+    const coding = await createProject('Coding');
+    const idea = await createIdea('A game to learn intervals', { projectId: coding });
+
+    await applyWrite('idea_to_project', { id: idea, name: 'Interval game' });
+    expect((await db.projects.get(coding))!.tags).toEqual(['Interval game']);
+    expect((await db.ideas.get(idea))!.tag).toBe('Interval game');
+  });
+
+  it('needs an era for an idea that belongs nowhere', async () => {
+    const coding = await createProject('Coding');
+    const idea = await createIdea('Ear trainer');
+
+    await applyWrite('idea_to_project', { id: idea, name: 'Ear trainer' });
+    expect((await db.projects.get(coding))!.tags ?? []).toEqual([]);
+
+    await applyWrite('idea_to_project', { id: idea, name: 'Ear trainer', projectId: 'Coding' });
+    expect((await db.projects.get(coding))!.tags).toEqual(['Ear trainer']);
+  });
+
+  it('lets the model see the projects inside each era, and where each idea is', async () => {
+    const coding = await createProject('Coding');
+    await setProjectTags(coding, ['FreeTime']);
+    await createIdea('Swipe', { projectId: coding, tag: 'FreeTime' });
+
+    expect(await runQuery({ kind: 'projects' })).toEqual([
+      { id: coding, name: 'Coding', projects: ['FreeTime'] }
+    ]);
+    const ideas = (await runQuery({ kind: 'ideas' })) as { projectInEra?: string }[];
+    expect(ideas[0]!.projectInEra).toBe('FreeTime');
+  });
+
+  it('links straight to a project inside an era', () => {
+    expect(
+      navigationTarget({ screen: 'project', projectId: 'c1', projectInEra: 'MTG simulator' })?.path
+    ).toBe('/projects/c1/MTG%20simulator');
   });
 });
