@@ -5,7 +5,7 @@
   import { base } from '$app/paths';
   import WidgetBoard from '$lib/components/WidgetBoard.svelte';
   import BuyList from '$lib/components/BuyList.svelte';
-  import type { Todo, BuyItem, Note, Project } from '$lib/types';
+  import type { Todo, BuyItem, Note, Project, Idea } from '$lib/types';
   import {
     createTodo, completeTodo, uncompleteTodo, updateTodo, setTodoAfter, createBuyItem, markPurchased, saveNote, getNote,
     setProjectImage, setProjectTags, removeProjectTag, renameProjectTag,
@@ -30,6 +30,7 @@
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import PlanToday from '$lib/components/PlanToday.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
+  import IdeaList from '$lib/components/IdeaList.svelte';
 
 
   const id = $derived(page.params.id!);
@@ -46,6 +47,25 @@
   const buyQ = $derived(
     liveQuery(async () =>
       (await db.buyItems.where('projectId').equals(id).toArray()).filter((b) => !b.deletedAt)
+    )
+  );
+  /**
+   * Every idea in the era, whichever project holds it. The overview says it
+   * spans the whole era, and a list that quietly left the ideas out would be
+   * the partial-list-under-a-total-heading this page was rebuilt to stop.
+   * Open ideas first, grouped by project, finished ones sinking.
+   */
+  const ideasQ = $derived(
+    liveQuery(async () =>
+      (await db.ideas.where('projectId').equals(id).toArray()).filter((i) => !i.deletedAt)
+    )
+  );
+  const eraIdeas = $derived(
+    (($ideasQ as Idea[] | undefined) ?? []).sort(
+      (a, b) =>
+        (a.doneAt ? 1 : 0) - (b.doneAt ? 1 : 0) ||
+        (a.tag ?? '\uffff').localeCompare(b.tag ?? '\uffff') ||
+        b.createdAt.localeCompare(a.createdAt)
     )
   );
 
@@ -740,6 +760,18 @@
         {/each}
       </ul>
     {/if}
+  </Collapsible>
+
+  <!-- No add field here, for the reason there is none for to-dos: an idea
+       written at era level belongs to no project, and writing one INSIDE the
+       project is one tap away. Ideas can still be moved between projects from
+       their own row. -->
+  <Collapsible id="{id}/era/ideas" title="Ideas" count={eraIdeas.filter((i) => !i.doneAt).length} defaultFolded={eraIdeas.length === 0}>
+    <IdeaList ideas={eraIdeas} eras={($erasQ as Project[] | undefined) ?? []}>
+      {#snippet empty()}
+        <p class="footnote px-1">No ideas in any project here yet.</p>
+      {/snippet}
+    </IdeaList>
   </Collapsible>
 
   <Collapsible id="{id}/era/buy" title="To buy" count={buyItems.length} defaultFolded={buyItems.length === 0}>

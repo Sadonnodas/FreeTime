@@ -3,12 +3,13 @@
   import { base } from '$app/paths';
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
-  import type { Project, Todo, BuyItem, Memo, Widget, Energy, TimeBucket } from '$lib/types';
+  import type { Project, Todo, BuyItem, Memo, Widget, Energy, TimeBucket, Idea } from '$lib/types';
   import { widgetsFor } from '$lib/widgets';
   import {
     createTodo, completeTodo, uncompleteTodo, updateTodo, setTodoAfter, createBuyItem, saveNote, getNote,
-    projectTagColor, softDelete
+    projectTagColor, softDelete, createIdea
   } from '$lib/store';
+  import { activeProjects } from '$lib/queries';
   import { memosForProject } from '$lib/memos';
   import { indexById, readyFirst, blockerOf, possibleBlockers } from '$lib/order';
   import { canRecord } from '$lib/audio';
@@ -29,6 +30,7 @@
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
   import ProjectTagEditor from '$lib/components/ProjectTagEditor.svelte';
+  import IdeaList from '$lib/components/IdeaList.svelte';
   import { goto } from '$app/navigation';
 
   /**
@@ -93,6 +95,24 @@
     )
   );
   const buyQ = $derived((($eraBuyQ as BuyItem[] | undefined) ?? []).filter((b) => b.tag === tag));
+  // Ideas, by era and then by tag in plain code — the same shape as buyQ above
+  // and for the same reason: a tag read inside the query would drop the whole
+  // subscription the moment this project is renamed from inside itself.
+  const eraIdeasQ = $derived(
+    liveQuery(async () =>
+      (await db.ideas.where('projectId').equals(eraId).toArray()).filter((i) => !i.deletedAt)
+    )
+  );
+  const ideas = $derived(
+    (($eraIdeasQ as Idea[] | undefined) ?? [])
+      .filter((i) => i.tag === tag)
+      // Finished ones stay — nothing here is ever deleted by the app — but sink.
+      .sort((a, b) => (a.doneAt ? 1 : 0) - (b.doneAt ? 1 : 0) || b.createdAt.localeCompare(a.createdAt))
+  );
+  /** Every era, for an idea's Belongs-to and for starting a project from one. */
+  const erasQ = liveQuery(() => activeProjects());
+  const eras = $derived(($erasQ as Project[] | undefined) ?? []);
+  let addIdea = $state(false);
   const memosQ = $derived(liveQuery(() => memosForProject(eraId)));
   const blocksQ = $derived(liveQuery(() => widgetsFor(eraId)));
   const blocks = $derived(
@@ -147,7 +167,7 @@
    * than opening a form: the fast path is still type-and-Enter, and a sheet you
    * have to dismiss for every to-do would be worse than the tabs this replaced.
    */
-  type AddKind = 'todo' | 'buy' | 'note' | 'photo' | 'recording';
+  type AddKind = 'todo' | 'idea' | 'buy' | 'note' | 'photo' | 'recording';
   let adding = $state<AddKind | null>(null);
   let sheet = $state(false);
   let recording = $state(false);
@@ -169,6 +189,7 @@
     // Unfolds the section AND opens its field — picking a kind from the sheet
     // has to leave you typing, or the sheet is just a longer way in.
     if (kind === 'todo') addTodo = true;
+    if (kind === 'idea') addIdea = true;
     adding = kind;
   }
 
@@ -411,6 +432,31 @@
       {/if}
     </Collapsible>
 
+    <!-- ----------------------------------------------------------------- ideas -->
+    <!--
+      Straight after the to-dos, because that is the comparison being drawn: an
+      idea is the thing that is NOT a to-do yet, and might never be. Folded when
+      empty so a project with no ideas does not carry an empty header's worth of
+      guilt about not having any.
+    -->
+    <Collapsible id={sectionId('ideas')} title="Ideas" count={ideas.filter((i) => !i.doneAt).length} {color} defaultFolded={ideas.length === 0} open={adding === 'idea'}>
+      <div class="mb-2">
+        <AddField
+          bind:open={addIdea}
+          label="Add an idea"
+          placeholder="An idea for {tag}"
+          onadd={(text) => createIdea(text, { projectId: eraId, tag })}
+        />
+      </div>
+      <IdeaList {ideas} {eras} showWhere={false}>
+        {#snippet empty()}
+          <p class="footnote px-1">
+            Things worth thinking about, that are not ready to be to-dos. Or never will be.
+          </p>
+        {/snippet}
+      </IdeaList>
+    </Collapsible>
+
     <!-- ------------------------------------------------------------------- buy -->
     <Collapsible id={sectionId('buy')} title="To buy" count={buyItems.length} {color} defaultFolded={buyItems.length === 0} open={adding === 'buy'}>
       <form
@@ -478,7 +524,7 @@
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="card mx-auto w-full max-w-[520px] p-2" onclick={(e) => e.stopPropagation()}>
-      {#each [['todo', 'To-do', 'Something to do'], ['buy', 'To buy', 'Something to get'], ['note', 'Note', 'Anything written down'], ['photo', 'Photo or block', 'A picture, a countdown, links'], ['recording', 'Recording', 'A voice memo']] as const as [kind, label, hint]}
+      {#each [['todo', 'To-do', 'Something to do'], ['idea', 'Idea', 'Something to think about'], ['buy', 'To buy', 'Something to get'], ['note', 'Note', 'Anything written down'], ['photo', 'Photo or block', 'A picture, a countdown, links'], ['recording', 'Recording', 'A voice memo']] as const as [kind, label, hint]}
         {#if kind !== 'recording' || recordable}
           <button class="press list-row w-full text-left" onclick={() => choose(kind)}>
             <span class="flex-1">

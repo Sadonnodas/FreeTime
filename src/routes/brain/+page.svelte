@@ -3,12 +3,13 @@
   import { db } from '$lib/db';
   import type { Todo, Idea, BuyItem, Project, Energy, TimeBucket, Memo } from '$lib/types';
   import {
-    promoteIdea, completeTodo, createTodo, createIdea, createBuyItem,
-    setIdeaProject, toggleIdeaDone, updateTodo, setTodoAfter, softDelete, today, updateIdea,
+    completeTodo, createTodo, createIdea, createBuyItem,
+    updateTodo, setTodoAfter, softDelete, today,
     uncompleteTodo, PROJECT_COLORS
   } from '$lib/store';
   import { tintFor } from '$lib/colors';
   import Controls from '$lib/components/Controls.svelte';
+  import IdeaList from '$lib/components/IdeaList.svelte';
   import { indexById, blockerOf, possibleBlockers } from '$lib/order';
   import { tomorrow, dayLabel, dayPhrase } from '$lib/days';
   import { activeProjects } from '$lib/queries';
@@ -251,19 +252,8 @@
   function useProject(id: string | null, unfiled = false) {
     activeProject = id;
     unfiledOnly = unfiled;
-    openIdea = null;
   }
 
-  /**
-   * Which idea is expanded to show its project chips.
-   *
-   * Filing had been a "File here" button that appeared on ideas belonging
-   * somewhere other than the lit project — which could never happen, because
-   * the lit project also filters them out of view. Moving an idea has to work
-   * from where you can actually see it, so it lives on the row: tap the text,
-   * pick a project. Same shape as a buy item.
-   */
-  let openIdea = $state<string | null>(null);
 
   /**
    * Every section can be added to directly. Only Lists could before, which made
@@ -807,88 +797,12 @@
       <button class="btn btn-primary press" disabled={!newIdeaText.trim()}>Add</button>
     </form>
 
-    <ul class="space-y-1">
-      {#each visibleIdeas as i (i.id)}
-        {@const tint = rowTint(i.projectId)}
-        <li
-          class="card-flat px-3 {tint ? 'row-tint' : ''}"
-          style:--row={tint?.fill}
-          style:--edge={tint?.edge}
-        >
-          <div class="flex items-center gap-3">
-          <!-- Finishing a want is a real thing — a book gets read — and it
-               counts as a win without ever having been a task. -->
-          <button
-            class="press tap shrink-0 {i.doneAt ? 'text-good' : 'text-ink-400'}"
-            onclick={() => toggleIdeaDone(i.id, !i.doneAt)}
-            aria-label={i.doneAt ? 'Not done after all' : 'Done with it'}
-          >
-            {i.doneAt ? '✓' : '○'}
-          </button>
-
-          <button
-            class="min-w-0 flex-1 py-3 text-left"
-            onclick={() => (openIdea = openIdea === i.id ? null : i.id)}
-          >
-            <p class={i.doneAt ? 'text-ink-400 line-through' : ''}>{i.text}</p>
-            <!-- `group` exists only on ideas migrated from the old Lists tab.
-                 Shown so nothing from back then goes invisible; nothing creates
-                 one any more. -->
-            {#if (i.projectId && !activeProject) || i.group || i.promotedToTodoId}
-              <p class="footnote">
-                {[
-                  i.projectId && !activeProject ? projectName(i.projectId) : null,
-                  i.group,
-                  i.promotedToTodoId ? '→ to-do' : null
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </p>
-            {/if}
-          </button>
-
-          {#if !i.promotedToTodoId && !i.doneAt}
-            <!-- The one sorting action left. An unfiled thought is already an
-                 idea; the only decision worth a button is "this is a task". -->
-            <button
-              class="press tap-h shrink-0 rounded-xl bg-surface-2 px-4 text-sm text-ink-200"
-              onclick={() => promoteIdea(i.id)}>Make a to-do</button
-            >
-          {/if}
-        </div>
-
-        {#if openIdea === i.id}
-          <!-- Where it belongs, decided whenever you know — which is usually
-               not at the moment you had the thought. -->
-          <div class="mt-1 border-t border-line-1 pt-3 pb-2">
-            <p class="section-label mb-2">What it says</p>
-            <RenameField
-              value={i.text}
-              label="What it says"
-              onrename={(text) => updateIdea(i.id, { text })}
-            />
-
-            <p class="section-label mt-3 mb-2">Belongs to</p>
-            <div class="flex flex-wrap gap-2">
-              <button
-                class="chip press {i.projectId ? '' : 'chip-on'}"
-                onclick={() => setIdeaProject(i.id, undefined)}
-              >
-                Nowhere yet
-              </button>
-              {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
-                <button
-                  class="chip press {i.projectId === p.id ? 'chip-on' : ''}"
-                  onclick={() => setIdeaProject(i.id, i.projectId === p.id ? undefined : p.id)}
-                >
-                  {p.name}
-                </button>
-              {/each}
-            </div>
-          </div>
-        {/if}
-      </li>
-      {:else}
+    <IdeaList
+      ideas={visibleIdeas}
+      eras={($projectsQ as Project[] | undefined) ?? []}
+      showWhere={!activeProject}
+    >
+      {#snippet empty()}
         {#if unfiledOnly}
           <Empty
             line="Nothing unfiled. A thought with no home yet lands here."
@@ -905,8 +819,8 @@
             quip="Go on, plant a seed. These things take an era."
           />
         {/if}
-      {/each}
-    </ul>
+      {/snippet}
+    </IdeaList>
   {:else if section === 'memos'}
     <!-- The whole library. Grouped by month, because "somewhere in August" is
          how a recording actually gets remembered. -->

@@ -130,6 +130,39 @@ Do not "fix" these without talking to Toon first.
   one any more — the assistant's `create_idea` lost its `group` argument and the
   voice extraction lost its `list_item` kind for the same reason.
 
+- **An idea is not a to-do, and it can live inside a PROJECT, not just an era**
+  (`Idea.tag`, `Idea.becameProjectAt`, `ideaToProject` in store.ts,
+  [IdeaList.svelte](src/lib/components/IdeaList.svelte),
+  [ideas.test.ts](src/lib/ideas.test.ts)). Toon's words: *"I can have an idea
+  for a new ear-training game but that doesn't mean it needs to be built right
+  away. It might need more thought work or perhaps it's not a good idea after
+  all. An idea can become a to do or even a project."* Ideas only ever filed to
+  an era, so a thought about ONE project sat in a pile with every other project's
+  — or got written as a to-do, which makes it something you are behind on from
+  the moment it exists. Every project screen now has an Ideas section straight
+  after its to-dos (the comparison being drawn), "Idea" is in its + Add sheet,
+  and the era overview lists them all, because it promises to span everything.
+  **Four ways forward, none required**: make a to-do (lands in the same
+  project), make it a project, delete it (ideas had no delete at all — "not a
+  good idea after all" had nowhere to go), or leave it be, which is the best
+  of the four more often than not.
+  **Becoming a project makes a SIBLING, never a child.** An idea filed inside
+  "FreeTime" that becomes "Interval game" is created next to FreeTime in the
+  same era. A project inside a project is the third level the depth rule
+  forbids, and an idea growing into one is exactly how that level would sneak
+  in — the form says so in a line of its own. The idea is not consumed: it is
+  filed INTO the project it started and marked "started this project", and
+  when the name is shorter than the idea (it usually is — a sentence is not a
+  header) the full sentence becomes the project's description. Refuses a name
+  the era already has, rather than merging, for `moveProjectTag`'s reason.
+  **One component in three places**, like BuyList. Rows are tinted only where
+  a list mixes projects; inside one project every row would wear the same
+  colour, which says nothing and made the ideas look like a different kind of
+  thing from the plain to-dos above them.
+  **Not done: the assistant cannot file into a PROJECT**, only into an era —
+  and that is true of `create_todo` and `create_buy_item` too, not just ideas.
+  Worth doing as one change across all three tools rather than for ideas alone.
+
 - **Import defaults every project name to "leave unassigned"**. Auto-creating a project
   per workstream is how the old system grew nine projects of boilerplate.
 - **There is a WEEKLY look-back, and it is the monthly summary's sibling, not
@@ -238,8 +271,8 @@ Do not "fix" these without talking to Toon first.
   out of one question: an era holding a mixing course, a wedding covers set and
   twelve songs is four eras wearing one name, and twenty songs meant for one day
   drown the three being worked on.
-  **Moving carries all five kinds** — to-dos, recordings, blocks, shopping and
-  the note — exactly as renaming does, with the same warning: miss one and it is
+  **Moving carries all six kinds** — to-dos, ideas, recordings, blocks, shopping
+  and the note — exactly as renaming does, with the same warning: miss one and it is
   not deleted, it is invisible. Colour, description and sleep carry too, and
   they are written to the destination BEFORE the tags change, because
   `setProjectTags` prunes all three for names it cannot see — the same trap
@@ -1661,9 +1694,14 @@ device; there is nothing to build. Memos are the exception, below.
   among every other build's blocks, with no way to move it or open it. Blocks and
   shopping now follow the chip exactly as to-dos, notes and recordings do — same
   rule, a chip shows only that project and no chip shows the whole era, and adding
-  while a chip is lit files it there. **Renaming a project must carry all five**
-  (to-dos, memos, note, blocks, shopping); miss one and it is not deleted, it is
-  invisible, which is worse. Pinned by [notes.test.ts](src/lib/notes.test.ts).
+  while a chip is lit files it there. **Renaming a project must carry all six**
+  (to-dos, ideas, memos, note, blocks, shopping); miss one and it is not
+  deleted, it is invisible, which is worse. Pinned by
+  [notes.test.ts](src/lib/notes.test.ts) and, for ideas,
+  [ideas.test.ts](src/lib/ideas.test.ts). Removing a project unfiles its
+  to-dos, recordings and ideas back to the era but deliberately leaves its note
+  and blocks on the old name, so recreating it brings them back — a test pins
+  that, so it is not an oversight to "fix".
   On All the era's to-dos are grouped under a heading per project, with untagged
   ones last — a flat list across an era with three builds in it reads as one pile,
   which is what it looked like when the grouping was missing.

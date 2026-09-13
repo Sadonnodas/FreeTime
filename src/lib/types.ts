@@ -148,8 +148,24 @@ export interface Todo extends Base {
  */
 export interface Idea extends Base {
   text: string;
+  /** The era it belongs to, if any. */
   projectId?: string;
+  /**
+   * The project inside that era, as `Todo.tag`. An idea is not a to-do — "an
+   * ear-training game" may need thinking about for months, or turn out not to
+   * be a good idea at all — but it belongs to a project in exactly the same
+   * way, so it uses exactly the same address. Carried by rename, move and
+   * remove like every other kind a project holds.
+   */
+  tag?: string;
   promotedToTodoId?: string;
+  /**
+   * When this idea became a project of its own. The idea is filed INTO that
+   * project at the same moment, so the thought that started it stays attached
+   * to it — and since the address is the project's tag, a later rename carries
+   * it, where a stored project name would silently go stale.
+   */
+  becameProjectAt?: string;
   /** A named collection — Books, Albums, Lyrics. Undefined means unfiled. */
   group?: string;
   /**

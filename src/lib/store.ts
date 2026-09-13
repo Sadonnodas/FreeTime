@@ -215,7 +215,7 @@ export async function moveProjectTag(
 
   const at = now();
   const move = async (
-    table: 'todos' | 'memos' | 'widgets' | 'buyItems'
+    table: 'todos' | 'memos' | 'widgets' | 'buyItems' | 'ideas'
   ): Promise<void> => {
     const rows = (await db[table].where('projectId').equals(fromEraId).toArray()).filter(
       (r) => !r.deletedAt && (r as { tag?: string }).tag === tag
@@ -224,7 +224,9 @@ export async function moveProjectTag(
       rows.map((r) => db[table].update(r.id, { projectId: toEraId, updatedAt: at }))
     );
   };
-  await Promise.all([move('todos'), move('memos'), move('widgets'), move('buyItems')]);
+  await Promise.all([
+    move('todos'), move('memos'), move('widgets'), move('buyItems'), move('ideas')
+  ]);
 
   // The note is one row per project per section, so it moves rather than merges.
   const note = (await db.notes.where('projectId').equals(fromEraId).toArray()).find(
@@ -279,6 +281,11 @@ export async function removeProjectTag(projectId: string, tag: string): Promise<
   const memos = (await db.memos.where('projectId').equals(projectId).toArray())
     .filter((m) => !m.deletedAt && m.tag === tag);
   await Promise.all(memos.map((m) => db.memos.update(m.id, { tag: undefined, updatedAt: at })));
+
+  // Ideas go back to the era, like to-dos, so they stay visible in its overview.
+  const ideas = (await db.ideas.where('projectId').equals(projectId).toArray())
+    .filter((i) => !i.deletedAt && i.tag === tag);
+  await Promise.all(ideas.map((i) => db.ideas.update(i.id, { tag: undefined, updatedAt: at })));
 
   // The note is deliberately left attached to the removed name rather than
   // merged into the project's own note, which would overwrite it. Recreate the
@@ -341,6 +348,12 @@ export async function renameProjectTag(
     .filter((b) => !b.deletedAt && b.tag === from);
   await Promise.all(buys.map((b) => db.buyItems.update(b.id, { tag: next, updatedAt: at })));
 
+  // And ideas — the sixth kind. The same warning as the rest: miss it and the
+  // thoughts behind a project stay on a name nothing shows.
+  const ideas = (await db.ideas.where('projectId').equals(projectId).toArray())
+    .filter((i) => !i.deletedAt && i.tag === from);
+  await Promise.all(ideas.map((i) => db.ideas.update(i.id, { tag: next, updatedAt: at })));
+
   await moveNoteSection(projectId, from, next);
 }
 
@@ -401,7 +414,7 @@ export async function uncompleteTodo(id: string): Promise<void> {
 
 export async function createIdea(
   text: string,
-  opts: { projectId?: string; group?: string } = {}
+  opts: { projectId?: string; tag?: string; group?: string } = {}
 ): Promise<string> {
   const i: Idea = stamp({ text: text.trim(), ...opts });
   await db.ideas.add(i);
@@ -423,8 +436,15 @@ export async function updateIdea(id: string, patch: Partial<Idea>): Promise<void
   await db.ideas.update(id, { ...patch, updatedAt: now() });
 }
 
-export async function setIdeaProject(id: string, projectId?: string): Promise<void> {
-  await db.ideas.update(id, { projectId, updatedAt: now() });
+/**
+ * Where an idea lives: an era, and optionally a project inside it.
+ *
+ * Changing the era clears the project, because a project name belongs to ONE
+ * era — "Mixing" carried from Music into Garden would point at nothing, which is
+ * the invisible-not-deleted failure renaming warns about.
+ */
+export async function setIdeaProject(id: string, projectId?: string, tag?: string): Promise<void> {
+  await db.ideas.update(id, { projectId, tag: projectId ? tag : undefined, updatedAt: now() });
 }
 
 /** Read, watched, listened to. A want can be finished without ever having been
@@ -437,9 +457,67 @@ export async function toggleIdeaDone(id: string, done = true): Promise<void> {
 export async function promoteIdea(ideaId: string): Promise<string> {
   const idea = await db.ideas.get(ideaId);
   if (!idea) throw new Error(`No idea ${ideaId}`);
-  const todoId = await createTodo(idea.text, { projectId: idea.projectId });
+  const todoId = await createTodo(idea.text, { projectId: idea.projectId, tag: idea.tag });
   await db.ideas.update(ideaId, { promotedToTodoId: todoId, updatedAt: now() });
   return todoId;
+}
+
+export type IdeaToProjectResult = 'started' | 'name-taken' | 'nothing';
+
+/**
+ * An idea grows into a project of its own.
+ *
+ * Asked for alongside ideas-in-projects: *"An idea can become a to do or even a
+ * project."* Making a to-do was already one tap; this is its bigger sibling.
+ *
+ * THE NEW PROJECT IS A SIBLING, NEVER A CHILD. An idea filed inside the
+ * "FreeTime" project that becomes "Ear-training game" creates that project
+ * next to FreeTime in the same era. A project inside a project is the third
+ * level the depth rule exists to forbid, and an idea turning into one is
+ * precisely how that level would sneak in.
+ *
+ * The idea is not consumed. It is filed INTO the project it started, so the
+ * original thought is the first thing inside it, and marked with when that
+ * happened. If the name was shortened from the idea's text — "Ear-training
+ * game" from three sentences about intervals — the full text becomes the
+ * project's description, unless it already has one: the long version is the
+ * best line anyone is going to write about why this project exists.
+ *
+ * Refuses rather than merging when the era already has a project by that name,
+ * for the reason `moveProjectTag` gives: two things silently becoming one
+ * cannot be undone.
+ */
+export async function ideaToProject(
+  ideaId: string,
+  eraId: string,
+  name: string
+): Promise<IdeaToProjectResult> {
+  const trimmed = name.trim();
+  const [idea, era] = await Promise.all([db.ideas.get(ideaId), db.projects.get(eraId)]);
+  if (!idea || idea.deletedAt || !era || !trimmed) return 'nothing';
+  if ((era.tags ?? []).includes(trimmed)) return 'name-taken';
+
+  // A new name gets its colour from the era's palette here, as any project does.
+  await setProjectTags(eraId, [...(era.tags ?? []), trimmed]);
+
+  if (trimmed !== idea.text.trim()) {
+    const fresh = await db.projects.get(eraId);
+    if (!fresh?.tagDescriptions?.[trimmed]) {
+      await db.projects.update(eraId, {
+        tagDescriptions: { ...(fresh?.tagDescriptions ?? {}), [trimmed]: idea.text.trim() },
+        updatedAt: now()
+      });
+    }
+  }
+
+  const at = now();
+  await db.ideas.update(ideaId, {
+    projectId: eraId,
+    tag: trimmed,
+    becameProjectAt: at,
+    updatedAt: at
+  });
+  return 'started';
 }
 
 // --------------------------------------------------------------------- buy

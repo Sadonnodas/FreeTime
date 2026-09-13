@@ -137,7 +137,8 @@ export async function pendingWeeklySummary(today: Date = new Date()): Promise<We
         kind: 'finished' as const,
         text: i.text,
         at: i.doneAt!,
-        projectId: i.projectId
+        projectId: i.projectId,
+        tag: i.tag
       })),
     ...live(buys)
       .filter((b) => within(b.purchasedAt))
