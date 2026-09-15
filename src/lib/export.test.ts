@@ -28,8 +28,13 @@ async function mtg() {
 describe('exporting a project as text', () => {
   it('gives just the to-dos as a checklist, and nothing else', async () => {
     const era = await mtg();
-    await createTodo('Card database', { projectId: era, tag: 'MTG simulator' });
-    await createTodo('Shuffle and draw', { projectId: era, tag: 'MTG simulator' });
+    const first = await createTodo('Card database', { projectId: era, tag: 'MTG simulator' });
+    const second = await createTodo('Shuffle and draw', { projectId: era, tag: 'MTG simulator' });
+    // Written a minute apart. Created back to back they can share a millisecond
+    // on a fast machine, and then the order is a tie — which is how this test
+    // passed locally and failed in CI.
+    await db.todos.update(first, { createdAt: '2026-09-01T10:00:00.000Z' });
+    await db.todos.update(second, { createdAt: '2026-09-01T10:01:00.000Z' });
     await createIdea('Online play', { projectId: era, tag: 'MTG simulator' });
     await saveNote(era, 'Some notes', 'MTG simulator');
 
@@ -68,6 +73,8 @@ describe('exporting a project as text', () => {
     const era = await mtg();
     const rules = await createTodo('Rules engine', { projectId: era, tag: 'MTG simulator' });
     const data = await createTodo('Card database', { projectId: era, tag: 'MTG simulator' });
+    await db.todos.update(rules, { createdAt: '2026-09-01T10:00:00.000Z' });
+    await db.todos.update(data, { createdAt: '2026-09-01T10:01:00.000Z' });
     await setTodoAfter(rules, data);
     await updateTodo(data, { energy: 'focus', takes: 'half day' });
 

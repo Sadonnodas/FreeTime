@@ -870,6 +870,15 @@ one came close to a hard rule, the reasoning is recorded here.
   build time fails the build ("marked as prerenderable, but were not found
   while crawling") — which fails the deploy. Every sibling carries the one-line
   `+page.ts`; the print route did not at first.
+  **Its first deploy failed on CI and not locally, for a reason worth
+  keeping.** Two to-dos created back to back shared a millisecond on GitHub's
+  faster runner, so `readyFirst` — sorted by chain depth, then `createdAt` —
+  had a tie, and fell back to database order, which follows random ids. The
+  test gate caught it before anything shipped. `readyFirst` now ends on `id`,
+  so a tie is arbitrary but identical everywhere: the screen and an export can
+  never list the same project in two orders. **A sort that a person's eye
+  depends on needs a total order**, and tests that create rows back to back
+  should set `createdAt` explicitly rather than trusting the clock to move.
 
 - **A buy item stores the price of ONE, never the line total** (`BuyItem.qty`,
   `priceCents`, [buy.test.ts](src/lib/buy.test.ts)). Storing the total was the

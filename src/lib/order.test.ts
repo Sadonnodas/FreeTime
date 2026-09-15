@@ -112,3 +112,14 @@ describe('refusing to build a loop', () => {
     expect(options).not.toContain('bamboo'); // done, so the link would do nothing
   });
 });
+
+describe('readyFirst with identical timestamps', () => {
+  it('breaks a tie the same way every time, whatever order the rows arrived in', () => {
+    // Created in the same millisecond: a sync, an import, a fast machine.
+    const at = '2026-09-01T10:00:00.000Z';
+    const a = todo('a', { createdAt: at });
+    const b = todo('b', { createdAt: at });
+    const ids = (list: Todo[]) => readyFirst(list).map((t) => t.id);
+    expect(ids([a, b])).toEqual(ids([b, a]));
+  });
+});

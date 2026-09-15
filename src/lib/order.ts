@@ -112,6 +112,13 @@ export function possibleBlockers(todo: Todo, siblings: Todo[]): Todo[] {
 export function readyFirst(todos: Todo[]): Todo[] {
   const byId = indexById(todos);
   return [...todos].sort(
-    (a, b) => chainDepth(a, byId) - chainDepth(b, byId) || a.createdAt.localeCompare(b.createdAt)
+    (a, b) =>
+      chainDepth(a, byId) - chainDepth(b, byId) ||
+      a.createdAt.localeCompare(b.createdAt) ||
+      // Two to-dos written in the same millisecond — a sync, an import, a fast
+      // machine — would otherwise fall back to whatever order the database
+      // returned them in, which follows random ids. Arbitrary, but the SAME
+      // arbitrary everywhere, so the screen and an export never disagree.
+      a.id.localeCompare(b.id)
   );
 }
