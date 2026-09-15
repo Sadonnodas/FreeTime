@@ -31,6 +31,7 @@
   import NoteEditor from '$lib/components/NoteEditor.svelte';
   import ProjectTagEditor from '$lib/components/ProjectTagEditor.svelte';
   import IdeaList from '$lib/components/IdeaList.svelte';
+  import ExportSheet from '$lib/components/ExportSheet.svelte';
   import { goto } from '$app/navigation';
 
   /**
@@ -195,6 +196,7 @@
 
   let openTodo = $state<string | null>(null);
   let picking = $state(false);
+  let exporting = $state(false);
 
   const sectionId = (name: string) => `${eraId}/${tag}/${name}`;
 </script>
@@ -224,13 +226,25 @@
         row you had just come from, which is a strange way round: you are stood
         in it.
       -->
-      <button
-        class="press tap-h shrink-0 rounded-full px-3 text-[13px]"
-        style="color: {color}"
-        onclick={() => (picking = !picking)}
-      >
-        {picking ? 'Done' : 'Edit'}
-      </button>
+      <div class="flex shrink-0 flex-col items-end">
+        <button
+          class="press tap-h rounded-full px-3 text-[13px]"
+          style="color: {color}"
+          onclick={() => (picking = !picking)}
+        >
+          {picking ? 'Done' : 'Edit'}
+        </button>
+        <!-- Taking the project out: as text to paste (Claude Code, notes, mail)
+             or as a page to print. Beside Edit because both are about the
+             project as a whole, not about any one thing inside it. -->
+        <button
+          class="press tap-h rounded-full px-3 text-[13px]"
+          style="color: {color}"
+          onclick={() => (exporting = true)}
+        >
+          Export
+        </button>
+      </div>
     </div>
 
     {#if picking}
@@ -544,4 +558,8 @@
 
 {#if recording}
   <MemoRecorder onDone={() => (recording = false)} projectId={eraId} section={tag} />
+{/if}
+
+{#if exporting}
+  <ExportSheet {eraId} {tag} onclose={() => (exporting = false)} />
 {/if}

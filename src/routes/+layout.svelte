@@ -195,8 +195,11 @@
   <div class="flex min-w-0 flex-1 flex-col">
   <!-- Above the scrolling area, so it is seen without being fixed over the
        content or eating into a page's own safe-area padding. -->
-  <UpdateNotice />
-  <ReconnectNotice />
+  <!-- Not on paper. See the print block at the end of app.css. -->
+  <div class="print:hidden">
+    <UpdateNotice />
+    <ReconnectNotice />
+  </div>
 
   <main class="min-h-0 flex-1 overflow-y-auto">
     <div class="page h-full">

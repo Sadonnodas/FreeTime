@@ -835,6 +835,42 @@ one came close to a hard rule, the reasoning is recorded here.
   because every list wants the identical thing to happen and a list holding its
   own `viewing` variable is a list that can forget to render the overlay.
 
+- **A project can be exported: as text to paste, or as a page to print**
+  ([export.ts](src/lib/export.ts), [ExportSheet.svelte](src/lib/components/ExportSheet.svelte),
+  [print/+page.svelte](src/routes/projects/[id]/[tag]/print/+page.svelte),
+  [export.test.ts](src/lib/export.test.ts)). Asked for with two uses at once:
+  printing a project out on the day you finally work on it, and *"right now I
+  have to manually type over my coding to-dos from FreeTime to Claude Code"* —
+  then *"export only to-dos etc."* **One collection, two outputs**: the text and
+  the page are built from the same `ProjectExport`, so they cannot list
+  different things. The text is MARKDOWN because both destinations already read
+  it — `- [ ] Card database` is a checklist to Claude Code, a notes app and an
+  email alike. Sections are chosen, with the two asked-for cases one tap each
+  ("Everything", "Just the to-dos"), and the choice is remembered per device
+  because the Claude Code export is a thing you do again tomorrow. Finished
+  to-dos are off by default: a printout for getting on with it lists what is
+  left. The preview IS the text, byte for byte, which also makes it the
+  fallback when the clipboard is refused — the text is selected for you.
+  **Printed by the browser, not a PDF library.** Save as PDF is in every print
+  dialog including the iPhone share sheet; a library would be a third runtime
+  dependency producing a worse document than the browser's own typesetting.
+  The page is paper — literal black on white — in both themes, since a dark
+  preview of a white printout previews nothing; boxes are real boxes to tick
+  with a pen, and the project's colour is one rule under the title, because
+  tinted rows print as grey mud on a mono printer.
+  **Printing the app shell prints ONE page**, and that is a trap worth knowing:
+  the shell is a viewport-tall flex box whose `<main>` scrolls inside itself,
+  so the printer sees one clipped screenful. The `@media print` block at the
+  end of app.css un-windows it (auto height, overflow visible) and drops the
+  tab bar, rail and notices. Verified that the rules parse; the print dialog
+  itself cannot be opened from the preview pane, and nor can the clipboard, so
+  both need checking on a real device.
+  **A new dynamic route needs its own `prerender = false`.** The layout
+  prerenders everything, and a route under `[id]` that nothing links to at
+  build time fails the build ("marked as prerenderable, but were not found
+  while crawling") — which fails the deploy. Every sibling carries the one-line
+  `+page.ts`; the print route did not at first.
+
 - **A buy item stores the price of ONE, never the line total** (`BuyItem.qty`,
   `priceCents`, [buy.test.ts](src/lib/buy.test.ts)). Storing the total was the
   alternative and it is a quiet trap: changing the quantity afterwards would leave

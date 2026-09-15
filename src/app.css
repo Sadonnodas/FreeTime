@@ -1074,3 +1074,247 @@ body {
     filter: none;
   }
 }
+
+/* ------------------------------------------------------------ a project on paper */
+
+/*
+ * The print page (routes/projects/[id]/[tag]/print). Paper in BOTH themes, on
+ * screen as well as on the printer: a dark preview of a white printout is a
+ * preview of nothing. Colours are literal rather than tokens for that reason —
+ * the tokens flip with the theme and paper does not.
+ */
+.paper-wrap {
+  min-height: 100%;
+  background: #f4f2ee;
+  color: #1a1a1a;
+  padding: 16px;
+}
+
+.paper-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 720px;
+  margin: 0 auto 16px;
+  padding-top: env(safe-area-inset-top, 0px);
+  color: #444;
+}
+
+.paper {
+  max-width: 720px;
+  margin: 0 auto;
+  background: #fff;
+  color: #1a1a1a;
+  padding: 40px 44px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.paper h1 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 2px 0 6px;
+}
+
+.paper h2 {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #555;
+  margin: 28px 0 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #ddd;
+}
+
+/* The project's colour, once, as a rule under the title. A page of tinted rows
+   prints as grey mud on a mono printer. */
+.paper-head {
+  border-bottom: 3px solid;
+  padding-bottom: 14px;
+}
+
+.paper-kicker {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #777;
+}
+
+.paper-lede {
+  font-size: 16px;
+  color: #333;
+}
+
+.paper-muted {
+  font-size: 12.5px;
+  color: #777;
+}
+
+/* Long URLs break rather than run off the edge of the page. */
+.paper-break {
+  overflow-wrap: anywhere;
+}
+
+.paper-checks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.paper-checks li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 7px 0;
+  border-bottom: 1px solid #eee;
+  /* A to-do never splits across two sheets of paper. */
+  break-inside: avoid;
+}
+
+/* A real box to tick with a pen. */
+.paper-box {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  border: 1.5px solid #333;
+  border-radius: 3px;
+  font-size: 12px;
+  line-height: 13px;
+  text-align: center;
+}
+
+.paper-done p {
+  color: #888;
+  text-decoration: line-through;
+}
+
+/* list-style spelled out: Tailwind's reset removes every list marker, and an
+   idea list without bullets prints as loose sentences. */
+.paper-bullets {
+  list-style: disc;
+  padding-left: 20px;
+  margin: 0;
+}
+
+.paper-bullets li {
+  padding: 3px 0;
+  break-inside: avoid;
+}
+
+.paper-total {
+  margin-top: 8px;
+  text-align: right;
+  font-weight: 600;
+}
+
+.paper-thumb {
+  margin-top: 6px;
+  max-width: 180px;
+  max-height: 120px;
+  border-radius: 4px;
+}
+
+.paper-photo {
+  max-width: 100%;
+  max-height: 360px;
+  border-radius: 4px;
+}
+
+.paper-block {
+  margin-bottom: 14px;
+  break-inside: avoid;
+}
+
+.paper-pre {
+  white-space: pre-wrap;
+}
+
+.paper-md h3,
+.paper-md h4,
+.paper-md h5,
+.paper-md h6 {
+  font-weight: 700;
+  margin: 12px 0 4px;
+}
+
+.paper-md p,
+.paper-md ul,
+.paper-md ol,
+.paper-md blockquote {
+  margin: 0 0 8px;
+}
+
+.paper-md ul,
+.paper-md ol {
+  padding-left: 20px;
+}
+
+.paper-md ul {
+  list-style: disc;
+}
+
+.paper-md ol {
+  list-style: decimal;
+}
+
+.paper-md a {
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .paper {
+    padding: 24px 20px;
+  }
+}
+
+/*
+ * PRINTING THE APP SHELL PRINTS ONE PAGE, and the reason is the shell. It is a
+ * full-height flex box whose <main> scrolls inside itself, which is right for a
+ * phone and wrong for paper: the printer sees one viewport-tall box with its
+ * overflow hidden, and a three-page project comes out as its first page. So for
+ * print the shell stops being a window — auto height, nothing clipped — and
+ * the app's own chrome (tab bar, rail, notices) is dropped.
+ */
+@media print {
+  @page {
+    margin: 16mm 14mm;
+  }
+
+  html,
+  body,
+  .shell,
+  .shell main,
+  .shell .page {
+    height: auto !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    overflow: visible !important;
+    display: block !important;
+    background: #fff !important;
+  }
+
+  .shell nav {
+    display: none !important;
+  }
+
+  .paper-wrap {
+    background: #fff;
+    padding: 0;
+  }
+
+  .paper {
+    max-width: none;
+    padding: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+}
