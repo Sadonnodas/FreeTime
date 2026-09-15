@@ -12,6 +12,7 @@
   import { startThemeWatch } from '$lib/theme';
   import UpdateNotice from '$lib/components/UpdateNotice.svelte';
   import ReconnectNotice from '$lib/components/ReconnectNotice.svelte';
+  import AskBar from '$lib/components/AskBar.svelte';
 
   let { children } = $props();
 
@@ -217,6 +218,10 @@
       </div>
     {:else if ready}
       {@render children()}
+      <!-- On every screen, not just Today. Fixed-position, so where it sits in
+           the markup does not matter; it is inside `ready` so it cannot open
+           onto a store that has not been opened yet. -->
+      <div class="print:hidden"><AskBar /></div>
     {/if}
     </div>
   </main>

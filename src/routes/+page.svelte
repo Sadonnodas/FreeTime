@@ -13,7 +13,6 @@
     ensureDay, addToDay, removeFromDay, maybeCloseDay,
     canUnlockOneMore, unlockOneMore, reopenDayIfIncomplete, DayFullError, STARTING_SLOTS
   } from '$lib/day';
-  import AskBar from '$lib/components/AskBar.svelte';
   import { tintFor } from '$lib/colors';
   import DayClose from '$lib/components/DayClose.svelte';
   import MonthlySummary from '$lib/components/MonthlySummary.svelte';
@@ -777,7 +776,6 @@
   </div>
 </div>
 
-<AskBar />
 
 {#if showClose}
   <DayClose onDismiss={() => (showClose = false)} />

@@ -1,8 +1,9 @@
 import { generate, type Content } from './client';
+import { db } from '../db';
 import { buildDigest } from './digest';
 import {
-  TOOL_DECLARATIONS, isWrite, isNavigation, runQuery, describeWrite, navigationTarget,
-  type ProposedWrite
+  TOOL_DECLARATIONS, isWrite, isNavigation, isPendingEdit, runQuery, describeWrite,
+  navigationTarget, type ProposedWrite, type PendingEdit
 } from './tools';
 
 /**
@@ -17,6 +18,8 @@ import {
 const SYSTEM = `You are a calm assistant inside someone's personal organiser. You are talking to the person who owns it.
 
 Use query_state before answering anything factual about their stuff. Never guess at counts or contents.
+
+If they correct something that is NOT SAVED YET ("no, Friday", "put that in FreeTime", "drop the last one"), change it with revise_pending or drop_pending instead of proposing it again.
 
 When they want something recorded, call the matching function. You may call several at once, and later calls may refer to an era or project created by an earlier one in the same reply — they are applied in order.
 
@@ -45,11 +48,65 @@ export interface AssistantTurn {
   reply: string;
   /** Writes awaiting confirmation. Never applied by this function. */
   proposals: ProposedWrite[];
+  /** Changes to proposals that were ALREADY waiting, by their number. */
+  edits: PendingEdit[];
   suggestions: Suggestion[];
 }
 
-export async function ask(history: Content[], message: string): Promise<AssistantTurn> {
-  const digest = await buildDigest();
+/**
+ * The proposals waiting for a tap, shown to the model with numbers, so a
+ * follow-up can refer to one — "make the second one Friday". Without this the
+ * model cannot see what it proposed a message ago at all: the history keeps
+ * only its reply text, not the calls.
+ */
+export function pendingBlock(pending: ProposedWrite[]): string {
+  if (!pending.length) return '';
+  const lines = pending.map((p, i) => `${i + 1}. ${p.label} — ${p.name} ${JSON.stringify(p.args)}`);
+  return (
+    '\n\nNOT SAVED YET (proposals waiting for them to tap Add, numbered):\n' +
+    lines.join('\n') +
+    '\nTo change one of these use revise_pending with its number; to remove one use ' +
+    'drop_pending. Do not propose any of them again.'
+  );
+}
+
+/**
+ * Where the person is standing when they ask. The assistant opens over every
+ * screen now, and "add a to-do to call the plumber" said from inside the
+ * Garden project means Garden — the same instinct that makes adding from the
+ * project screen file things there without asking.
+ */
+export interface AskContext {
+  /** The era on screen, if any. */
+  eraId?: string;
+  /** The project inside it, if one is open. */
+  tag?: string;
+}
+
+async function contextLine(context?: AskContext): Promise<string> {
+  if (!context?.eraId) return 'They are not looking at any particular era or project right now.';
+  const era = await db.projects.get(context.eraId);
+  if (!era || era.deletedAt) return 'They are not looking at any particular era or project right now.';
+  if (context.tag && (era.tags ?? []).includes(context.tag)) {
+    return (
+      `They are looking at the project "${context.tag}" in the era ${era.name} [${era.id}]. ` +
+      'When they say "here", "this project", or add something without naming a place, ' +
+      `file it there: projectId ${era.id}, projectInEra "${context.tag}".`
+    );
+  }
+  return (
+    `They are looking at the era ${era.name} [${era.id}]. When they say "here" or add ` +
+    'something without naming a place, file it in that era.'
+  );
+}
+
+export async function ask(
+  history: Content[],
+  message: string,
+  context?: AskContext,
+  pending: ProposedWrite[] = []
+): Promise<AssistantTurn> {
+  const [digest, where] = await Promise.all([buildDigest(), contextLine(context)]);
 
   const contents: Content[] = [
     ...history,
@@ -58,12 +115,13 @@ export async function ask(history: Content[], message: string): Promise<Assistan
 
   let reply = '';
   const proposals: ProposedWrite[] = [];
+  const edits: PendingEdit[] = [];
   const suggestions: Suggestion[] = [];
 
   for (let round = 0; round <= MAX_READ_ROUNDS; round++) {
     const result = await generate({
       contents,
-      systemInstruction: `${SYSTEM}\n\nCurrent state:\n${digest.text}`,
+      systemInstruction: `${SYSTEM}\n\nWhere they are: ${where}\n\nCurrent state:\n${digest.text}${pendingBlock(pending)}`,
       tools: TOOL_DECLARATIONS,
       maxOutputTokens: 1200
     });
@@ -74,7 +132,19 @@ export async function ask(history: Content[], message: string): Promise<Assistan
     const navs = result.functionCalls.filter((c) => isNavigation(c.name));
     // Only real reads go back to the model. A navigation call has no result to
     // feed back, and treating it as one would keep the loop spinning.
-    const reads = result.functionCalls.filter((c) => !isWrite(c.name) && !isNavigation(c.name));
+    const reads = result.functionCalls.filter(
+      (c) => !isWrite(c.name) && !isNavigation(c.name) && !isPendingEdit(c.name)
+    );
+
+    for (const e of result.functionCalls.filter((c) => isPendingEdit(c.name))) {
+      const number = Number(e.args.number);
+      if (!Number.isInteger(number)) continue;
+      edits.push(
+        e.name === 'drop_pending'
+          ? { kind: 'drop', number }
+          : { kind: 'revise', number, changes: e.args }
+      );
+    }
 
     for (const w of writes) {
       if (!isWrite(w.name)) continue;
@@ -115,9 +185,11 @@ export async function ask(history: Content[], message: string): Promise<Assistan
             response: {
               result: isWrite(c.name)
                 ? 'Shown to them as a proposal. Nothing is written until they tap to confirm it.'
-                : isNavigation(c.name)
-                  ? 'Offered to them as a link.'
-                  : await runQuery(c.args)
+                : isPendingEdit(c.name)
+                  ? 'Done — the proposal is changed, and still waits for them to tap Add.'
+                  : isNavigation(c.name)
+                    ? 'Offered to them as a link.'
+                    : await runQuery(c.args)
             }
           }
         }))
@@ -126,6 +198,7 @@ export async function ask(history: Content[], message: string): Promise<Assistan
   }
 
   if (!reply && proposals.length) reply = "Here's what I'll add.";
+  if (!reply && edits.length) reply = 'Changed.';
 
-  return { reply: reply || '…', proposals, suggestions };
+  return { reply: reply || '…', proposals, edits, suggestions };
 }

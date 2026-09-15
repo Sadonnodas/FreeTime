@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from '../db';
 import {
-  TOOL_DECLARATIONS, isWrite, isNavigation, WRITE_TOOLS, SAFE_TOOLS,
-  runQuery, applyWrite, navigationTarget, orderForApply, describeWrite, type WriteTool
+  TOOL_DECLARATIONS, isWrite, isNavigation, WRITE_TOOLS, SAFE_TOOLS, PENDING_TOOLS,
+  runQuery, applyWrite, navigationTarget, orderForApply, describeWrite, applyPendingEdits,
+  isPendingEdit, type WriteTool, type ProposedWrite
 } from './tools';
 import {
   createProject, createTodo, getNote, saveNote, setProjectTags, createIdea
@@ -22,7 +23,7 @@ async function reset() {
 describe('tool classification', () => {
   it('classifies every declared tool deliberately', () => {
     const declared = TOOL_DECLARATIONS.map((t) => t.name).sort();
-    const accounted = [...WRITE_TOOLS, ...SAFE_TOOLS].sort();
+    const accounted = [...WRITE_TOOLS, ...SAFE_TOOLS, ...PENDING_TOOLS].sort();
     // A new tool must be added to WRITE_TOOLS or to SAFE_TOOLS. Failing here
     // means someone added a tool without deciding which it is — and a write
     // that landed in neither list would be treated as a read and executed
@@ -30,10 +31,13 @@ describe('tool classification', () => {
     expect(declared).toEqual(accounted);
   });
 
-  it('never treats a safe tool as a write, or a write as safe', () => {
+  it('puts every tool in exactly one category, and only writes count as writes', () => {
     for (const { name } of TOOL_DECLARATIONS) {
-      const safe = (SAFE_TOOLS as readonly string[]).includes(name);
-      expect(isWrite(name)).toBe(!safe);
+      const inWrite = (WRITE_TOOLS as readonly string[]).includes(name);
+      const inSafe = (SAFE_TOOLS as readonly string[]).includes(name);
+      const inPending = (PENDING_TOOLS as readonly string[]).includes(name);
+      expect([inWrite, inSafe, inPending].filter(Boolean)).toHaveLength(1);
+      expect(isWrite(name)).toBe(inWrite);
     }
   });
 
@@ -299,5 +303,64 @@ describe('ideas, through the assistant', () => {
     expect(
       navigationTarget({ screen: 'project', projectId: 'c1', projectInEra: 'MTG simulator' })?.path
     ).toBe('/projects/c1/MTG%20simulator');
+  });
+});
+
+/**
+ * "Be able to adjust assistant entries with a follow-up recording to tweak AI
+ * suggestions." Proposals are numbered for the model; edits refer to those
+ * numbers, and nothing reaches the store until Add.
+ */
+describe('changing a proposal that is not saved yet', () => {
+  beforeEach(reset);
+
+  async function proposal(name: WriteTool, args: Record<string, unknown>): Promise<ProposedWrite> {
+    return { name, args, label: await describeWrite(name, args) };
+  }
+
+  it('is neither a write nor a read', () => {
+    expect(isPendingEdit('revise_pending')).toBe(true);
+    expect(isWrite('revise_pending')).toBe(false);
+    expect(isWrite('drop_pending')).toBe(false);
+  });
+
+  it('changes only the fields given, and relabels it', async () => {
+    const coding = await createProject('Coding');
+    const pending = [await proposal('create_todo', { title: 'Card database', projectId: coding, energy: 'focus' })];
+
+    const next = await applyPendingEdits(pending, [
+      { kind: 'revise', number: 1, changes: { number: 1, title: 'Card database and sets' } }
+    ]);
+    expect(next[0]!.args).toEqual({ title: 'Card database and sets', projectId: coding, energy: 'focus' });
+    expect(next[0]!.label).toBe('To-do: Card database and sets in Coding');
+    expect(await db.todos.count()).toBe(0);
+  });
+
+  it('resolves every number against the list the model was shown', async () => {
+    const pending = [
+      await proposal('create_todo', { title: 'one' }),
+      await proposal('create_todo', { title: 'two' }),
+      await proposal('create_todo', { title: 'three' })
+    ];
+    // Drop 1 and revise 3 in one breath: "3" must still mean "three".
+    const next = await applyPendingEdits(pending, [
+      { kind: 'drop', number: 1 },
+      { kind: 'revise', number: 3, changes: { title: 'THREE' } }
+    ]);
+    expect(next.map((p) => p.args.title)).toEqual(['two', 'THREE']);
+  });
+
+  it('ignores a number that is not there rather than guessing', async () => {
+    const pending = [await proposal('create_todo', { title: 'only' })];
+    expect(await applyPendingEdits(pending, [{ kind: 'drop', number: 4 }])).toHaveLength(1);
+  });
+
+  it('forgets the project when the era changes, unless a new one is named', async () => {
+    const coding = await createProject('Coding');
+    const garden = await createProject('Garden');
+    const pending = [await proposal('create_todo', { title: 'Pots', projectId: coding, projectInEra: 'FreeTime' })];
+
+    const moved = await applyPendingEdits(pending, [{ kind: 'revise', number: 1, changes: { projectId: garden } }]);
+    expect(moved[0]!.args).toEqual({ title: 'Pots', projectId: garden });
   });
 });

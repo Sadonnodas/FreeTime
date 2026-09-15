@@ -3,6 +3,7 @@ import { db } from '../db';
 import { setApiKey } from './client';
 import { ask } from './assistant';
 import { createProject } from '../store';
+import { describeWrite } from './tools';
 
 /**
  * Gemini 3 puts an opaque thoughtSignature on the first function call of a
@@ -130,5 +131,36 @@ describe('the assistant round-trip', () => {
     const system = (bodies[0] as unknown as { systemInstruction: { parts: { text: string }[] } })
       .systemInstruction.parts[0]!.text;
     expect(system).toContain(`Coding [${coding}] — FreeTime`);
+  });
+
+  it('shows the model what is waiting, and turns "no, Friday" into an edit, not a second proposal', async () => {
+    const pending = [
+      { name: 'create_todo' as const, args: { title: 'Dentist' }, label: await describeWrite('create_todo', { title: 'Dentist' }) }
+    ];
+    stub([
+      { functionCall: { name: 'revise_pending', args: { number: 1, date: '2026-09-18' } }, thoughtSignature: 'S' },
+      { text: 'Moved it to Friday.' }
+    ]);
+
+    const turn = await ask([], 'no, make that Friday', undefined, pending);
+
+    const system = (bodies[0] as unknown as { systemInstruction: { parts: { text: string }[] } })
+      .systemInstruction.parts[0]!.text;
+    expect(system).toContain('NOT SAVED YET');
+    expect(system).toContain('1. To-do: Dentist');
+    expect(turn.edits).toEqual([
+      { kind: 'revise', number: 1, changes: { number: 1, date: '2026-09-18' } }
+    ]);
+    expect(turn.proposals).toEqual([]);
+  });
+
+  it('tells the model which project is on screen', async () => {
+    const coding = await createProject('Coding');
+    await db.projects.update(coding, { tags: ['MTG simulator'] });
+    stub([{ text: 'ok' }]);
+    await ask([], 'add a to-do here', { eraId: coding, tag: 'MTG simulator' });
+    const system = (bodies[0] as unknown as { systemInstruction: { parts: { text: string }[] } })
+      .systemInstruction.parts[0]!.text;
+    expect(system).toContain(`projectId ${coding}, projectInEra "MTG simulator"`);
   });
 });

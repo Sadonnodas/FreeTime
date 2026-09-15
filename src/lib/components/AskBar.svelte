@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { page } from '$app/state';
   import { hasApiKey } from '$lib/gemini/client';
   import Assistant from './Assistant.svelte';
 
   /**
-   * The assistant, as a floating button you can put where you like.
+   * The assistant, as a floating button you can put where you like — on every
+   * screen, from the layout.
    *
    * WHAT THIS REPLACED. Today used to carry a full capture row, which went when
    * it turned out things get written where they belong rather than captured
@@ -38,6 +40,29 @@
 
   let hasKey = $state(false);
   let open = $state(false);
+  /**
+   * Mounted on first open and then kept, so the conversation and anything not
+   * yet added survive closing the pop-up and moving to another screen. Asked
+   * for as the assistant being "more integrated with the whole app": it lives
+   * in the layout now, on every screen, instead of being a Today feature.
+   */
+  let everOpened = $state(false);
+
+  /**
+   * Which era and project are on screen, read from the route. Only the project
+   * screens carry one: /projects/[id] is an era, /projects/[id]/[tag] a project
+   * inside it. Everywhere else the assistant is told nothing is in view, so it
+   * does not file things somewhere just because you were there earlier.
+   */
+  const context = $derived.by(() => {
+    const id = page.params.id;
+    if (!id || !page.route.id?.startsWith('/projects/')) return undefined;
+    const tag = page.params.tag ? decodeURIComponent(page.params.tag) : undefined;
+    return { eraId: id, tag };
+  });
+
+  /** Not over a printout: the button would print, and it has nothing to do there. */
+  const hidden = $derived(!!page.route.id?.endsWith('/print'));
 
   /** Which side it rests on, and how far its bottom edge is from the viewport's. */
   let side = $state<'left' | 'right'>('right');
@@ -103,7 +128,7 @@
     if (!start || e.pointerId !== start.pointerId) return;
     start = null;
     if (!moved) {
-      open = true;
+      openAssistant();
       return;
     }
     // Settle against the nearer side, at the height it was let go.
@@ -111,6 +136,11 @@
     bottom = clamp(innerHeight - e.clientY - SIZE / 2);
     drag = null;
     save();
+  }
+
+  function openAssistant() {
+    everOpened = true;
+    open = true;
   }
 
   function cancel() {
@@ -136,7 +166,7 @@
   );
 </script>
 
-{#if hasKey}
+{#if hasKey && !hidden}
   <!--
     touch-action: none is load-bearing. Without it the browser treats the drag
     as a scroll of the page underneath, and the button stays put while Today
@@ -153,13 +183,13 @@
     onpointermove={move}
     onpointerup={up}
     onpointercancel={cancel}
-    onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (open = true)}
+    onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && openAssistant()}
     aria-label="Ask the assistant. Drag to move."
   >
     ✦
   </button>
 {/if}
 
-{#if open}
-  <Assistant onDone={() => (open = false)} />
+{#if everOpened}
+  <Assistant {open} {context} onDone={() => (open = false)} />
 {/if}

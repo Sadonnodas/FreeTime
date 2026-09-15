@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { Content } from '$lib/gemini/client';
   import type { ProposedWrite } from '$lib/gemini/tools';
-  import { applyWrite, orderForApply } from '$lib/gemini/tools';
-  import { ask, type Suggestion } from '$lib/gemini/assistant';
+  import { applyWrite, orderForApply, applyPendingEdits } from '$lib/gemini/tools';
+  import { ask, type Suggestion, type AskContext } from '$lib/gemini/assistant';
   import { base } from '$app/paths';
   import { goto } from '$app/navigation';
   import { startRecording, toGeminiWav, beep, canRecord, type Recorder } from '$lib/audio';
@@ -18,7 +18,21 @@
    * proposed writes appear as editable chips and only land when tapped. One tap
    * to commit, one to discard.
    */
-  let { onDone }: { onDone: () => void } = $props();
+  let {
+    onDone,
+    open = true,
+    context
+  }: {
+    onDone: () => void;
+    /**
+     * Shown or tucked away. The component stays mounted between opens (see
+     * AskBar), so closing it keeps the conversation and anything not yet
+     * added — the pop-up is a place you step out of, not a form you abandon.
+     */
+    open?: boolean;
+    /** The era and project on screen, so "add it here" means here. */
+    context?: AskContext;
+  } = $props();
 
   interface Bubble {
     role: 'you' | 'it';
@@ -152,16 +166,17 @@
     busy = true;
 
     try {
-      const turn = await ask(history, text);
+      const turn = await ask(history, text, context, pending);
       history = [
         ...history,
         { role: 'user', parts: [{ text }] },
         { role: 'model', parts: [{ text: turn.reply }] }
       ];
       bubbles = [...bubbles, { role: 'it', text: turn.reply }];
-      // Proposals accumulate across turns, so "and add a second one" adds to
-      // the batch rather than replacing what was already agreed.
-      pending = [...pending, ...turn.proposals];
+      // Corrections first, against the numbers the model was shown — "make
+      // the second one Friday" — then anything new joins the batch, so "and
+      // add a second one" still adds rather than replacing what was agreed.
+      pending = [...(await applyPendingEdits(pending, turn.edits)), ...turn.proposals];
       // Suggestions do not accumulate — a link offered two questions ago is
       // about a question that has been answered and moved on from.
       suggestions = turn.suggestions;
@@ -183,12 +198,44 @@
   }
 
   const discard = (i: number) => (pending = pending.filter((_, n) => n !== i));
+
+  /** Starting over. Only the conversation: nothing here was ever saved. */
+  function newChat() {
+    bubbles = [];
+    history = [];
+    suggestions = [];
+    pending = [];
+    error = '';
+  }
 </script>
 
-<div class="glass-strong rise fixed inset-0 z-50 flex flex-col">
-  <div class="flex items-center justify-between px-4 pt-safe">
+<!--
+  A POP-UP, NOT A PAGE. It used to cover the whole screen, which made asking
+  about the project you were looking at mean losing sight of it. A sheet up from
+  the bottom leaves the top of the screen showing, and tapping that part closes
+  it — back where you were, with the conversation kept for next time.
+-->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+  class="fixed inset-0 z-50 flex flex-col justify-end bg-black/30 lg:items-center lg:justify-center"
+  hidden={!open}
+  onclick={onDone}
+>
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+  class="glass-strong rise flex h-[86dvh] w-full flex-col overflow-hidden rounded-t-[24px] lg:h-[80dvh] lg:max-w-[560px] lg:rounded-[24px]"
+  onclick={(e) => e.stopPropagation()}
+>
+  <div class="flex items-center justify-between px-4">
     <span class="section-label py-3">Assistant</span>
-    <button class="press tap px-2 text-[22px] leading-none text-ink-400" onclick={onDone} aria-label="Close">×</button>
+    <span class="flex items-center gap-1">
+      {#if bubbles.length}
+        <button class="press tap-h px-2 text-sm text-ink-400" onclick={newChat}>New chat</button>
+      {/if}
+      <button class="press tap px-2 text-[22px] leading-none text-ink-400" onclick={onDone} aria-label="Close">×</button>
+    </span>
   </div>
 
   <div class="flex-1 space-y-3 overflow-y-auto px-4 py-2">
@@ -348,6 +395,7 @@
       disabled={!input.trim() || busy || listening || transcribing}>Send</button
     >
   </form>
+</div>
 </div>
 
 {#if dumping}

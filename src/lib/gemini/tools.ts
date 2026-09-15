@@ -44,6 +44,27 @@ export type WriteTool = (typeof WRITE_TOOLS)[number];
  */
 export const SAFE_TOOLS = ['query_state', 'navigate'] as const;
 
+/**
+ * Tools that change a PROPOSAL, never the store.
+ *
+ * Asked for as *"be able to adjust assistant entries with a follow-up recording
+ * to tweak AI suggestions"*. Proposals used to be append-only: say "no, make it
+ * Friday" and the model could only propose a second to-do beside the wrong
+ * one, leaving you to find and × the first. Now the waiting proposals are
+ * shown to the model, numbered, and it can revise or drop one by number.
+ *
+ * A third category rather than a write, because nothing they do reaches the
+ * database — the edited proposal still waits for the same tap on Add. And not
+ * a safe read either: treated as a read, the loop would run it through
+ * `runQuery` and hand the model back an error.
+ */
+export const PENDING_TOOLS = ['revise_pending', 'drop_pending'] as const;
+
+export type PendingTool = (typeof PENDING_TOOLS)[number];
+
+export const isPendingEdit = (name: string): name is PendingTool =>
+  (PENDING_TOOLS as readonly string[]).includes(name);
+
 export type SafeTool = (typeof SAFE_TOOLS)[number];
 
 export const isWrite = (name: string): name is WriteTool =>
@@ -236,6 +257,42 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
         text: str('The lines to add, in their words.')
       },
       required: ['projectId', 'text']
+    }
+  },
+  {
+    name: 'revise_pending',
+    description:
+      'Change one of the proposals that are NOT SAVED YET, by its number — for ' +
+      'follow-ups like "make that Friday", "no, put it in FreeTime" or "call it ' +
+      'X instead". Give only the fields that change. Never propose the same thing ' +
+      'again instead; that would leave the wrong one waiting beside it.',
+    parameters: {
+      type: 'object',
+      properties: {
+        number: { type: 'integer', description: 'Its number in the NOT SAVED YET list.' },
+        title: str('New title, for a to-do.'),
+        text: str('New wording, for an idea or a note.'),
+        name: str('New name, for a buy item, project, era or habit.'),
+        projectId: str('New era, as for create_todo.'),
+        projectInEra: str('New project inside the era, by name.'),
+        energy: { type: 'string', enum: ['quick', 'moderate', 'focus'] },
+        date: str('YYYY-MM-DD, only for a real obligation they stated.'),
+        description: str('New tagline, for a project.')
+      },
+      required: ['number']
+    }
+  },
+  {
+    name: 'drop_pending',
+    description:
+      'Remove one of the proposals that are NOT SAVED YET, by its number, when ' +
+      'they say it is wrong or not wanted.',
+    parameters: {
+      type: 'object',
+      properties: {
+        number: { type: 'integer', description: 'Its number in the NOT SAVED YET list.' }
+      },
+      required: ['number']
     }
   },
   {
@@ -555,4 +612,47 @@ export function navigationTarget(args: Args): { label: string; path: string } | 
     default:
       return null;
   }
+}
+
+/** A change the model asked for to a waiting proposal. */
+export type PendingEdit =
+  | { kind: 'revise'; number: number; changes: Args }
+  | { kind: 'drop'; number: number };
+
+const REVISABLE = [
+  'title', 'text', 'name', 'projectId', 'projectInEra', 'energy', 'date', 'description'
+] as const;
+
+/**
+ * Applies revisions and drops to the waiting proposals, and relabels what
+ * changed. Numbers refer to the list as the model saw it, so every edit is
+ * resolved against the ORIGINAL positions: dropping 1 must not turn "revise 2"
+ * into a revision of what used to be 3.
+ *
+ * An edit naming a number that is not there is ignored rather than guessed at.
+ * Moving to another era clears the project unless a new one is given, because
+ * a project name belongs to one era.
+ */
+export async function applyPendingEdits(
+  pending: ProposedWrite[],
+  edits: PendingEdit[]
+): Promise<ProposedWrite[]> {
+  const next: (ProposedWrite | null)[] = [...pending];
+  for (const edit of edits) {
+    const i = edit.number - 1;
+    const current = next[i];
+    if (!current || !Number.isInteger(edit.number)) continue;
+    if (edit.kind === 'drop') {
+      next[i] = null;
+      continue;
+    }
+    const args = { ...current.args };
+    for (const key of REVISABLE) {
+      const value = s(edit.changes[key]);
+      if (value !== undefined) args[key] = value;
+    }
+    if (s(edit.changes.projectId) && !s(edit.changes.projectInEra)) delete args.projectInEra;
+    next[i] = { ...current, args, label: await describeWrite(current.name, args) };
+  }
+  return next.filter((p): p is ProposedWrite => p !== null);
 }
