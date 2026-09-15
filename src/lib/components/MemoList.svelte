@@ -7,6 +7,7 @@
   import { downloadMemoAudio } from '$lib/sync';
   import { onRecordingChange } from '$lib/audio';
   import Controls from './Controls.svelte';
+  import { gainForRecording, boostElement, canBoost, decibels } from '$lib/loudness';
 
   /**
    * A list of recordings, with its own transport.
@@ -146,15 +147,40 @@
    * leaves nothing to resume.
    */
   function unload() {
+    // The boost's audio context goes with the player, every time — see
+    // boostElement for why it must never outlive it.
+    releaseBoost?.();
+    releaseBoost = null;
     if (!audioEl) return;
     audioEl.pause();
     audioEl.removeAttribute('src');
     audioEl.load();
   }
 
+  /**
+   * How much louder the open recording is played. Worked out before it starts,
+   * so the first second is not at one volume and the rest at another. See
+   * loudness.ts — normalised on playback, the file itself untouched.
+   */
+  let boost = $state(1);
+  let releaseBoost: (() => void) | null = null;
+
+  function attachBoost() {
+    if (releaseBoost || !audioEl) return;
+    releaseBoost = boostElement(audioEl, boost);
+  }
+
+  async function measure(memo: Memo, blob: Blob) {
+    boost = 1;
+    if (!canBoost()) return;
+    const gain = await gainForRecording(`${memo.id}:${blob.size}`, blob);
+    if (openId === memo.id) boost = gain;
+  }
+
   function revoke() {
     if (url) URL.revokeObjectURL(url);
     url = null;
+    boost = 1;
     playing = false;
     position = 0;
     duration = 0;
@@ -171,6 +197,10 @@
   onDestroy(onRecordingChange((live) => live && openId && close()));
 
   async function open(memo: Memo) {
+    // The previous row's player goes properly — paused, emptied, and its boost
+    // released. revoke() alone forgot the last of these, which leaked an audio
+    // context per switch and left the next quiet memo unboosted.
+    unload();
     revoke();
     openId = memo.id;
     fetchError = '';
@@ -180,6 +210,8 @@
     duration = memo.durationMs / 1000;
 
     if (memo.blob) {
+      await measure(memo, memo.blob);
+      if (openId !== memo.id) return;
       url = URL.createObjectURL(memo.blob);
       return;
     }
@@ -191,7 +223,11 @@
       // The row may have been closed, or another one opened, while this was in
       // flight. Handing it a url now would start audio nobody asked for.
       if (openId !== memo.id) return;
-      if (blob) url = URL.createObjectURL(blob);
+      if (blob) {
+        await measure(memo, blob);
+        if (openId !== memo.id) return;
+        url = URL.createObjectURL(blob);
+      }
       else fetchError = 'Could not fetch it — you may be offline, or signed out of Google.';
     } catch (err) {
       if (openId === memo.id) fetchError = (err as Error).message;
@@ -432,7 +468,10 @@
                 bind:this={audioEl}
                 src={url}
                 autoplay
-                onplay={() => (playing = true)}
+                onplay={() => {
+                  playing = true;
+                  attachBoost();
+                }}
                 onpause={() => (playing = false)}
                 onended={() => {
                   playing = false;
@@ -445,6 +484,12 @@
 
               {#if playError}
                 <p class="footnote mb-2">{playError}</p>
+              {:else if boost > 1.05}
+                <!-- Said, because a memo that is loud here and quiet when shared
+                     would otherwise look like the share had broken it. -->
+                <p class="footnote mb-2">
+                  Played {decibels(boost)} dB louder. The recording itself is unchanged.
+                </p>
               {/if}
 
               <!-- svelte-ignore a11y_no_static_element_interactions -->
