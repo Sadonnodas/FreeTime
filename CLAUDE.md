@@ -870,6 +870,17 @@ one came close to a hard rule, the reasoning is recorded here.
   build time fails the build ("marked as prerenderable, but were not found
   while crawling") — which fails the deploy. Every sibling carries the one-line
   `+page.ts`; the print route did not at first.
+  **Brain's lists export too, as they are on screen**
+  ([ListExport.svelte](src/lib/components/ListExport.svelte), `listToMarkdown`).
+  Brain cuts across eras, so the useful export there is not a project but the
+  list as narrowed — filtered to Coding it is the Coding to-dos, on a day list
+  it is that day. The rows are handed in by the page already showing them and
+  the export runs no query of its own, so it cannot list something different
+  from what you tapped Export on. Grouped under "Era · Project" headings,
+  unfiled last, because pasted without the colours a list across eras reads
+  as one pile. Copy, Share and the preview are one component,
+  [ShareText.svelte](src/lib/components/ShareText.svelte), used by both
+  exports so they cannot copy or fail differently.
   **Its first deploy failed on CI and not locally, for a reason worth
   keeping.** Two to-dos created back to back shared a millisecond on GitHub's
   faster runner, so `readyFirst` — sorted by chain depth, then `createdAt` —
@@ -1055,6 +1066,80 @@ one came close to a hard rule, the reasoning is recorded here.
   OSM serves only light tiles; a white map in this app looks like a browser window left
   open on top of it, so the tile pane is inverted and hue-rotated in CSS. Markers sit
   outside that layer and keep their real colour.
+- **A to-do list pasted straight back from the export, and all six done** —
+  the export's first real use was Toon pasting FreeTime's own Coding to-dos
+  into Claude Code. The six, and what each turned out to need:
+
+  **Long entries grow instead of scrolling sideways** ([autogrow.ts](src/lib/autogrow.ts)).
+  *"Horizontal scrolling in a tiny bar while doing the entry is not very
+  practical"*, and the same of the assistant's box after a dictation. The add
+  field, the rename field and the assistant's input are one-line textareas that
+  fit their content (`field-grow` keeps one line at exactly the 44px an input
+  was, so nothing that stays short changes height). **Enter still submits** —
+  a to-do is a title, and a newline would break type-Enter-type-Enter — and
+  pasted line breaks are flattened with `oneLine`. The value is the action's
+  parameter only so the height re-fits when text changes from outside (cleared
+  after Add, a transcription appended), which fires no input event.
+
+  **Dictation: faster, and visibly busy.** *"It takes anything between 5 and 20
+  seconds for your vocal prompt to show up so sometimes it feels like it didn't
+  work."* Two causes, two fixes. The wait was mostly Gemini 3 THINKING about a
+  transcription, which has nothing to think about: `generate({ thinking:
+  'minimal' })` now asks it not to, and if a model ever refuses that setting
+  with a 400 naming it, the request is retried without — an optimisation must
+  cost one retry, never the feature, and the day that happens is the day MODEL
+  changes and nobody is watching. And the only sign of life was a disabled
+  box's placeholder, below the floor where quiet becomes absent: a strip now
+  shows a live level meter while listening and moving dots with a seconds
+  counter while writing it down, because a wait you can watch passing feels
+  shorter than one that might be frozen. Measured on a real phone still to do.
+
+  **The assistant is on every screen, as a pop-up that remembers**
+  ([AskBar.svelte](src/lib/components/AskBar.svelte) in the layout).
+  *"Make the assistant more integrated with the whole app (maybe as a
+  pop-up)."* It was a full-screen overlay reachable from Today alone. Now the
+  ✦ is in the layout (hidden on the print page), opens a sheet that leaves the
+  top of the screen showing, and STAYS MOUNTED after the first open — closing
+  it or moving screens keeps the conversation and anything not yet added,
+  because a pop-up is a place you step out of. "New chat" starts over. It is
+  told which era and project are on screen (`AskContext`, read from the route)
+  so "add a to-do here" means here; anywhere else it is told nothing is in view,
+  so it does not file things where you happened to be earlier.
+
+  **A follow-up can fix a proposal** (`revise_pending`, `drop_pending`,
+  `applyPendingEdits`). *"Be able to adjust assistant entries with a follow-up
+  recording to tweak AI suggestions."* Proposals were append-only, and the
+  model could not even see what it had proposed a message ago: the history
+  keeps only its reply TEXT. Now the waiting proposals go into the prompt,
+  numbered, and two tools change or drop one by number. They are a THIRD tool
+  category (`PENDING_TOOLS`) — not writes, since nothing reaches the store until
+  Add, and not reads, since the loop would run a read through `runQuery`. Every
+  number resolves against the list the model was shown, so "drop 1, change 3"
+  cannot change what used to be 4. The classification test now demands each
+  tool sit in exactly one of the three.
+
+  **Quiet memos play at a sensible volume, file untouched** ([loudness.ts](src/lib/loudness.ts)).
+  *"Voice memos need to be normalized because the volume is too low"* — true by
+  design, since music memos record with auto gain off. Each recording is
+  decoded once (OfflineAudioContext: renders nothing, opens no audio session)
+  and raised so its peak sits at −1 dBFS, capped at +18 dB so near-silence does
+  not become hiss, through a limiter. On PLAYBACK rather than into the file,
+  because only afterwards is the loudest moment known — a record-time boost
+  either clips the chorus or leaves a quiet take quiet, and does nothing for
+  memos already made. The cost, said on the row: shared and Drive copies play
+  as recorded.
+  **The iPhone silent switch is the trap.** An `<audio>` element ignores it;
+  Web Audio obeys it — so boosting would make every memo silent on a phone set
+  to silent. The boost is used only where `navigator.audioSession` can declare
+  playback, or where there is no switch (a fine pointer). The preview pane at
+  phone width reports a coarse pointer and no audioSession, so it correctly
+  declines there; test the boost at desktop width.
+  **Switching memos leaked an audio context**, found while writing this:
+  `open()` called `revoke()`, which empties the URL but never `unload()`, so
+  each switch left the previous context open and the leftover handle stopped
+  the next quiet memo being boosted at all. `open()` unloads first now, which
+  is also more correct for the car's stray PLAY.
+
 - **Assistant tools** added: `create_habit`, `append_note` (appends — never replaces,
   because a misheard sentence overwriting a page of notes is unrecoverable), and
   `navigate`. Navigation is a third category (`SAFE_TOOLS`): it writes nothing, but it

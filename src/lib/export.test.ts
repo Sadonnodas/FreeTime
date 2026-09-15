@@ -135,3 +135,45 @@ describe('demoteHeadings', () => {
     expect(demoteHeadings('# A\n##### B\nnot # a heading')).toBe('### A\n###### B\nnot # a heading');
   });
 });
+
+describe('exporting a list from Brain', () => {
+  it('groups what is on screen under era and project, unfiled last', async () => {
+    const { listToMarkdown } = await import('./export');
+    const coding = await createProject('Coding');
+    await setProjectTags(coding, ['FreeTime']);
+    const a = await createTodo('Swipe to tick', { projectId: coding, tag: 'FreeTime' });
+    const b = await createTodo('Book the ferry');
+    const c = await createTodo('Readme', { projectId: coding });
+    const rows = (await db.todos.bulkGet([a, b, c])).filter(Boolean) as never[];
+    const eras = await db.projects.toArray();
+
+    // Groups in the order they first appear, with the unfiled pile moved last.
+    expect(listToMarkdown('todos', 'To-dos', rows, eras)).toBe(
+      [
+        '# To-dos',
+        '',
+        '## Coding · FreeTime',
+        '',
+        '- [ ] Swipe to tick',
+        '',
+        '## Coding',
+        '',
+        '- [ ] Readme',
+        '',
+        '## Not filed',
+        '',
+        '- [ ] Book the ferry',
+        ''
+      ].join('\n')
+    );
+  });
+
+  it('ticks what is already done, and says so when the list is empty', async () => {
+    const { listToMarkdown } = await import('./export');
+    const t = await createTodo('Done one');
+    await completeTodo(t);
+    const rows = [(await db.todos.get(t))!];
+    expect(listToMarkdown('todos', 'To-dos', rows, [])).toContain('- [x] Done one');
+    expect(listToMarkdown('ideas', 'Ideas', [], [])).toContain('Nothing here.');
+  });
+});

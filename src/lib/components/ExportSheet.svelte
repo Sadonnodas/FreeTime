@@ -6,6 +6,7 @@
     collectProject, toMarkdown, EXPORT_SECTIONS, EVERYTHING, JUST_TODOS,
     type ExportSection, type ProjectExport
   } from '$lib/export';
+  import ShareText from './ShareText.svelte';
 
   /**
    * Choosing what to take out of a project, and where it goes.
@@ -16,9 +17,7 @@
    * mail on its way to the laptop; PRINT is the "one day I want to really work
    * on it" case, on paper or saved as a PDF.
    *
-   * The preview is the text itself, not a picture of it. What you see is
-   * byte-for-byte what gets copied, and it doubles as the fallback: where the
-   * clipboard is refused, the text is already on screen to select by hand.
+   * The preview, Copy and Share are ShareText, shared with Brain's export.
    *
    * The choice of sections is remembered per device, because someone who
    * exports "just the to-dos" for Claude Code is going to do it again tomorrow.
@@ -29,10 +28,6 @@
 
   let data = $state<ProjectExport | null>(null);
   let chosen = $state<ExportSection[]>(loadChoice());
-  let note = $state('');
-  let preview = $state<HTMLTextAreaElement | null>(null);
-  const canShare = typeof navigator !== 'undefined' && !!navigator.share;
-
   function loadChoice(): ExportSection[] {
     try {
       const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null');
@@ -78,32 +73,6 @@
     recordings: data?.recordings.length ?? 0
   }));
 
-  function flash(message: string) {
-    note = message;
-    setTimeout(() => (note = ''), 3000);
-  }
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(text);
-      flash('Copied. Paste it wherever it is going.');
-    } catch {
-      // Refused (an older browser, or no user gesture it recognises). The text
-      // is already in the box: select it so a long-press copies it.
-      preview?.focus();
-      preview?.select();
-      flash('This browser would not copy it. It is selected — copy it from the box.');
-    }
-  }
-
-  async function share() {
-    try {
-      await navigator.share({ title: tag, text });
-    } catch {
-      /* cancelled, which says itself */
-    }
-  }
-
   function print() {
     const sections = chosen.join(',');
     onclose();
@@ -147,24 +116,10 @@
       {/each}
     </div>
 
-    <textarea
-      bind:this={preview}
-      readonly
-      value={data ? text : 'Gathering…'}
-      class="field h-[38dvh] min-h-[9rem] resize-none font-mono text-[13px] leading-snug"
-      aria-label="What will be exported"
-    ></textarea>
-
-    {#if note}
-      <p class="footnote text-good">{note}</p>
-    {/if}
-
-    <div class="flex flex-wrap gap-2">
-      <button class="btn btn-primary press flex-1" disabled={!data} onclick={copy}>Copy</button>
-      {#if canShare}
-        <button class="btn press flex-1 bg-surface-2" disabled={!data} onclick={share}>Share</button>
-      {/if}
-      <button class="btn press flex-1 bg-surface-2" disabled={!data} onclick={print}>Print or PDF</button>
-    </div>
+    <ShareText {text} title={tag} ready={!!data}>
+      {#snippet extra()}
+        <button class="btn press flex-1 bg-surface-2" disabled={!data} onclick={print}>Print or PDF</button>
+      {/snippet}
+    </ShareText>
   </div>
 </div>

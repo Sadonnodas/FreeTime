@@ -238,3 +238,71 @@ export function toMarkdown(data: ProjectExport, sections: Iterable<ExportSection
 
   return out.join('\n') + '\n';
 }
+
+// ------------------------------------------------------------ Brain's lists
+
+/**
+ * A list from Brain, as text — whatever is on screen at that moment.
+ *
+ * Asked for straight after the project export: *"exporting in the brain area
+ * would also be nice"*. Brain cuts ACROSS eras, so the useful export is not a
+ * project but the list as you have narrowed it: filtered to Coding, it is the
+ * Coding to-dos; on tomorrow's day list, it is tomorrow. The caller passes the
+ * rows it is already showing, so the text can never disagree with the screen.
+ *
+ * Grouped under "Era · Project" headings in the order each group first
+ * appears, unfiled last — a flat list across eras is the one pile the colours
+ * on screen exist to break up, and pasted without them it would read as one.
+ */
+export type ListKind = 'todos' | 'ideas' | 'buy';
+
+interface Placed {
+  projectId?: string;
+  tag?: string;
+}
+
+function groupByPlace<T extends Placed>(rows: T[], eras: Project[]): { heading: string; rows: T[] }[] {
+  const eraName = (id?: string) => eras.find((e) => e.id === id)?.name;
+  const groups = new Map<string, { heading: string; rows: T[] }>();
+  for (const row of rows) {
+    const era = eraName(row.projectId);
+    const heading = era ? [era, row.tag].filter(Boolean).join(' · ') : 'Not filed';
+    (groups.get(heading) ?? groups.set(heading, { heading, rows: [] }).get(heading)!).rows.push(row);
+  }
+  const all = [...groups.values()];
+  return [...all.filter((g) => g.heading !== 'Not filed'), ...all.filter((g) => g.heading === 'Not filed')];
+}
+
+export function listToMarkdown(
+  kind: ListKind,
+  title: string,
+  rows: (Todo | Idea | BuyItem)[],
+  eras: Project[],
+  /** Every live to-do, so "after …" resolves even when the blocker is filtered out. */
+  allTodos: Todo[] = []
+): string {
+  const out: string[] = [`# ${title}`];
+  const byId = indexById(allTodos);
+  const withDetails = (text: string, details: string[]) =>
+    details.length ? `${text} — ${details.join(' · ')}` : text;
+
+  for (const group of groupByPlace(rows as (Placed & (Todo | Idea | BuyItem))[], eras)) {
+    out.push('', `## ${group.heading}`, '');
+    for (const row of group.rows) {
+      if (kind === 'todos') {
+        const t = row as Todo;
+        const box = t.completedAt ? '[x]' : '[ ]';
+        out.push(withDetails(`- ${box} ${t.title}`, t.completedAt ? [] : todoDetails(t, blockerOf(t, byId))));
+      } else if (kind === 'ideas') {
+        const i = row as Idea;
+        out.push(`- ${i.doneAt ? '~~' + i.text + '~~' : i.text}`);
+      } else {
+        const b = row as BuyItem;
+        const box = b.purchasedAt ? '[x]' : '[ ]';
+        out.push(withDetails(`- ${box} ${b.name}${(b.qty ?? 1) > 1 ? ` ×${b.qty}` : ''}`, buyDetails(b)));
+      }
+    }
+  }
+  if (!rows.length) out.push('', 'Nothing here.');
+  return out.join('\n') + '\n';
+}

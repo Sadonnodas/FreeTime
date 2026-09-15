@@ -10,6 +10,7 @@
   import { tintFor } from '$lib/colors';
   import Controls from '$lib/components/Controls.svelte';
   import IdeaList from '$lib/components/IdeaList.svelte';
+  import ListExport from '$lib/components/ListExport.svelte';
   import { indexById, blockerOf, possibleBlockers } from '$lib/order';
   import { tomorrow, dayLabel, dayPhrase } from '$lib/days';
   import { activeProjects } from '$lib/queries';
@@ -188,6 +189,16 @@
     ]
       .filter(Boolean)
       .join(' · ')
+  );
+
+  /**
+   * What an exported list is called: the kind, then whatever it is narrowed to,
+   * so a pasted "To-dos — Tomorrow · Coding" says which slice it is.
+   */
+  const todoExportTitle = $derived(
+    ['To-dos', [day ? dayLabel(day, todayIso) : null, filterSummary || null].filter(Boolean).join(' · ')]
+      .filter(Boolean)
+      .join(' — ')
   );
 
   const eraOf = (id?: string) =>
@@ -525,6 +536,13 @@
         >
           Closed
         </button>
+        <ListExport
+          kind="todos"
+          title={todoExportTitle}
+          rows={filteredTodos}
+          eras={($projectsQ as Project[] | undefined) ?? []}
+          {allTodos}
+        />
       {/snippet}
       <!-- One row: each select takes an equal share and truncates rather than
            wrapping. The labels are short for the same reason — "Any energy" and
@@ -797,6 +815,15 @@
       <button class="btn btn-primary press" disabled={!newIdeaText.trim()}>Add</button>
     </form>
 
+    <div class="mb-2 flex justify-end">
+      <ListExport
+        kind="ideas"
+        title={activeProject ? `Ideas — ${projectName(activeProject)}` : unfiledOnly ? 'Ideas — not filed' : 'Ideas'}
+        rows={visibleIdeas}
+        eras={($projectsQ as Project[] | undefined) ?? []}
+      />
+    </div>
+
     <IdeaList
       ideas={visibleIdeas}
       eras={($projectsQ as Project[] | undefined) ?? []}
@@ -888,6 +915,15 @@
           <option value={p.id}>{p.name}</option>
         {/each}
       </select>
+    </div>
+
+    <div class="mb-2 flex justify-end">
+      <ListExport
+        kind="buy"
+        title={fBuyProject ? `To buy — ${projectName(fBuyProject)}` : 'To buy'}
+        rows={filteredBuy}
+        eras={($projectsQ as Project[] | undefined) ?? []}
+      />
     </div>
 
     <div class="segmented mb-3">
