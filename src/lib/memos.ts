@@ -244,11 +244,76 @@ export async function shareMemo(memo: Memo, where: MemoWhere = {}): Promise<Shar
     }
   }
 
+  saveFile(file);
+  return 'downloaded';
+}
+
+/** A file handed to the browser's own download, for where sharing is not offered. */
+function saveFile(file: File): void {
   const url = URL.createObjectURL(file);
   const a = document.createElement('a');
   a.href = url;
   a.download = file.name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/**
+ * Names that cannot collide in one batch. Two takes of the same song recorded
+ * in the same minute, with no title, get the same Drive-style name — and a
+ * share sheet or a downloads folder given two identical names keeps one, or
+ * renames the other in a way that no longer sorts next to the first.
+ */
+export function uniqueNames(names: string[]): string[] {
+  const seen = new Map<string, number>();
+  return names.map((name) => {
+    const count = (seen.get(name) ?? 0) + 1;
+    seen.set(name, count);
+    if (count === 1) return name;
+    const dot = name.lastIndexOf('.');
+    return dot > 0 ? `${name.slice(0, dot)} (${count})${name.slice(dot)}` : `${name} (${count})`;
+  });
+}
+
+/**
+ * Several recordings to the share sheet in ONE go.
+ *
+ * Asked for directly: *"Can we make sharing multiple memos at once a thing?"* —
+ * four takes of a chorus to a bandmate used to be four trips through the share
+ * sheet. The Web Share API takes an array of files, and iOS sends them as one
+ * message, so this is the same call as `shareMemo` with more in it.
+ *
+ * EVERYTHING BEFORE `navigator.share` IS SYNCHRONOUS, and that is load-bearing.
+ * Safari only lets a page open the share sheet while the tap that asked for it
+ * is still "live", and an `await` in between can spend that. So the files are
+ * built here from blobs already in hand; fetching anything from Drive is the
+ * caller's job, done BEFORE the tap that shares (see MemoList).
+ *
+ * Where multiple files cannot be shared, each is downloaded instead, a moment
+ * apart — browsers refuse a burst of simultaneous downloads as spam.
+ */
+export async function shareMemos(items: { memo: Memo; where?: MemoWhere }[]): Promise<ShareResult> {
+  const withAudio = items.filter((i) => i.memo.blob);
+  if (!withAudio.length) return 'unsupported';
+
+  const names = uniqueNames(withAudio.map((i) => fileName(i.memo, i.where)));
+  const files = withAudio.map(
+    (i, n) => new File([i.memo.blob!], names[n]!, { type: i.memo.mime })
+  );
+
+  if (navigator.canShare?.({ files })) {
+    try {
+      await navigator.share({
+        files,
+        title: files.length === 1 ? displayTitle(withAudio[0]!.memo) : `${files.length} recordings`
+      });
+      return 'shared';
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return 'cancelled';
+      // Advertised and then refused — fall through to downloads, as shareMemo does.
+    }
+  }
+
+  files.forEach((file, n) => setTimeout(() => saveFile(file), n * 400));
   return 'downloaded';
 }

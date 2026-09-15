@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { db } from './db';
-import { createMemo, deleteMemo, updateMemo, allMemos, fileName, displayTitle } from './memos';
+import {
+  createMemo, deleteMemo, updateMemo, allMemos, fileName, displayTitle, shareMemos, uniqueNames
+} from './memos';
 import type { Memo } from './types';
 
 /**
@@ -203,5 +205,78 @@ describe('where a recording lives', () => {
       elsewhere: false,
       lost: false
     });
+  });
+});
+
+/**
+ * "Can we make sharing multiple memos at once a thing?" — several files, one
+ * share sheet. The names are the part that can quietly go wrong: two takes in
+ * the same minute get the same name, and a share sheet keeps only one of them.
+ */
+describe('sharing several recordings at once', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const memo = (id: string, over: Partial<Memo> = {}): Memo => ({
+    id,
+    blob: new Blob([id], { type: 'audio/mp4' }),
+    mime: 'audio/mp4',
+    durationMs: 1000,
+    recordedAt: '2026-09-14T22:40:00.000Z',
+    createdAt: '2026-09-14T22:40:00.000Z',
+    updatedAt: '2026-09-14T22:40:00.000Z',
+    ...over
+  });
+
+  it('hands every file to ONE share sheet', async () => {
+    const shared: File[][] = [];
+    vi.stubGlobal('navigator', {
+      canShare: () => true,
+      share: async (data: { files: File[] }) => void shared.push(data.files)
+    });
+    const result = await shareMemos([
+      { memo: memo('a', { title: 'verse' }) },
+      { memo: memo('b', { title: 'chorus' }) },
+      { memo: memo('c', { title: 'bridge' }) }
+    ]);
+    expect(result).toBe('shared');
+    expect(shared).toHaveLength(1);
+    // In the order they were picked, each under its own Drive-style name.
+    expect(shared[0]!.map((f) => f.name).join(' | ')).toMatch(/verse.* \| .*chorus.* \| .*bridge/);
+  });
+
+  it('never gives two files the same name', async () => {
+    const shared: File[][] = [];
+    vi.stubGlobal('navigator', {
+      canShare: () => true,
+      share: async (data: { files: File[] }) => void shared.push(data.files)
+    });
+    // Same minute, no titles: identical Drive-style names before de-duplication.
+    await shareMemos([{ memo: memo('a') }, { memo: memo('b') }]);
+    const names = shared[0]!.map((f) => f.name);
+    expect(new Set(names).size).toBe(2);
+    expect(names[1]).toMatch(/ \(2\)\.m4a$/);
+  });
+
+  it('skips anything not on this device, and says so when nothing is', async () => {
+    vi.stubGlobal('navigator', { canShare: () => true, share: async () => {} });
+    expect(await shareMemos([{ memo: memo('x', { blob: undefined, driveFileId: 'd' }) }])).toBe('unsupported');
+  });
+
+  it('treats backing out of the share sheet as a choice, not a failure', async () => {
+    vi.stubGlobal('navigator', {
+      canShare: () => true,
+      share: async () => {
+        throw new DOMException('cancelled', 'AbortError');
+      }
+    });
+    expect(await shareMemos([{ memo: memo('a') }, { memo: memo('b') }])).toBe('cancelled');
+  });
+});
+
+describe('uniqueNames', () => {
+  it('numbers repeats before the extension and leaves the first alone', () => {
+    expect(uniqueNames(['a.m4a', 'a.m4a', 'b.m4a', 'a.m4a'])).toEqual([
+      'a.m4a', 'a (2).m4a', 'b.m4a', 'a (3).m4a'
+    ]);
   });
 });

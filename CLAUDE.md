@@ -428,6 +428,30 @@ Do not "fix" these without talking to Toon first.
   one container everything plays; the transient brain-dump keeps Opus, which is
   better per byte and is re-encoded to WAV before it goes anywhere.
 
+- **Several memos share in one go** ([memos.ts](src/lib/memos.ts) `shareMemos`,
+  `uniqueNames`, [MemoList.svelte](src/lib/components/MemoList.svelte) select
+  mode). *"Can we make sharing multiple memos at once a thing?"* — four takes of
+  a chorus to a bandmate were four trips through the share sheet. The Web Share
+  API takes an array of files and iOS sends them as one message. "Select" sits
+  in the Search & order header in Brain, or on the first month's heading row
+  elsewhere (a lone Select row would repeat the awkward-Export mistake); rows
+  get a tick instead of a play button, and a sticky bar at the BOTTOM of the
+  list carries Share, because picking goes down a long library.
+  **The tap that shares must not wait on the network.** Safari opens the share
+  sheet only while the tap that asked is still live, and an `await` on a Drive
+  download in between can spend it — the sheet then silently never appears.
+  So `shareMemos` builds the files synchronously from blobs in hand, and when
+  any picked memo is not on this device the button first says "Fetch N"; the
+  download completes, and Share is a second, fresh tap.
+  **Names are de-duplicated**: two untitled takes in the same minute get the
+  same Drive-style name, and a share sheet or downloads folder given two
+  identical names keeps one. The second becomes "… (2).m4a". Where multiple
+  files cannot be shared, each downloads a moment apart, since browsers refuse
+  a burst of simultaneous downloads as spam.
+  **The hidden preview pane stops REPAINTING**, not just animating: screenshots
+  there can show a state several changes old while the DOM is correct. When a
+  screenshot disagrees with `innerText`, trust the DOM.
+
 - **A dead player and a dead Share button both used to say nothing at all**
   ([MemoList.svelte](src/lib/components/MemoList.svelte) `describeFailure`). An
   `<audio>` element fails by firing `error` and then sitting there, and
@@ -881,6 +905,15 @@ one came close to a hard rule, the reasoning is recorded here.
   as one pile. Copy, Share and the preview are one component,
   [ShareText.svelte](src/lib/components/ShareText.svelte), used by both
   exports so they cannot copy or fail differently.
+  **Export lives on each list's FILTER row, never on a row of its own** — on
+  To-dos beside "Closed", on Ideas pinned at the end of the era chips (outside
+  the scrolling part, so a long list of eras cannot push it off screen), on Buy
+  at the end of the era select. It first shipped on its own right-aligned row
+  above Ideas and Buy and came back as *"a bit in an awkward place on the
+  phone. It sits on a row all by itself"* — a lone control on a row reads as a
+  leftover, which is the Ask-button lesson again. The filter row is also where
+  it belongs by meaning: it is the row that says what the list is narrowed to,
+  and the export is exactly that narrowed list.
   **Its first deploy failed on CI and not locally, for a reason worth
   keeping.** Two to-dos created back to back shared a millisecond on GitHub's
   faster runner, so `readyFirst` — sorted by chain depth, then `createdAt` —

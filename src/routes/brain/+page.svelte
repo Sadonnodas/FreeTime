@@ -781,7 +781,13 @@
       Projects, over one flat list. The lit chip is both the filter and the
       destination, so adding while one is selected files it there.
     -->
-    <div class="no-bar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1">
+    <!-- Export shares the filter row instead of sitting on a row of its own,
+         which on a phone looked like a leftover. Pinned outside the scrolling
+         chips, so a long list of eras cannot push it off the screen — and it is
+         the same place Export lives on To-dos: the row that says what the list
+         is narrowed to. -->
+    <div class="mb-3 flex items-center gap-2">
+    <div class="no-bar -ml-4 flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1 pl-4">
       <button
         class="chip press shrink-0 {activeProject === null && !unfiledOnly ? 'chip-on' : ''}"
         onclick={() => useProject(null)}
@@ -803,6 +809,15 @@
         </button>
       {/each}
     </div>
+      <span class="shrink-0 pb-1">
+        <ListExport
+          kind="ideas"
+          title={activeProject ? `Ideas — ${projectName(activeProject)}` : unfiledOnly ? 'Ideas — not filed' : 'Ideas'}
+          rows={visibleIdeas}
+          eras={($projectsQ as Project[] | undefined) ?? []}
+        />
+      </span>
+    </div>
 
     <form onsubmit={addIdea} class="mb-3 flex gap-2">
       <input
@@ -815,14 +830,6 @@
       <button class="btn btn-primary press" disabled={!newIdeaText.trim()}>Add</button>
     </form>
 
-    <div class="mb-2 flex justify-end">
-      <ListExport
-        kind="ideas"
-        title={activeProject ? `Ideas — ${projectName(activeProject)}` : unfiledOnly ? 'Ideas — not filed' : 'Ideas'}
-        rows={visibleIdeas}
-        eras={($projectsQ as Project[] | undefined) ?? []}
-      />
-    </div>
 
     <IdeaList
       ideas={visibleIdeas}
@@ -908,22 +915,22 @@
       <button class="btn btn-primary press" disabled={!newBuyText.trim()}>Add</button>
     </form>
 
-    <div class="mb-3 flex flex-wrap gap-2">
+    <div class="mb-3 flex items-center gap-2">
       <select bind:value={fBuyProject} class="field press">
         <option value="">All eras</option>
         {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
           <option value={p.id}>{p.name}</option>
         {/each}
       </select>
-    </div>
-
-    <div class="mb-2 flex justify-end">
-      <ListExport
-        kind="buy"
-        title={fBuyProject ? `To buy — ${projectName(fBuyProject)}` : 'To buy'}
-        rows={filteredBuy}
-        eras={($projectsQ as Project[] | undefined) ?? []}
-      />
+      <!-- On the filter row, at its far end — see the Ideas note above. -->
+      <span class="ml-auto">
+        <ListExport
+          kind="buy"
+          title={fBuyProject ? `To buy — ${projectName(fBuyProject)}` : 'To buy'}
+          rows={filteredBuy}
+          eras={($projectsQ as Project[] | undefined) ?? []}
+        />
+      </span>
     </div>
 
     <div class="segmented mb-3">

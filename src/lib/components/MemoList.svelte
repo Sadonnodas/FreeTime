@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import type { Memo, Project } from '$lib/types';
   import {
-    deleteMemo, updateMemo, shareMemo, mmss, whenLabel, monthLabel, displayTitle
+    deleteMemo, updateMemo, shareMemo, shareMemos, mmss, whenLabel, monthLabel, displayTitle
   } from '$lib/memos';
   import { downloadMemoAudio } from '$lib/sync';
   import { onRecordingChange } from '$lib/audio';
@@ -290,6 +290,80 @@
     position = audioEl.currentTime;
   }
 
+  /**
+   * Choosing several recordings to share in one go.
+   *
+   * Asked for as *"Can we make sharing multiple memos at once a thing?"* — four
+   * takes of a chorus to a bandmate were four trips through the share sheet.
+   * "Select" turns every row's play button into a tick, the rows are picked by
+   * tapping them, and one Share sends the lot as a single message.
+   *
+   * THE TAP THAT SHARES MUST NOT WAIT ON THE NETWORK. Safari only opens the
+   * share sheet while the tap that asked for it is still live, and a download
+   * from Drive in between can spend it — the sheet then silently never opens,
+   * which is the one failure worse than an error. So if any picked recording is
+   * not on this device yet, the first tap FETCHES them and the button turns
+   * into "Share N" for a second, fresh tap. Everything on the device already
+   * shares on the first tap.
+   */
+  let selecting = $state(false);
+  let picked = $state<string[]>([]);
+  let fetchingAll = $state<{ done: number; of: number } | null>(null);
+
+  function startSelecting() {
+    close();
+    picked = [];
+    selecting = true;
+  }
+
+  function stopSelecting() {
+    selecting = false;
+    picked = [];
+    fetchingAll = null;
+  }
+
+  const togglePick = (memo: Memo) =>
+    (picked = picked.includes(memo.id) ? picked.filter((id) => id !== memo.id) : [...picked, memo.id]);
+
+  /** Picked, in the order they appear in the list — not the order they were tapped. */
+  const pickedMemos = $derived(shown.filter((m) => picked.includes(m.id)));
+  const needFetching = $derived(pickedMemos.filter((m) => elsewhere(m)));
+
+  async function shareSelected() {
+    if (needFetching.length) {
+      const toFetch = [...needFetching];
+      let failed = 0;
+      fetchingAll = { done: 0, of: toFetch.length };
+      for (const m of toFetch) {
+        if (!(await downloadMemoAudio(m.id))) failed++;
+        fetchingAll = { done: fetchingAll.done + 1, of: toFetch.length };
+      }
+      fetchingAll = null;
+      // Counted from the downloads themselves: `needFetching` only catches up
+      // once the database change flows back into the list, a moment later, so
+      // reading it here would claim a failure that did not happen.
+      note = failed
+        ? `${failed} could not be fetched — you may be offline. The rest are ready.`
+        : 'Downloaded. Tap Share to send them.';
+      setTimeout(() => (note = ''), 4000);
+      return;
+    }
+    const result = await shareMemos(
+      pickedMemos.map((memo) => ({
+        memo,
+        where: { era: projects.find((p) => p.id === memo.projectId)?.name, project: memo.tag }
+      }))
+    );
+    if (result === 'shared') stopSelecting();
+    note =
+      result === 'downloaded'
+        ? `Saved ${pickedMemos.length} files to your downloads.`
+        : result === 'unsupported'
+          ? 'None of those are on this device yet.'
+          : '';
+    if (note) setTimeout(() => (note = ''), 4000);
+  }
+
   async function share(memo: Memo) {
     // Sharing needs the actual bytes, so a memo from another device has to come
     // down first rather than the button quietly doing nothing.
@@ -363,6 +437,9 @@
     looking for and just need to reach it.
   -->
   <Controls label="Search &amp; order" summary={controlSummary}>
+    {#snippet action()}
+      {@render selectToggle()}
+    {/snippet}
     <div class="space-y-2">
     <input
       bind:value={query}
@@ -409,15 +486,48 @@
   <p class="footnote mb-2 text-good">{note}</p>
 {/if}
 
-{#each groups as group (group.label)}
+{#snippet selectToggle()}
+  {#if memos.length > 1}
+    <button
+      type="button"
+      class="press tap-h shrink-0 rounded-xl border border-line-1 px-2.5 text-xs
+             {selecting ? 'text-accent' : 'text-ink-400'}"
+      onclick={() => (selecting ? stopSelecting() : startSelecting())}
+      aria-pressed={selecting}
+    >
+      {selecting ? 'Cancel' : 'Select'}
+    </button>
+  {/if}
+{/snippet}
+
+{#each groups as group, g (group.label)}
   {#if group.label}
-    <h3 class="section-label mt-4 mb-2">{group.label}</h3>
+    <!-- Without search controls, Select sits on the first month's heading row
+         rather than on a row of its own. -->
+    <div class="mt-4 mb-2 flex items-center justify-between gap-2">
+      <h3 class="section-label">{group.label}</h3>
+      {#if g === 0 && !controls}{@render selectToggle()}{/if}
+    </div>
   {/if}
 
   <ul class="space-y-1">
     {#each group.items as memo (memo.id)}
-      <li class="card-flat px-3 py-2">
+      <li class="card-flat px-3 py-2 {selecting && picked.includes(memo.id) ? 'ring-2 ring-accent/60' : ''}">
         <div class="flex items-center gap-3">
+          {#if selecting}
+            <button
+              class="press tap-h flex w-11 shrink-0 items-center justify-center"
+              onclick={() => togglePick(memo)}
+              disabled={lost(memo)}
+              aria-pressed={picked.includes(memo.id)}
+              aria-label={`Pick ${displayTitle(memo)}`}
+            >
+              <span
+                class="flex h-6 w-6 items-center justify-center rounded-full border-2 text-[13px]
+                       {picked.includes(memo.id) ? 'border-accent bg-accent text-ink-950' : 'border-ink-600'}"
+              >{picked.includes(memo.id) ? '✓' : ''}</span>
+            </button>
+          {:else}
           <button
             class="press tap-h flex w-11 shrink-0 items-center justify-center rounded-full
                    bg-surface-2 text-accent"
@@ -435,10 +545,16 @@
               </svg>
             {/if}
           </button>
+          {/if}
 
           <button
             class="min-w-0 flex-1 py-1 text-left"
-            onclick={() => (openId === memo.id ? close() : void open(memo))}
+            onclick={() =>
+              selecting
+                ? !lost(memo) && togglePick(memo)
+                : openId === memo.id
+                  ? close()
+                  : void open(memo)}
           >
             <p class="truncate">{displayTitle(memo)}</p>
             <p class="footnote truncate">
@@ -624,3 +740,29 @@
     {/each}
   </ul>
 {/each}
+
+{#if selecting}
+  <!--
+    Sticky at the bottom of the list, not at its top: picking goes down a long
+    library, and a Share button left behind at the top is a scroll back up for
+    every batch.
+  -->
+  <div class="glass sticky bottom-3 z-20 mt-3 flex items-center gap-2 rounded-2xl p-2 shadow-lg">
+    <p class="footnote min-w-0 flex-1 px-2">
+      {#if fetchingAll}
+        Fetching {fetchingAll.done + 1} of {fetchingAll.of}…
+      {:else if needFetching.length}
+        {needFetching.length} not on this device — fetch first
+      {:else}
+        {picked.length} picked
+      {/if}
+    </p>
+    <button
+      class="btn btn-primary press shrink-0"
+      disabled={!picked.length || !!fetchingAll}
+      onclick={shareSelected}
+    >
+      {needFetching.length ? `Fetch ${needFetching.length}` : `Share ${picked.length || ''}`.trim()}
+    </button>
+  </div>
+{/if}
