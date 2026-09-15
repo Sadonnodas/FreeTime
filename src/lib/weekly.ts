@@ -37,7 +37,7 @@ import type { Project } from './types';
  * the previous day anywhere west of Greenwich.
  */
 
-export type WeeklyKind = 'closed' | 'finished' | 'bought' | 'recorded';
+export type WeeklyKind = 'closed' | 'finished' | 'bought' | 'recorded' | 'project';
 
 export interface WeeklyItem {
   id: string;
@@ -150,6 +150,19 @@ export async function pendingWeeklySummary(today: Date = new Date()): Promise<We
         projectId: b.projectId,
         tag: b.tag
       })),
+    // A finished project, under its own heading — the biggest line of the week.
+    ...live(projects).flatMap((era) =>
+      Object.entries(era.finishedTags ?? {})
+        .filter(([tag, at]) => within(at) && (era.tags ?? []).includes(tag))
+        .map(([tag, at]) => ({
+          id: `${era.id}:${tag}`,
+          kind: 'project' as const,
+          text: `Finished the whole project`,
+          at,
+          projectId: era.id,
+          tag
+        }))
+    ),
     ...live(memos)
       .filter((m) => within(m.recordedAt))
       .map((m) => ({

@@ -7,7 +7,7 @@
   import { widgetsFor } from '$lib/widgets';
   import {
     createTodo, completeTodo, uncompleteTodo, updateTodo, setTodoAfter, createBuyItem, saveNote, getNote,
-    projectTagColor, softDelete, createIdea
+    projectTagColor, softDelete, createIdea, setProjectTagFinished
   } from '$lib/store';
   import { activeProjects } from '$lib/queries';
   import { memosForProject } from '$lib/memos';
@@ -32,6 +32,7 @@
   import ProjectTagEditor from '$lib/components/ProjectTagEditor.svelte';
   import IdeaList from '$lib/components/IdeaList.svelte';
   import ExportSheet from '$lib/components/ExportSheet.svelte';
+  import FinishProject from '$lib/components/FinishProject.svelte';
   import { goto } from '$app/navigation';
 
   /**
@@ -197,6 +198,14 @@
   let openTodo = $state<string | null>(null);
   let picking = $state(false);
   let exporting = $state(false);
+  let finishing = $state(false);
+  /** When this project was finished, if it is. */
+  const finishedAt = $derived(era?.finishedTags?.[tag]);
+  const finishedLabel = $derived(
+    finishedAt
+      ? new Date(finishedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
+      : ''
+  );
 
   const sectionId = (name: string) => `${eraId}/${tag}/${name}`;
 </script>
@@ -215,6 +224,11 @@
     >
       <div class="min-w-0 flex-1">
         <h1 class="large-title truncate">{tag}</h1>
+        {#if finishedAt}
+          <!-- Said at the top, in the project's own colour: this is the first
+               thing to know about a project you are opening again. -->
+          <p class="text-[14px] font-semibold" style="color: {color}">✓ Finished {finishedLabel}</p>
+        {/if}
         {#if era?.tagDescriptions?.[tag]}
           <p class="footnote">{era.tagDescriptions[tag]}</p>
         {/if}
@@ -525,8 +539,38 @@
         </button>
       {/if}
     </Collapsible>
+
+    <!--
+      At the foot, below everything the project holds, because that is where
+      you arrive having looked over it. Solid and in the project's colour, not a
+      grey text link: finishing a closet is the best thing that can happen on
+      this screen, and it should look like something you would want to press.
+    -->
+    <div class="mt-6">
+      {#if finishedAt}
+        <p class="footnote mb-2 text-center">Finished {finishedLabel}. Everything in it stays right here.</p>
+        <button
+          class="press tap w-full rounded-xl text-sm text-ink-400"
+          onclick={() => setProjectTagFinished(eraId, tag, false)}
+        >
+          Not finished after all
+        </button>
+      {:else}
+        <button
+          class="press tap w-full rounded-xl text-[15px] font-semibold"
+          style="background: color-mix(in srgb, {color} 18%, transparent); color: {color}"
+          onclick={() => (finishing = true)}
+        >
+          ✓ Finish this project
+        </button>
+      {/if}
+    </div>
   {/if}
 </div>
+
+{#if finishing}
+  <FinishProject {eraId} {tag} {color} onclose={() => (finishing = false)} />
+{/if}
 
 {#if sheet}
   <!-- svelte-ignore a11y_click_events_have_key_events -->

@@ -30,6 +30,7 @@
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import PlanToday from '$lib/components/PlanToday.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
+  import FinishProject from '$lib/components/FinishProject.svelte';
   import IdeaList from '$lib/components/IdeaList.svelte';
 
 
@@ -125,8 +126,24 @@
    * made, so nothing here counts them, nags about them, or dresses the number
    * up as a backlog — it is a list you asked to stop looking at.
    */
-  const tags = $derived(allTags.filter((t) => !sleepingTags.includes(t)));
-  const asleep = $derived(allTags.filter((t) => sleepingTags.includes(t)));
+  /** When each finished project was finished. */
+  const finishedTags = $derived($projectQ?.finishedTags ?? {});
+  const tags = $derived(allTags.filter((t) => !sleepingTags.includes(t) && !finishedTags[t]));
+  const asleep = $derived(allTags.filter((t) => sleepingTags.includes(t) && !finishedTags[t]));
+  /**
+   * Finished projects, most recent first — and ALWAYS VISIBLE. Unlike the
+   * sleeping ones, these are not behind a tap: completed work is never hidden by
+   * the app (a hard rule), and a list of finished projects is the one list on
+   * this screen that is pure good news.
+   */
+  const finished = $derived(
+    allTags
+      .filter((t) => finishedTags[t])
+      .sort((a, b) => finishedTags[b]!.localeCompare(finishedTags[a]!))
+  );
+  let finishing = $state<string | null>(null);
+  const finishedOn = (t: string) =>
+    new Date(finishedTags[t]!).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
   let showSleeping = $state(false);
 
   /** Where a project can be moved to: every other era. */
@@ -449,6 +466,16 @@
 
                 <div class="flex items-center gap-1">
                   <button
+                    class="press tap-h rounded-lg px-3 text-sm font-medium"
+                    style="color: {c}"
+                    onclick={() => {
+                      editingTag = null;
+                      finishing = t;
+                    }}
+                  >
+                    ✓ Finish
+                  </button>
+                  <button
                     class="press tap-h rounded-lg px-3 text-sm text-ink-200"
                     onclick={() => setProjectTagSleeping(id, t, !sleepingTags.includes(t))}
                   >
@@ -567,6 +594,26 @@
     >
       + New project
     </button>
+
+    {#if finished.length}
+      <h2 class="section-label mb-2">Finished</h2>
+      <ul class="mb-5 space-y-1">
+        {#each finished as t (t)}
+          {@const c = projectTagColor($projectQ?.tags, $projectQ?.tagColors, t)}
+          <li>
+            <a
+              href="{base}/projects/{id}/{encodeURIComponent(t)}"
+              class="press card-flat flex items-center gap-3 px-4 py-3"
+              style="box-shadow: inset 3px 0 0 {c}"
+            >
+              <span class="shrink-0 font-semibold" style="color: {c}">✓</span>
+              <span class="min-w-0 flex-1 truncate">{t}</span>
+              <span class="footnote shrink-0">{finishedOn(t)}</span>
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {/if}
   {/if}
 
   <!--
@@ -850,3 +897,12 @@
     </p>
   </div>
 </div>
+
+{#if finishing}
+  <FinishProject
+    eraId={id}
+    tag={finishing}
+    color={projectTagColor($projectQ?.tags, $projectQ?.tagColors, finishing)}
+    onclose={() => (finishing = null)}
+  />
+{/if}

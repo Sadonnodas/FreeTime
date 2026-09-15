@@ -145,7 +145,11 @@ export interface Win {
  * did for other reasons.
  */
 export async function winsSince(sinceIso: string): Promise<Win[]> {
-  const [todos, ideas] = await Promise.all([db.todos.toArray(), db.ideas.toArray()]);
+  const [todos, ideas, eras] = await Promise.all([
+    db.todos.toArray(),
+    db.ideas.toArray(),
+    db.projects.toArray()
+  ]);
 
   const fromTodos: Win[] = todos
     .filter(notDeleted)
@@ -160,7 +164,59 @@ export async function winsSince(sinceIso: string): Promise<Win[]> {
     .filter((i) => !!i.doneAt && i.doneAt >= sinceIso)
     .map((i) => ({ id: i.id, text: i.text, at: i.doneAt!, projectId: i.projectId }));
 
-  return [...fromTodos, ...fromIdeas].sort((a, b) => b.at.localeCompare(a.at));
+  // A whole project finished is the biggest win there is, so it goes in the same
+  // feed as a ticked to-do rather than somewhere of its own — the monthly
+  // summary and the day-close both read from here.
+  const fromProjects: Win[] = eras.filter(notDeleted).flatMap((era) =>
+    Object.entries(era.finishedTags ?? {})
+      .filter(([tag, at]) => at >= sinceIso && (era.tags ?? []).includes(tag))
+      .map(([tag, at]) => ({ id: `${era.id}:${tag}`, text: `Finished ${tag}`, at, projectId: era.id }))
+  );
+
+  return [...fromTodos, ...fromIdeas, ...fromProjects].sort((a, b) => b.at.localeCompare(a.at));
+}
+
+/**
+ * What a project added up to — shown on the screen where you finish it.
+ *
+ * Counts of things that happened, never a proportion: "14 to-dos done" is a
+ * record, and "14 of 17" would be the completion percentage the spec bans,
+ * arriving at the exact moment it is least deserved. The still-open ones are
+ * counted separately and only so the screen can say what happens to them.
+ */
+export interface ProjectRecap {
+  /** The earliest thing ever written in it — the closest there is to a start date. */
+  startedAt?: string;
+  done: number;
+  open: number;
+  bought: number;
+  recorded: number;
+  ideas: number;
+}
+
+export async function projectRecap(eraId: string, tag: string): Promise<ProjectRecap> {
+  const mine = <T extends { deletedAt?: string; tag?: string }>(rows: T[]) =>
+    rows.filter((r) => !r.deletedAt && r.tag === tag);
+  const [todos, buys, memos, ideas, notes, widgets] = await Promise.all([
+    db.todos.where('projectId').equals(eraId).toArray().then(mine),
+    db.buyItems.where('projectId').equals(eraId).toArray().then(mine),
+    db.memos.where('projectId').equals(eraId).toArray().then(mine),
+    db.ideas.where('projectId').equals(eraId).toArray().then(mine),
+    db.notes.where('projectId').equals(eraId).toArray().then(mine),
+    db.widgets.where('projectId').equals(eraId).toArray().then(mine)
+  ]);
+  const starts = [...todos, ...buys, ...memos, ...ideas, ...notes, ...widgets]
+    .map((r) => r.createdAt)
+    .filter(Boolean)
+    .sort();
+  return {
+    startedAt: starts[0],
+    done: todos.filter((t) => t.completedAt).length,
+    open: todos.filter((t) => !t.completedAt).length,
+    bought: buys.filter((b) => b.purchasedAt).length,
+    recorded: memos.length,
+    ideas: ideas.length
+  };
 }
 
 /**

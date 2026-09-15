@@ -364,3 +364,24 @@ describe('changing a proposal that is not saved yet', () => {
     expect(moved[0]!.args).toEqual({ title: 'Pots', projectId: garden });
   });
 });
+
+describe('finishing a project through the assistant', () => {
+  beforeEach(reset);
+
+  it('finishes the named project, in the era’s own spelling', async () => {
+    const home = await createProject('Home');
+    await setProjectTags(home, ['Closet']);
+    expect(await describeWrite('finish_project', { projectId: 'home', projectInEra: 'closet' })).toBe(
+      'Finish project: closet in Home'
+    );
+    await applyWrite('finish_project', { projectId: 'home', projectInEra: 'closet' });
+    expect((await db.projects.get(home))!.finishedTags?.Closet).toBeTruthy();
+  });
+
+  it('finishes nothing when the project is not there', async () => {
+    const home = await createProject('Home');
+    await setProjectTags(home, ['Closet']);
+    await applyWrite('finish_project', { projectId: home, projectInEra: 'Kitchen' });
+    expect((await db.projects.get(home))!.finishedTags ?? {}).toEqual({});
+  });
+});

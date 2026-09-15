@@ -330,6 +330,37 @@ Do not "fix" these without talking to Toon first.
   ONE era, so a bare key would silence "Mixing" in every era at once. Pinned by
   a test.
 
+- **A project can be FINISHED** (`Project.finishedTags`, `setProjectTagFinished`,
+  `projectRecap`, [FinishProject.svelte](src/lib/components/FinishProject.svelte),
+  [finished.test.ts](src/lib/finished.test.ts)). *"I just finished building a
+  closet in our bedroom that was a big project. I would be satisfied if I
+  could check that whole project off as completed or achieved."* A to-do could
+  be ticked and a project could only SLEEP, which says "not now" about something
+  that is done. Finishing is the project-sized tick.
+  **It is a moment, not a flag.** Two beats: first what the project came to —
+  started in March, 3 to-dos done, 1 thing bought — which is most of the
+  satisfaction and also the confirmation; then the tick and a burst bigger than
+  a to-do's. **Counts, never "3 of 4"**: that would be the banned completion
+  percentage arriving at the exact moment it is least deserved.
+  **It touches nothing inside.** A to-do still open when the closet is done
+  stays open, and the screen says so once, plainly. Ticking loose ends on your
+  behalf would fill the wins feed with things that were not done. Free Time
+  stops suggesting them, exactly as for a sleeping project — the app stops
+  offering, never forbids.
+  **Finished projects are never hidden** (the hard rule on completed work): they
+  leave the in-progress list for a "Finished" list on the era page that is
+  always visible, unlike sleeping ones behind a tap, dated, most recent first.
+  The project still opens, still takes new things, says "✓ Finished <date>"
+  under its name, and "Not finished after all" undoes it. Finishing counts as a
+  win (`winsSince`, so the monthly summary and day-close see it) and has its own
+  line in the weekly look-back. The assistant has `finish_project`.
+  Finishing takes a project out of sleep: finished and set aside are different
+  things to say about one project.
+  **Renaming a project used to wake it up**, found while carrying the new
+  field: `renameProjectTag` carried colour and description but not
+  `sleepingTags`, which `setProjectTags` then pruned for the old name. Rename
+  now carries sleep and finished both, and a test pins each.
+
 - **The era and project live in the Drive FILENAME, not in a folder tree**
   ([memos.ts](src/lib/memos.ts) `fileName`, [sync.ts](src/lib/sync.ts),
   `Memo.driveName`). Asked as *"would it be an idea that the google drive folder

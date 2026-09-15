@@ -71,6 +71,22 @@ export interface Project extends Base {
    * is what every `tag` field already points at.
    */
   sleepingTags?: string[];
+  /**
+   * Projects inside this era that are FINISHED, and when — name → ISO time.
+   *
+   * Asked for with a real one: *"I just finished building a closet in our
+   * bedroom that was a big project. I would be satisfied if I could check that
+   * whole project off as completed or achieved."* A to-do could be ticked and a
+   * project could only be put to sleep, which says "not now" about something
+   * that is DONE. Finishing is the project-sized tick.
+   *
+   * Never hidden, by the hard rule on completed work: a finished project leaves
+   * the list of ones in progress and joins a visible "Finished" list on its era,
+   * keeps everything it holds, opens as before, and is one tap from being
+   * unfinished. It counts as a win. Keyed by name like its siblings, and the
+   * time is the value because "finished in September" is half the point.
+   */
+  finishedTags?: Record<string, string>;
 }
 
 /**

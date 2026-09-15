@@ -124,11 +124,17 @@ export async function setProjectTags(id: string, tags: string[]): Promise<void> 
   // And the sleeping list, for the same reason again.
   const sleeping = (project?.sleepingTags ?? []).filter((t) => tags.includes(t));
 
+  // And when each was finished — the same pruning, for the same reason.
+  const finished = Object.fromEntries(
+    Object.entries(project?.finishedTags ?? {}).filter(([t]) => tags.includes(t))
+  );
+
   await db.projects.update(id, {
     tags,
     tagColors: colors,
     tagDescriptions: descriptions,
     sleepingTags: sleeping,
+    finishedTags: finished,
     updatedAt: now()
   });
 }
@@ -180,6 +186,37 @@ export type MoveResult = 'moved' | 'name-taken' | 'nothing';
  * name. Two projects called "Mixing" silently becoming one is unrecoverable
  * without knowing which of the two each to-do came from.
  */
+/**
+ * Finish a project inside an era, or take that back.
+ *
+ * The project-sized tick. It touches NOTHING inside the project: a to-do still
+ * open when the closet is done stays open and untouched, rather than being
+ * ticked on your behalf — the wins feed is made of things that were actually
+ * done, and bulk-completing would fill it with things that were not. Free Time
+ * simply stops suggesting them, as it does for a sleeping project.
+ *
+ * Finishing also takes it out of sleep: finished and set aside are different
+ * things to say about a project, and it cannot be both.
+ */
+export async function setProjectTagFinished(
+  projectId: string,
+  tag: string,
+  finished: boolean
+): Promise<void> {
+  const project = await db.projects.get(projectId);
+  if (!project || !(project.tags ?? []).includes(tag)) return;
+  const next = { ...(project.finishedTags ?? {}) };
+  if (finished) next[tag] = next[tag] ?? now();
+  else delete next[tag];
+  await db.projects.update(projectId, {
+    finishedTags: next,
+    sleepingTags: finished
+      ? (project.sleepingTags ?? []).filter((t) => t !== tag)
+      : project.sleepingTags ?? [],
+    updatedAt: now()
+  });
+}
+
 export async function moveProjectTag(
   fromEraId: string,
   tag: string,
@@ -199,8 +236,13 @@ export async function moveProjectTag(
   const colour = from.tagColors?.[tag];
   const description = from.tagDescriptions?.[tag];
   const asleep = (from.sleepingTags ?? []).includes(tag);
+  const finishedAt = from.finishedTags?.[tag];
 
   await db.projects.update(toEraId, {
+    finishedTags: {
+      ...(to.finishedTags ?? {}),
+      ...(finishedAt ? { [tag]: finishedAt } : {})
+    },
     tagColors: { ...(to.tagColors ?? {}), ...(colour ? { [tag]: colour } : {}) },
     tagDescriptions: {
       ...(to.tagDescriptions ?? {}),
@@ -311,21 +353,30 @@ export async function renameProjectTag(
   // random on rename and undo the whole point of it having a colour.
   const colors = { ...(project.tagColors ?? {}) };
   const notes = { ...(project.tagDescriptions ?? {}) };
-  if (colors[from] || notes[from]) {
-    if (colors[from]) {
-      colors[next] = colors[from];
-      delete colors[from];
-    }
-    if (notes[from]) {
-      notes[next] = notes[from];
-      delete notes[from];
-    }
-    await db.projects.update(projectId, {
-      tagColors: colors,
-      tagDescriptions: notes,
-      updatedAt: now()
-    });
+  const finished = { ...(project.finishedTags ?? {}) };
+  // Sleep and finished carry too. Sleep USED to be lost here: setProjectTags
+  // prunes the sleeping list for names it cannot see, so renaming a sleeping
+  // project quietly woke it up.
+  const sleeping = (project.sleepingTags ?? []).map((t) => (t === from ? next : t));
+  if (colors[from]) {
+    colors[next] = colors[from];
+    delete colors[from];
   }
+  if (notes[from]) {
+    notes[next] = notes[from];
+    delete notes[from];
+  }
+  if (finished[from]) {
+    finished[next] = finished[from];
+    delete finished[from];
+  }
+  await db.projects.update(projectId, {
+    tagColors: colors,
+    tagDescriptions: notes,
+    sleepingTags: sleeping,
+    finishedTags: finished,
+    updatedAt: now()
+  });
   await setProjectTags(projectId, (project.tags ?? []).map((t) => (t === from ? next : t)));
 
   const at = now();

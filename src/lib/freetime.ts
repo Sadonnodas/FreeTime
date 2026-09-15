@@ -91,7 +91,13 @@ export async function createPlanner(answers: FreeTimeAnswers): Promise<Planner> 
    * era at once.
    */
   const asleep = new Set(
-    eras.flatMap((era) => (era.sleepingTags ?? []).map((tag) => `${era.id}\u0000${tag}`))
+    eras.flatMap((era) => [
+      ...(era.sleepingTags ?? []),
+      // A FINISHED project is not offered either: whatever is still open in it
+      // was left open when you called it done, and suggesting it back would
+      // be the app disagreeing with you about your own closet.
+      ...Object.keys(era.finishedTags ?? {})
+    ].map((tag) => `${era.id}\u0000${tag}`))
   );
   const isAsleep = (t: Todo) => !!t.tag && asleep.has(`${t.projectId}\u0000${t.tag}`);
 

@@ -2,7 +2,8 @@ import { db } from '../db';
 import {
   createTodo, createIdea, createBuyItem,
   createProject, completeTodo, toggleHabitLog, today, createHabit,
-  getNote, saveNote, setProjectTags, setProjectTagDescription, promoteIdea, ideaToProject
+  getNote, saveNote, setProjectTags, setProjectTagDescription, promoteIdea, ideaToProject,
+  setProjectTagFinished
 } from '../store';
 import { activeProjects, openTodos, closedTodos } from '../queries';
 import { allMemos, displayTitle } from '../memos';
@@ -28,7 +29,7 @@ import type { Energy, Project } from '../types';
 export const WRITE_TOOLS = [
   'create_todo', 'create_idea', 'create_buy_item',
   'create_project', 'add_project_to_era', 'complete_todo', 'log_habit',
-  'create_habit', 'append_note', 'idea_to_todo', 'idea_to_project'
+  'create_habit', 'append_note', 'idea_to_todo', 'idea_to_project', 'finish_project'
 ] as const;
 
 export type WriteTool = (typeof WRITE_TOOLS)[number];
@@ -178,6 +179,21 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
         )
       },
       required: ['projectId', 'name']
+    }
+  },
+  {
+    name: 'finish_project',
+    description:
+      'Mark a whole project inside an era as FINISHED, when they say it is done ' +
+      '— "I finished the closet". Nothing inside it changes; it moves to the ' +
+      "era's finished list and counts as a win. Only when they say so.",
+    parameters: {
+      type: 'object',
+      properties: {
+        projectId: ERA,
+        projectInEra: str('The NAME of the project that is finished.')
+      },
+      required: ['projectId', 'projectInEra']
     }
   },
   {
@@ -501,6 +517,8 @@ export async function describeWrite(name: WriteTool, args: Args): Promise<string
       const idea = await db.ideas.get(s(args.id) ?? '');
       return `Make a to-do: ${short(idea?.text ?? s(args.id) ?? '?')}`;
     }
+    case 'finish_project':
+      return `Finish project: ${s(args.projectInEra) ?? '?'}${eraName ? ` in ${eraName}` : ''}`;
     case 'idea_to_project': {
       const idea = await db.ideas.get(s(args.id) ?? '');
       return `Idea → project: ${s(args.name) ?? '?'} (from “${short(idea?.text ?? '?')}”)`;
@@ -566,6 +584,10 @@ export async function applyWrite(name: WriteTool, args: Args): Promise<void> {
       await saveNote(era.id, existing ? `${existing.trimEnd()}\n\n${text}` : text, tag);
       break;
     }
+    case 'finish_project':
+      // A name the era does not have finishes nothing, rather than a guess.
+      if (era && tag) await setProjectTagFinished(era.id, tag, true);
+      break;
     case 'idea_to_todo': {
       const idea = await db.ideas.get(s(args.id) ?? '');
       // Once is enough: a second to-do from the same idea is a duplicate.

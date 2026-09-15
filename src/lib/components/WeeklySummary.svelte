@@ -28,7 +28,8 @@
     closed: null,
     finished: 'finished',
     bought: 'bought',
-    recorded: 'recorded'
+    recorded: 'recorded',
+    project: '🎉'
   };
 
   const heading = (g: WeeklySummary['groups'][number]) =>
