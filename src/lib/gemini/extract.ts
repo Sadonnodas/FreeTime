@@ -149,6 +149,9 @@ export async function transcribe(wav: Blob, signal?: AbortSignal): Promise<strin
       'No preamble, no commentary, no quotation marks around it. If nothing is ' +
       'audible, return an empty string.',
     maxOutputTokens: 2048,
+    // Nothing to reason about in writing down what was said, and the thinking
+    // was most of the 5–20 second wait. See GenerateOptions.thinking.
+    thinking: 'minimal',
     signal
   });
 

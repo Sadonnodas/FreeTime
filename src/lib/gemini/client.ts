@@ -75,6 +75,14 @@ export interface GenerateOptions {
   /** Forces JSON matching a schema. Cannot be combined with tools. */
   responseSchema?: Record<string, unknown>;
   maxOutputTokens?: number;
+  /**
+   * How much the model thinks before answering. Left unset, Gemini 3 decides
+   * for itself — and it decides to think about a transcription, which is a
+   * task with nothing to think about. That thinking is most of the wait
+   * between stopping the microphone and seeing your words. Only ask for less
+   * where the task is mechanical; the assistant's planning keeps the default.
+   */
+  thinking?: 'minimal' | 'low';
   signal?: AbortSignal;
 }
 
@@ -121,14 +129,31 @@ export async function generate(opts: GenerateOptions): Promise<GenerateResult> {
     generationConfig.responseMimeType = 'application/json';
     generationConfig.responseSchema = opts.responseSchema;
   }
+  if (opts.thinking) generationConfig.thinkingConfig = { thinkingLevel: opts.thinking };
   body.generationConfig = generationConfig;
 
-  const res = await fetch(`${ENDPOINT}/${MODEL}:generateContent?key=${encodeURIComponent(key)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: opts.signal
-  });
+  const send = () =>
+    fetch(`${ENDPOINT}/${MODEL}:generateContent?key=${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: opts.signal
+    });
+
+  let res = await send();
+
+  // A model that does not take this thinking level refuses the request with a
+  // 400 naming it. The setting is only ever an optimisation, so it is dropped
+  // and the request sent again rather than failing the whole feature — which
+  // is exactly what would happen the day MODEL changes to one that does not
+  // know the value. See the model-name trap in CLAUDE.md.
+  if (!res.ok && res.status === 400 && opts.thinking) {
+    const detail = await res.clone().text();
+    if (/thinking/i.test(detail)) {
+      delete generationConfig.thinkingConfig;
+      res = await send();
+    }
+  }
 
   if (!res.ok) {
     const detail = await res.text();

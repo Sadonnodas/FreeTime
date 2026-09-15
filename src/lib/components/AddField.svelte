@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { autogrow, oneLine } from '$lib/autogrow';
   import type { Snippet } from 'svelte';
 
   /**
@@ -40,7 +41,8 @@
   } = $props();
 
   let text = $state('');
-  let field = $state<HTMLInputElement | undefined>();
+  let field = $state<HTMLTextAreaElement | undefined>();
+  let form = $state<HTMLFormElement | undefined>();
 
   $effect(() => {
     if (open) field?.focus();
@@ -48,7 +50,8 @@
 
   async function submit(e: SubmitEvent) {
     e.preventDefault();
-    const t = text.trim();
+    // Flattened: a pasted line break would make one row taller than the rest.
+    const t = oneLine(text);
     // Enter on an empty field means "I am done", which is the same thing the
     // button says at that moment. One path, so the two cannot disagree.
     if (!t) {
@@ -62,20 +65,23 @@
 </script>
 
 {#if open}
-  <form onsubmit={submit} class="mb-2">
-    <div class="flex gap-2">
-      <input
+  <form bind:this={form} onsubmit={submit} class="mb-2">
+    <div class="flex items-end gap-2">
+      <!-- Grows downwards as it fills; Enter still adds. See autogrow.ts. -->
+      <textarea
         bind:this={field}
         bind:value={text}
+        use:autogrow={{ value: text, onenter: () => form?.requestSubmit() }}
         {placeholder}
-        class="field min-w-0 flex-1"
+        enterkeyhint="done"
+        class="field field-grow min-w-0 flex-1"
         onkeydown={(e) => {
           if (e.key === 'Escape') {
             text = '';
             open = false;
           }
         }}
-      />
+      ></textarea>
       <!--
         One button doing both jobs, rather than a disabled Add sitting next to a
         Close. With something typed it adds; with an empty field the only thing

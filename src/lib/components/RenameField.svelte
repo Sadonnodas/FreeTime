@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { autogrow, oneLine } from '$lib/autogrow';
   /**
    * Fixing the name of something already written down.
    *
@@ -18,8 +19,8 @@
     onrename
   }: { value: string; label?: string; onrename: (name: string) => void } = $props();
 
-  function commit(e: Event & { currentTarget: HTMLInputElement }) {
-    const next = e.currentTarget.value.trim();
+  function commit(e: Event & { currentTarget: HTMLTextAreaElement }) {
+    const next = oneLine(e.currentTarget.value);
     // An empty name is refused, not saved. A row with no text is a row you
     // cannot read, cannot tap open and therefore cannot rename back.
     if (!next) e.currentTarget.value = value;
@@ -27,10 +28,13 @@
   }
 </script>
 
-<input
-  class="field w-full"
+<!-- A textarea that grows, so a long to-do can be read while it is edited.
+     Enter still finishes (it blurs, which saves). See autogrow.ts. -->
+<textarea
+  class="field field-grow w-full"
   aria-label={label}
   {value}
+  use:autogrow={{ value, onenter: () => (document.activeElement as HTMLElement | null)?.blur() }}
+  enterkeyhint="done"
   onchange={commit}
-  onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-/>
+></textarea>

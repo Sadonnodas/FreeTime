@@ -1318,3 +1318,17 @@ body {
     border-radius: 0;
   }
 }
+
+/*
+ * A growing one-line field (lib/autogrow.ts). `.field` was written for inputs:
+ * a fixed 44px row with horizontal padding only. A textarea needs vertical
+ * padding so wrapped lines do not touch the edges, and a line-height that makes
+ * one line land at the same 44px an input does, so switching a field over does
+ * not change the height of anything that stays on one line.
+ */
+textarea.field-grow {
+  display: block;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  line-height: 1.4;
+}

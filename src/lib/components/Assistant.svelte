@@ -8,6 +8,8 @@
   import { startRecording, toGeminiWav, beep, canRecord, type Recorder } from '$lib/audio';
   import { transcribe } from '$lib/gemini/extract';
   import VoiceCapture from './VoiceCapture.svelte';
+  import { autogrow } from '$lib/autogrow';
+  import { onDestroy } from 'svelte';
 
   /**
    * Chat with the store (spec 7.1).
@@ -28,6 +30,7 @@
   let pending = $state<ProposedWrite[]>([]);
   let suggestions = $state<Suggestion[]>([]);
   let input = $state('');
+  let form = $state<HTMLFormElement | undefined>();
   let busy = $state(false);
   let error = $state('');
 
@@ -59,22 +62,58 @@
   let transcribing = $state(false);
   let recorder: Recorder | null = null;
 
+  /*
+   * SAYING THAT SOMETHING IS HAPPENING. Reported from the to-do list itself:
+   * *"It takes anything between 5 and 20 seconds for your vocal prompt to show
+   * up so sometimes it feels like it didn't work."* The only sign of life used
+   * to be the placeholder of a disabled box changing to "Writing it down…" —
+   * grey text in a grey field, which is below the floor where quiet becomes
+   * absent (see "Subtle has a floor" in CLAUDE.md).
+   *
+   * So each of the two waits has a strip of its own above the input. Listening
+   * shows a live level meter, because what you want to know while talking is
+   * whether anything is going in. Writing-it-down shows moving dots and the
+   * seconds so far: a counter turns "is it frozen?" into "it is on 6s", and a
+   * wait you can watch passing feels shorter than one you cannot.
+   */
+  const BARS = 28;
+  let levels = $state<number[]>(Array(BARS).fill(0));
+  /** Whether this browser gave us an analyser to draw a meter from. */
+  let metered = $state(false);
+  let elapsed = $state(0);
+  let tick: ReturnType<typeof setInterval> | undefined;
+
+  function stopTicking() {
+    if (tick) clearInterval(tick);
+    tick = undefined;
+  }
+  onDestroy(() => {
+    stopTicking();
+    recorder?.cancel();
+  });
+
   async function toggleMic() {
     if (listening) {
       listening = false;
+      stopTicking();
       const r = recorder;
       recorder = null;
       if (!r) return;
       const raw = await r.stop();
       beep('stop');
       transcribing = true;
+      elapsed = 0;
+      const started = Date.now();
+      tick = setInterval(() => (elapsed = Math.floor((Date.now() - started) / 1000)), 250);
       try {
         const heard = await transcribe(await toGeminiWav(raw));
-        input = input ? `${input} ${heard}` : heard;
+        if (heard) input = input ? `${input} ${heard}` : heard;
+        else error = 'Nothing audible came through. Try again a little closer.';
       } catch (err) {
         error = (err as Error).message;
       } finally {
         transcribing = false;
+        stopTicking();
       }
       return;
     }
@@ -84,6 +123,11 @@
       recorder = await startRecording();
       listening = true;
       beep('start');
+      levels = Array(BARS).fill(0);
+      const level = recorder.level;
+      metered = !!level;
+      // No analyser, no meter — a meter pinned at zero would look like silence.
+      if (level) tick = setInterval(() => (levels = [...levels.slice(1), level()]), 70);
     } catch (err) {
       error =
         (err as Error).name === 'NotAllowedError'
@@ -99,7 +143,7 @@
 
   async function send(e: SubmitEvent) {
     e.preventDefault();
-    const text = input.trim();
+    const text = input.replace(/\s+/g, ' ').trim();
     if (!text || busy) return;
 
     input = '';
@@ -228,15 +272,48 @@
     </div>
   {/if}
 
-  <form onsubmit={send} class="glass hairline-t flex gap-2 p-3 pb-safe">
-    <input
+  {#if listening || transcribing}
+    <div class="glass hairline-t flex items-center gap-3 px-4 py-3" role="status" aria-live="polite">
+      {#if listening}
+        <span class="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500"></span>
+        <span class="shrink-0 text-[15px]">Listening</span>
+        {#if metered}
+          <span class="flex h-6 min-w-0 flex-1 items-center gap-[2px]" aria-hidden="true">
+            {#each levels as l, i (i)}
+              <span
+                class="w-full rounded-full bg-red-400"
+                style="height: {Math.max(8, Math.min(100, l * 160))}%"
+              ></span>
+            {/each}
+          </span>
+        {:else}
+          <span class="flex-1"></span>
+        {/if}
+        <span class="footnote shrink-0">tap ■ to stop</span>
+      {:else}
+        <span class="flex shrink-0 gap-1" aria-hidden="true">
+          <span class="h-2 w-2 animate-bounce rounded-full bg-accent [animation-delay:-0.3s]"></span>
+          <span class="h-2 w-2 animate-bounce rounded-full bg-accent [animation-delay:-0.15s]"></span>
+          <span class="h-2 w-2 animate-bounce rounded-full bg-accent"></span>
+        </span>
+        <span class="min-w-0 flex-1 text-[15px]">Writing down what you said…</span>
+        <span class="footnote shrink-0 tabular-nums">{elapsed}s</span>
+      {/if}
+    </div>
+  {/if}
+
+  <form bind:this={form} onsubmit={send} class="glass hairline-t flex items-end gap-2 p-3 pb-safe">
+    <!-- Grows as a dictation lands in it, so the words can be read before
+         sending. Enter sends. See autogrow.ts. -->
+    <textarea
       bind:value={input}
+      use:autogrow={{ value: input, onenter: () => form?.requestSubmit(), max: 180 }}
       placeholder={listening ? 'Listening…' : transcribing ? 'Writing it down…' : 'Say anything…'}
       enterkeyhint="send"
       autocomplete="off"
       disabled={listening || transcribing}
-      class="field min-w-0 flex-1"
-    />
+      class="field field-grow min-w-0 flex-1"
+    ></textarea>
     {#if micAvailable}
       <button
         type="button"
@@ -247,6 +324,9 @@
         disabled={transcribing}
         aria-label={listening ? 'Stop and write it down' : 'Speak instead of typing'}
       >
+        {#if listening}
+          <span class="block h-[14px] w-[14px] rounded-[3px] bg-current" aria-hidden="true"></span>
+        {:else}
         <svg viewBox="0 0 24 24" class="h-[19px] w-[19px]" aria-hidden="true">
           <path
             d="M12 3.6a2.6 2.6 0 0 1 2.6 2.6v5.4a2.6 2.6 0 1 1-5.2 0V6.2A2.6 2.6 0 0 1 12 3.6"
@@ -260,6 +340,7 @@
             fill="none"
           />
         </svg>
+        {/if}
       </button>
     {/if}
     <button
