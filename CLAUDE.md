@@ -905,6 +905,42 @@ one came close to a hard rule, the reasoning is recorded here.
   as one pile. Copy, Share and the preview are one component,
   [ShareText.svelte](src/lib/components/ShareText.svelte), used by both
   exports so they cannot copy or fail differently.
+  **Brain's lists print too** ([ListPaper.svelte](src/lib/components/ListPaper.svelte),
+  [PaperOverlay.svelte](src/lib/components/PaperOverlay.svelte), `totalsOf`).
+  Asked for with the shopping list in mind: *"to-buys separated for all
+  projects, with quantity, cost and total cost for all things within a project
+  and also total cost across everything."* So the buy printout is a table —
+  box, item (with the shop's domain under it), qty, each, total — one per
+  project, each with a subtotal, and a grand total at the foot. Only what is
+  STILL to buy: it is carried round a shop with a pen, and bought things would
+  inflate the totals it exists to give. To-dos and ideas print as checklists
+  and bullets under the same headings.
+  **Printed totals are honest in two ways the screen is not.** Per currency,
+  never blended — the on-screen list sums everything as one currency, which
+  holds while it is all euros, but a printed total is read as THE number and a
+  single dollar price would silently become euros inside it. And unpriced items
+  are counted beside the number ("1 without a price, not included"), because a
+  total over five things of which one has no price is not the cost of five.
+  **No URL for these, unlike the project printout**, and that is deliberate:
+  Brain's list is whatever the filters said at that moment, and a print route
+  would have to re-run the filters — a second copy of the rules that could
+  quietly disagree with the list you tapped on. So the paper is drawn from the
+  rows already in hand, laid over the app. It is PORTALLED to be a direct child
+  of <body> (`lib/portal.ts`), because the one print rule that reliably means
+  "print only this" is `body.paper-open > :not(.paper-overlay) { display:none }`,
+  which needs it to be one of body's children rather than buried in the
+  scrolling shell.
+  **Groups sort by era and then by the era's own project order**, for paper and
+  text alike (`groupByPlace`). They were in first-appearance order, which from a
+  newest-first list printed Campervan, Coding, Campervan, Coding.
+  **Separate tables need `table-layout: fixed` and set column widths**, or each
+  sizes itself to its own contents and Qty lands at a different x in every
+  project, so a page of prices cannot be read down. And `.paper-box` is
+  `inline-block`: inside a table cell an inline span ignores its width and
+  height and prints as a hairline.
+  **The document title is restored even when it was empty** — the app normally
+  has none, and `if (previous)` skipped exactly that, leaving the browser tab
+  named after the last printout.
   **Export lives on each list's FILTER row, never on a row of its own** — on
   To-dos beside "Closed", on Ideas pinned at the end of the era chips (outside
   the scrolling part, so a long list of eras cannot push it off screen), on Buy

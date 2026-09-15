@@ -5,6 +5,7 @@ import {
   completeTodo, createIdea, createBuyItem, saveNote, softDelete
 } from './store';
 import { collectProject, toMarkdown, demoteHeadings, EVERYTHING, JUST_TODOS } from './export';
+import type { BuyItem } from './types';
 
 /**
  * A project exported as text is mostly for pasting somewhere else — "right now
@@ -147,18 +148,18 @@ describe('exporting a list from Brain', () => {
     const rows = (await db.todos.bulkGet([a, b, c])).filter(Boolean) as never[];
     const eras = await db.projects.toArray();
 
-    // Groups in the order they first appear, with the unfiled pile moved last.
+    // By era, then the era's own rows before its projects; the unfiled pile last.
     expect(listToMarkdown('todos', 'To-dos', rows, eras)).toBe(
       [
         '# To-dos',
         '',
-        '## Coding · FreeTime',
-        '',
-        '- [ ] Swipe to tick',
-        '',
         '## Coding',
         '',
         '- [ ] Readme',
+        '',
+        '## Coding · FreeTime',
+        '',
+        '- [ ] Swipe to tick',
         '',
         '## Not filed',
         '',
@@ -175,5 +176,57 @@ describe('exporting a list from Brain', () => {
     const rows = [(await db.todos.get(t))!];
     expect(listToMarkdown('todos', 'To-dos', rows, [])).toContain('- [x] Done one');
     expect(listToMarkdown('ideas', 'Ideas', [], [])).toContain('Nothing here.');
+  });
+});
+
+describe('what a printed shopping list comes to', () => {
+  const item = (over: Partial<BuyItem>): BuyItem => ({
+    id: Math.random().toString(36), name: 'x', createdAt: '', updatedAt: '', ...over
+  });
+
+  it('multiplies by quantity and counts pieces', async () => {
+    const { totalsOf } = await import('./export');
+    const t = totalsOf([item({ priceCents: 450, qty: 2, currency: 'EUR' }), item({ priceCents: 100, currency: 'EUR' })]);
+    expect(t.byCurrency).toEqual([{ currency: 'EUR', cents: 1000 }]);
+    expect(t.pieces).toBe(3);
+  });
+
+  it('keeps currencies apart instead of blending them into one number', async () => {
+    const { totalsOf, formatTotals } = await import('./export');
+    const t = totalsOf([item({ priceCents: 1000, currency: 'EUR' }), item({ priceCents: 500, currency: 'USD' })]);
+    expect(t.byCurrency.map((c) => c.currency)).toEqual(['EUR', 'USD']);
+    expect(formatTotals(t)).toContain(' + ');
+  });
+
+  it('counts what has no price rather than pretending the total covers it', async () => {
+    const { totalsOf, formatTotals } = await import('./export');
+    const t = totalsOf([item({ priceCents: 300 }), item({}), item({ qty: 4 })]);
+    expect(t.unpriced).toBe(2);
+    expect(t.pieces).toBe(6);
+    expect(formatTotals(totalsOf([item({})]))).toBe('—');
+  });
+});
+
+describe('grouping for paper', () => {
+  it('sorts by era and then by the era’s own project order, not by first appearance', async () => {
+    const { groupByPlace } = await import('./export');
+    const eras = [
+      { id: 'c', name: 'Coding', tags: ['FreeTime', 'MTG'] },
+      { id: 'v', name: 'Campervan', tags: ['Furniture', 'Electrics'] }
+    ] as never[];
+    const rows = [
+      { projectId: 'v', tag: 'Electrics' },
+      { projectId: 'c', tag: 'MTG' },
+      {},
+      { projectId: 'v', tag: 'Furniture' },
+      { projectId: 'c', tag: 'FreeTime' }
+    ];
+    expect(groupByPlace(rows, eras).map((g) => g.heading)).toEqual([
+      'Campervan · Furniture',
+      'Campervan · Electrics',
+      'Coding · FreeTime',
+      'Coding · MTG',
+      'Not filed'
+    ]);
   });
 });

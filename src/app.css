@@ -1180,6 +1180,8 @@ body {
 
 /* A real box to tick with a pen. */
 .paper-box {
+  /* inline-block, so it keeps its size inside a table cell as well as in a flex row. */
+  display: inline-block;
   flex: none;
   width: 16px;
   height: 16px;
@@ -1270,6 +1272,113 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* Brain's printouts: the paper laid over the app (PaperOverlay). */
+.paper-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* The shopping table: numbers in columns that line up down the page. */
+/*
+ * FIXED layout with set column widths, and that is what makes the columns line
+ * up. Each project is its own table, and an automatic layout sizes every table
+ * to its own contents — so Qty sat at a different x in each block and a page of
+ * prices could not be read down. Fixed widths give every table on the page the
+ * same grid.
+ */
+.paper-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.paper-table .paper-col-box {
+  width: 26px;
+}
+
+.paper-table .paper-col-qty {
+  width: 48px;
+}
+
+.paper-table .paper-col-money {
+  width: 96px;
+}
+
+@media screen and (max-width: 520px) {
+  .paper-table .paper-col-qty {
+    width: 34px;
+  }
+
+  .paper-table .paper-col-money {
+    width: 74px;
+  }
+
+  .paper-table th,
+  .paper-table td {
+    padding-left: 3px;
+    padding-right: 3px;
+  }
+}
+
+.paper-table th {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #888;
+  text-align: left;
+  padding: 0 6px 6px;
+  border-bottom: 1px solid #ddd;
+}
+
+.paper-table td {
+  padding: 7px 6px;
+  border-bottom: 1px solid #eee;
+  vertical-align: top;
+}
+
+.paper-table tr {
+  break-inside: avoid;
+}
+
+.paper-table tfoot td {
+  border-bottom: none;
+  border-top: 1.5px solid #333;
+  font-weight: 600;
+}
+
+.paper-num {
+  text-align: right !important;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.paper-col-box {
+  padding-left: 0 !important;
+}
+
+.paper-table td {
+  overflow-wrap: anywhere;
+}
+
+.paper-grand {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 10px;
+  border-top: 3px double #333;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.paper-grand .paper-muted {
+  font-weight: 400;
+}
+
 @media (max-width: 520px) {
   .paper {
     padding: 24px 20px;
@@ -1304,6 +1413,16 @@ body {
 
   .shell nav {
     display: none !important;
+  }
+
+  /* A Brain printout lives over the app as a child of body; print only it. */
+  body.paper-open > :not(.paper-overlay) {
+    display: none !important;
+  }
+
+  .paper-overlay {
+    position: static !important;
+    overflow: visible !important;
   }
 
   .paper-wrap {

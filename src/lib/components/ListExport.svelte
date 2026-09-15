@@ -2,6 +2,8 @@
   import type { Todo, Idea, BuyItem, Project } from '$lib/types';
   import { listToMarkdown, type ListKind } from '$lib/export';
   import ShareText from './ShareText.svelte';
+  import PaperOverlay from './PaperOverlay.svelte';
+  import ListPaper from './ListPaper.svelte';
 
   /**
    * "Export" for one of Brain's lists: the rows exactly as they are on screen.
@@ -27,6 +29,8 @@
   } = $props();
 
   let open = $state(false);
+  /** The paper version, previewed over the app. Opened from the sheet. */
+  let printing = $state(false);
   const text = $derived(open ? listToMarkdown(kind, title, rows, eras, allTodos) : '');
 </script>
 
@@ -66,7 +70,23 @@
           aria-label="Close">×</button
         >
       </div>
-      <ShareText {text} {title} />
+      <ShareText {text} {title}>
+        {#snippet extra()}
+          <button
+            class="btn press flex-1 bg-surface-2"
+            onclick={() => {
+              open = false;
+              printing = true;
+            }}>Print or PDF</button
+          >
+        {/snippet}
+      </ShareText>
     </div>
   </div>
+{/if}
+
+{#if printing}
+  <PaperOverlay {title} onclose={() => (printing = false)}>
+    <ListPaper {kind} {title} {rows} {eras} {allTodos} />
+  </PaperOverlay>
 {/if}

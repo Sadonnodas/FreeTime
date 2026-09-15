@@ -250,9 +250,9 @@ export function toMarkdown(data: ProjectExport, sections: Iterable<ExportSection
  * Coding to-dos; on tomorrow's day list, it is tomorrow. The caller passes the
  * rows it is already showing, so the text can never disagree with the screen.
  *
- * Grouped under "Era · Project" headings in the order each group first
- * appears, unfiled last — a flat list across eras is the one pile the colours
- * on screen exist to break up, and pasted without them it would read as one.
+ * Grouped under "Era · Project" headings, sorted by era and then by project,
+ * unfiled last — a flat list across eras is the one pile the colours on screen
+ * exist to break up, and pasted without them it would read as one.
  */
 export type ListKind = 'todos' | 'ideas' | 'buy';
 
@@ -261,16 +261,38 @@ interface Placed {
   tag?: string;
 }
 
-function groupByPlace<T extends Placed>(rows: T[], eras: Project[]): { heading: string; rows: T[] }[] {
-  const eraName = (id?: string) => eras.find((e) => e.id === id)?.name;
-  const groups = new Map<string, { heading: string; rows: T[] }>();
+export function groupByPlace<T extends Placed>(rows: T[], eras: Project[]): { heading: string; rows: T[] }[] {
+  type Group = { heading: string; rows: T[]; eraName: string; order: number; filed: boolean };
+  const groups = new Map<string, Group>();
   for (const row of rows) {
-    const era = eraName(row.projectId);
-    const heading = era ? [era, row.tag].filter(Boolean).join(' · ') : 'Not filed';
-    (groups.get(heading) ?? groups.set(heading, { heading, rows: [] }).get(heading)!).rows.push(row);
+    const era = eras.find((e) => e.id === row.projectId);
+    const tag = era ? row.tag : undefined;
+    const heading = era ? [era.name, tag].filter(Boolean).join(' · ') : 'Not filed';
+    if (!groups.has(heading)) {
+      groups.set(heading, {
+        heading,
+        rows: [],
+        eraName: era?.name ?? '',
+        // The era's own rows first, then its projects in the era's own order —
+        // the order they are listed in on the era's screen.
+        order: tag ? (era?.tags ?? []).indexOf(tag) : -1,
+        filed: !!era
+      });
+    }
+    groups.get(heading)!.rows.push(row);
   }
-  const all = [...groups.values()];
-  return [...all.filter((g) => g.heading !== 'Not filed'), ...all.filter((g) => g.heading === 'Not filed')];
+  // Sorted by era and then by project, not by first appearance: a list sorted
+  // newest-first would otherwise print Campervan, Coding, Campervan, Coding,
+  // and a page is read top to bottom by project. Unfiled last. Rows inside a
+  // group keep the order they had on screen.
+  return [...groups.values()]
+    .sort(
+      (a, b) =>
+        Number(b.filed) - Number(a.filed) ||
+        a.eraName.localeCompare(b.eraName) ||
+        a.order - b.order
+    )
+    .map(({ heading, rows: r }) => ({ heading, rows: r }));
 }
 
 export function listToMarkdown(
@@ -305,4 +327,53 @@ export function listToMarkdown(
   }
   if (!rows.length) out.push('', 'Nothing here.');
   return out.join('\n') + '\n';
+}
+
+// ------------------------------------------------------------ money on paper
+
+/**
+ * What a set of shopping comes to — for the printed buy list, per project and
+ * across everything.
+ *
+ * Asked for as *"to-buys separated for all projects, with quantity, cost and
+ * total cost for all things within a project and also total cost across
+ * everything"*. Two honesty rules, because a printed total is read as THE
+ * number and nobody re-adds it in the shop:
+ *
+ * - **Per currency, never blended.** The list on screen sums everything as if
+ *   it were one currency, which is fine while it all is. On paper, a single
+ *   item priced in dollars would silently become euros inside a total that
+ *   looks exact. So amounts are kept apart by currency and printed side by side.
+ * - **Unpriced items are counted, not ignored.** A total over twelve things of
+ *   which four have no price is not the cost of twelve things, and it must say
+ *   so beside the number rather than let the number stand for all of them.
+ */
+export interface Totals {
+  /** Cents per currency code, in the order each currency first appeared. */
+  byCurrency: { currency: string; cents: number }[];
+  /** How many items carry no price and so are not in the amounts. */
+  unpriced: number;
+  /** How many things, counting quantity: "Sleeves ×2" is two. */
+  pieces: number;
+}
+
+export function totalsOf(items: BuyItem[]): Totals {
+  const map = new Map<string, number>();
+  let unpriced = 0;
+  let pieces = 0;
+  for (const b of items) {
+    pieces += b.qty ?? 1;
+    if (!b.priceCents) {
+      unpriced++;
+      continue;
+    }
+    const currency = b.currency || 'EUR';
+    map.set(currency, (map.get(currency) ?? 0) + buyLineTotal(b));
+  }
+  return { byCurrency: [...map].map(([currency, cents]) => ({ currency, cents })), unpriced, pieces };
+}
+
+/** "€ 23,90", or "€ 23,90 + $ 12.00" when currencies are mixed; "—" when nothing is priced. */
+export function formatTotals(t: Totals): string {
+  return t.byCurrency.length ? t.byCurrency.map((c) => money(c.cents, c.currency)).join(' + ') : '—';
 }
