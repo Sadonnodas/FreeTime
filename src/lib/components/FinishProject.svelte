@@ -101,63 +101,75 @@
   </div>
 {/if}
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="glass-strong rise fixed inset-0 z-50 flex flex-col justify-end p-4 pb-safe" onclick={onclose}>
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="card relative mx-auto w-full max-w-[520px] overflow-visible p-6 text-center"
-    style="border-top: 4px solid {color}"
-    onclick={(e) => e.stopPropagation()}
-  >
+<!--
+  THE WHOLE SCREEN, NOT A SHEET. It shipped as a bottom sheet like every other
+  pop-up here, which takes only the height it needs — right for "Add to
+  project", and it left the top half of the phone empty for the best moment the
+  app has: *"Why is it only using half of the screen?"* So both steps are a
+  page of their own: the project's colour washing down from the top, the
+  content centred, and the one button at the bottom where a thumb already is.
+  Nothing to tap outside of, so it closes by its own buttons only.
+-->
+<div
+  class="rise fixed inset-0 z-50 flex flex-col pt-safe pb-safe"
+  style="background: linear-gradient(180deg, color-mix(in srgb, {color} 34%, var(--color-ink-950)) 0%, var(--color-ink-950) 62%)"
+  role="dialog"
+  aria-label={done ? `${tag} finished` : `Finish ${tag}?`}
+>
+  <div class="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 text-center">
     {#if done}
-      <!-- A bigger burst than a to-do gets, centred on the dinosaur. -->
-      <div class="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2">
-        <Burst size={280} />
-      </div>
       {#if cheer}
-        <!-- Real artwork on a ground tinted in the project's colour — the
-             stickers lose their outlines on a bare page, see stickers.ts. -->
-        <div
-          class="finish-sticker mx-auto -mt-16 mb-3 h-40 w-40 rounded-[32px] p-3 shadow-lg"
-          style="background: linear-gradient(150deg, color-mix(in srgb, {color} 38%, white), color-mix(in srgb, {color} 70%, white))"
-        >
-          <img src={stickerUrl(cheer.sticker)} alt={cheer.sticker.label} class="h-full w-full object-contain" />
+        <div class="relative">
+          <!-- The burst goes off behind the dinosaur, not over the words. -->
+          <div class="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+            <Burst size={340} />
+          </div>
+          <!-- Real artwork on a ground tinted in the project's colour — the
+               stickers lose their outlines on a bare page, see stickers.ts. -->
+          <div
+            class="finish-sticker relative h-60 w-60 rounded-[44px] p-4 shadow-xl"
+            style="background: linear-gradient(150deg, color-mix(in srgb, {color} 38%, white), color-mix(in srgb, {color} 70%, white))"
+          >
+            <img src={stickerUrl(cheer.sticker)} alt={cheer.sticker.label} class="h-full w-full object-contain" />
+          </div>
         </div>
       {/if}
-      <p class="section-label">Finished</p>
-      <h2 class="mt-1 text-[30px] leading-tight font-bold tracking-[-0.02em]">{tag}</h2>
+      <p class="section-label mt-8">Finished</p>
+      <h2 class="mt-1 text-[36px] leading-tight font-bold tracking-[-0.02em]">{tag}</h2>
       {#if cheer}
-        <p class="mx-auto mt-3 max-w-[22rem] text-[17px] italic text-ink-200">{cheer.cheer.line}</p>
+        <p class="mt-4 max-w-[22rem] text-[19px] leading-snug italic text-ink-200">{cheer.cheer.line}</p>
       {:else}
-        <p class="mt-3 text-[17px] text-ink-200">Done. That one is yours.</p>
+        <p class="mt-4 text-[19px] text-ink-200">Done. That one is yours.</p>
       {/if}
       {#if lines.length || since}
-        <p class="footnote mt-3">
+        <p class="footnote mt-5 max-w-[22rem]">
           {[since ? `Since ${since}` : null, ...lines].filter(Boolean).join(' · ')}
         </p>
       {/if}
-      <button class="btn btn-primary press mt-6 w-full py-4 text-[17px]" onclick={onclose}>
-        Good
-      </button>
     {:else}
-      <p class="section-label">Finish this project?</p>
-      <h2 class="mt-2 text-[28px] leading-tight font-bold tracking-[-0.02em]">{tag}</h2>
+      <!-- A big tick in the project's colour, waiting to be pressed. -->
+      <div
+        class="flex h-28 w-28 items-center justify-center rounded-full text-[56px] font-bold"
+        style="background: color-mix(in srgb, {color} 22%, transparent); color: {color};
+               box-shadow: inset 0 0 0 3px {color}"
+        aria-hidden="true"
+      >✓</div>
+      <p class="section-label mt-8">Finish this project?</p>
+      <h2 class="mt-1 text-[34px] leading-tight font-bold tracking-[-0.02em]">{tag}</h2>
 
       {#if !recap}
-        <p class="footnote mt-4">Looking back over it…</p>
+        <p class="footnote mt-5">Looking back over it…</p>
       {:else}
-        {#if since}<p class="mt-3 text-ink-200">Started in {since}.</p>{/if}
+        {#if since}<p class="mt-4 text-[17px] text-ink-200">Started in {since}.</p>{/if}
         {#if lines.length}
-          <ul class="mt-4 space-y-1">
-            {#each lines as line (line)}<li class="text-[17px]">{line}</li>{/each}
+          <ul class="mt-5 space-y-1.5">
+            {#each lines as line (line)}<li class="text-[20px] font-medium">{line}</li>{/each}
           </ul>
         {/if}
         {#if recap.open}
           <!-- Said once, with what happens, and nothing more. Finishing with a
                loose end or two is how projects actually end. -->
-          <p class="footnote mt-4">
+          <p class="footnote mt-6 max-w-[22rem]">
             {#if recap.open === 1}
               1 to-do is still open. It stays as it is, and Free Time stops suggesting it.
             {:else}
@@ -167,8 +179,14 @@
           </p>
         {/if}
       {/if}
+    {/if}
+  </div>
 
-      <button class="btn btn-primary press mt-6 w-full py-4 text-[17px]" disabled={!recap} onclick={finish}>
+  <div class="mx-auto w-full max-w-[520px] px-6 pt-3 pb-4">
+    {#if done}
+      <button class="btn btn-primary press w-full py-4 text-[17px]" onclick={onclose}>Good</button>
+    {:else}
+      <button class="btn btn-primary press w-full py-4 text-[17px]" disabled={!recap} onclick={finish}>
         Mark it finished
       </button>
       <button class="press tap mt-1 w-full text-sm text-ink-400" onclick={onclose}>Not yet</button>

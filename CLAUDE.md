@@ -368,7 +368,15 @@ Do not "fix" these without talking to Toon first.
   celebration; never the same one twice running, remembered across opens; the
   jokes are about the dinosaur, never at your expense, and a test checks the
   lines for "should", "finally" and "about time". Picked at the moment of
-  finishing, so backing out with "Not yet" does not use one up. The pop is on
+  finishing, so backing out with "Not yet" does not use one up.
+  **Both steps are the WHOLE SCREEN, not a sheet.** They shipped as a bottom
+  sheet like every other pop-up, which takes only the height it needs — right
+  for "Add to project", and it left the top half of the phone empty for the
+  best moment the app has: *"Why is it only using half of the screen?"* Now the
+  project's colour washes down from the top, the content is centred (a big
+  tick in the project's colour to confirm; a 240px dinosaur to celebrate), and
+  the button sits at the bottom where a thumb already is. No tap-outside to
+  close, since there is no outside. The pop is on
   `transform` and the wiggle on the separate `rotate` property, so the two
   animations do not fight over one property; all of it goes under
   `prefers-reduced-motion`.
