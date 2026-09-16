@@ -1451,3 +1451,85 @@ textarea.field-grow {
   padding-bottom: 10px;
   line-height: 1.4;
 }
+
+/* ------------------------------------------------------------ finishing a project */
+
+/*
+ * Confetti across the whole screen (FinishProject). Above the finish card and
+ * never in the way of it: pointer-events none, and each piece plays once and
+ * stays gone (fill-mode both, see the flicker trap in CLAUDE.md).
+ */
+.confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  top: -16px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: confetti-fall var(--d) cubic-bezier(0.3, 0.1, 0.6, 1) var(--delay) both;
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--dx), 105vh, 0) rotate(var(--r));
+  }
+}
+
+/*
+ * The dinosaur pops in, then wiggles twice. `transform` for the pop and the
+ * separate `rotate` property for the wiggle, so the two animations do not fight
+ * over one property.
+ */
+.finish-sticker {
+  animation:
+    finish-pop 650ms cubic-bezier(0.2, 1.5, 0.4, 1) both,
+    finish-wiggle 900ms ease-in-out 750ms 2 both;
+}
+
+@keyframes finish-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.3) translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes finish-wiggle {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  25% {
+    rotate: -7deg;
+  }
+  75% {
+    rotate: 7deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti {
+    display: none;
+  }
+
+  .finish-sticker {
+    animation: none;
+  }
+}

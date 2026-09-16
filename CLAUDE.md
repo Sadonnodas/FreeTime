@@ -356,6 +356,22 @@ Do not "fix" these without talking to Toon first.
   line in the weekly look-back. The assistant has `finish_project`.
   Finishing takes a project out of sleep: finished and set aside are different
   things to say about one project.
+  **The first finish card was too quiet, and came back from a real phone as
+  *"kind of boring for a finished project. At least show me a funny dino that
+  has some funny remark."*** The burst was over in under a second, so the card
+  was read after it had gone, and what remained was a heading and some counts —
+  quieter than a ticked to-do on Today. Now ([finishCheers.ts](src/lib/finishCheers.ts)):
+  one of the STICKER dinosaurs pops in and wiggles on a ground tinted in the
+  project's colour, with a line written for that sticker ("Standing on a
+  rainbow. Structurally unwise. Emotionally essential."), and confetti falls
+  across the whole screen for about four seconds. Only stickers that read as
+  celebration; never the same one twice running, remembered across opens; the
+  jokes are about the dinosaur, never at your expense, and a test checks the
+  lines for "should", "finally" and "about time". Picked at the moment of
+  finishing, so backing out with "Not yet" does not use one up. The pop is on
+  `transform` and the wiggle on the separate `rotate` property, so the two
+  animations do not fight over one property; all of it goes under
+  `prefers-reduced-motion`.
   **Renaming a project used to wake it up**, found while carrying the new
   field: `renameProjectTag` carried colour and description but not
   `sleepingTags`, which `setProjectTags` then pruned for the old name. Rename
