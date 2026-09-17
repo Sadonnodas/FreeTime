@@ -1834,6 +1834,32 @@ device; there is nothing to build. Memos are the exception, below.
   is still needed even though the button hides itself: the cap lives in data
   and two devices share one day.
 
+- **A to-do can open a shopping list** (`Todo.shopping`,
+  [shopping.ts](src/lib/shopping.ts),
+  [ShoppingSheet.svelte](src/lib/components/ShoppingSheet.svelte),
+  `ShoppingLink`, `ShoppingToggle`, `ShoppingTrip`,
+  [shopping.test.ts](src/lib/shopping.test.ts)). *"Say I need to do
+  groceries, those are things to buy. Can I have a way to put them all under
+  one list so that I can click that list on the to-do page?"*
+  **The to-do is a POINTER to its place's To buy list, never a container.**
+  Buy items hanging under a to-do would be sub-tasks — the third level the
+  depth rule forbids — and would also vanish from Brain → Buy, the era
+  overview and the printed shopping list. So: a project called Groceries holds
+  the items like any other project, and a to-do in it marked "Shopping trip"
+  shows "🛒 3 to buy" on Today, in Brain and on the project screen, opening
+  that list full screen (it is held in one hand down an aisle) with an add
+  field for the thing you remember at the shelf. Place matches exactly: an
+  era-level trip opens the era's own items, not every project's.
+  **"🛒 Go shopping today"** under a project's To buy does the whole flow in
+  one tap — finds the list's OPEN trip or writes "Shopping: <project>", and
+  puts it in today's three (still three; a full day says so). Reusing the open
+  trip is what stops a second "Shopping" to-do appearing every tap; once one
+  is ticked, the next tap starts a new one, which is next week's shop.
+  The sheet is portalled to <body>: a Today card is transformed for the
+  walking dinosaur, and `position: fixed` inside a transformed element is
+  fixed to that element, not the screen. The assistant cannot set the flag
+  yet.
+
 - **A suspended phone never renews its Google token, and that is why a day
   away ended signed out** ([auth.ts](src/lib/google/auth.ts)
   `startRenewalWatch`, [auth.test.ts](src/lib/google/auth.test.ts),
@@ -1943,6 +1969,17 @@ device; there is nothing to build. Memos are the exception, below.
   ceiling with an unlock behind it and the constraint IS the feature (spec 5.3);
   "everything I have to do tomorrow" is a different question, and pushing it
   through the three would either break that mechanic or lose most of the list.
+  **But TODAY's day list is shown on Today, under the three** (`dayList` in
+  [+page.svelte](src/routes/+page.svelte), "Also on today's list"). Keeping it
+  off that screen came back as *"I just added some to-dos from the brain area
+  and added them for today, but they don't appear on the today page. That
+  seems like a mistake no?"* — it was. Keeping the two concepts apart was
+  right; hiding a list you wrote FOR TODAY from the screen called Today reads
+  as losing it, and putting the two controls far apart in the editor did not
+  prevent the confusion. The day list takes no slot, does not count towards
+  closing the day and does not wave. **Only today's date**: yesterday's
+  unticked list does not follow you forward, since that is an overdue pile by
+  another name. Ticked rows stay, sunk.
   Two details that are not decoration: a day list sorts OLDEST first, because a
   plan for a day reads top to bottom while every other list is a feed where the
   newest is what you came back for; and the row footnote NAMES the date

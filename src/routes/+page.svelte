@@ -25,6 +25,8 @@
   import Dino from '$lib/components/Dino.svelte';
   import Burst from '$lib/components/Burst.svelte';
   import PhotoThumb from '$lib/components/PhotoThumb.svelte';
+  import ShoppingLink from '$lib/components/ShoppingLink.svelte';
+  import { placeName } from '$lib/shopping';
   import { randomSticker, stickerUrl } from '$lib/stickers';
   import { pickScene, pickQuip } from '$lib/freeTimeScenes';
 
@@ -287,6 +289,39 @@
     return () => clearInterval(timer);
   });
 
+  /**
+   * TODAY'S LIST: to-dos DATED today that are not among the three.
+   *
+   * Reported as *"I just added some to-dos from the brain area and added them
+   * for today, but they don't appear on the today page. That seems like a
+   * mistake no?"* — and it was. Brain's day list and its "Today" chip set a
+   * DATE, while this screen only ever drew the three SLOTS, and the two were
+   * kept apart on purpose: three is the day's ceiling (spec 5.3), and "all the
+   * things I need to do today" is a longer list than that. Keeping them apart
+   * was right; keeping the day list OFF the screen called Today was not. A
+   * list you wrote for today, missing from Today, reads as lost.
+   *
+   * So it is shown here, UNDER the three and separate from them. It does not
+   * count towards closing the day, does not take a slot, and does not join
+   * the waving rotation — the three stay the three, and this is the rest of
+   * what you said about today. Only today's date: yesterday's list does not
+   * follow you forward, because that would be an overdue pile by another name.
+   * Ticked ones stay, ticked, in order — completed work is never hidden.
+   */
+  const todayIso = today();
+  const dayList = $derived(
+    (($openQ as { all: Todo[] } | undefined)?.all ?? [])
+      .filter((t) => t.date === todayIso && !day?.slots.includes(t.id))
+      // A plan for a day reads top to bottom, oldest first — Brain's day list
+      // order — with the ticked ones sinking.
+      .sort(
+        (a, b) =>
+          (a.completedAt ? 1 : 0) - (b.completedAt ? 1 : 0) ||
+          a.createdAt.localeCompare(b.createdAt)
+      )
+  );
+  const dayListOpen = $derived(dayList.filter((t) => !t.completedAt).length);
+
   const candidates = $derived(
     (($openQ as { open: Todo[] } | undefined)?.open ?? [])
       .filter((t) => !day?.slots.includes(t.id))
@@ -406,6 +441,8 @@
           Day closed. {doneCount} done.
         {:else if slotTodos.length}
           {doneCount} of {slotTodos.length}
+        {:else if dayList.length}
+          {dayListOpen} on today's list.
         {:else}
           Nothing planned yet.
         {/if}
@@ -495,6 +532,17 @@
                   running and it moves three times, with no record of having
                   been moved.
                 -->
+                {#if todo.shopping}
+                  <!-- "Do the groceries", with the groceries one tap away. On
+                       its own line: beside the two actions it pushed "Not
+                       today" onto a second one anyway. -->
+                  <div class="mt-2">
+                    <ShoppingLink
+                      {todo}
+                      place={placeName(todo, ($projectsQ as Project[] | undefined) ?? [])}
+                    />
+                  </div>
+                {/if}
                 <div class="-ml-2 mt-1 flex items-center gap-1">
                   {#if tomorrowRoom > 0}
                     <button
@@ -731,6 +779,56 @@
             Nothing open yet. Capture something below — the box is always hungry.
           </p>
         {/if}
+      </section>
+    {/if}
+
+    {#if dayList.length}
+      <!-- Everything else you put on today, from Brain's day list. See
+           `dayList` for why it is here and why it is not part of the three. -->
+      <section class="mt-8">
+        <h2 class="section-label mb-2">Also on today's list</h2>
+        <ul class="space-y-1">
+          {#each dayList as t (t.id)}
+            {@const tint = t.completedAt ? undefined : tintFor(eraOf(t.projectId), t.tag)}
+            <li
+              class="card-flat flex items-center gap-3 px-3 {tint ? 'row-tint' : ''}"
+              style:--row={tint?.fill}
+              style:--edge={tint?.edge}
+            >
+              <span class="relative flex shrink-0">
+                {#if celebrating === t.id}
+                  <Burst size={96} />
+                {/if}
+                <button
+                  class="press tap shrink-0 {t.completedAt ? 'text-good' : 'text-ink-400'}"
+                  onclick={() => {
+                    if (t.completedAt) void uncompleteTodo(t.id);
+                    else {
+                      celebrate(t.id);
+                      void completeTodo(t.id);
+                    }
+                  }}
+                  aria-label={t.completedAt ? `Mark ${t.title} not done` : `Complete ${t.title}`}
+                  >{t.completedAt ? '✓' : '○'}</button
+                >
+              </span>
+              <div class="min-w-0 flex-1 py-3">
+                <p class={t.completedAt ? 'text-ink-400 line-through' : ''}>{t.title}</p>
+                {#if projectName(t.projectId)}
+                  <p class="text-xs text-ink-400">
+                    {[projectName(t.projectId), t.tag].filter(Boolean).join(' · ')}
+                  </p>
+                {/if}
+              </div>
+              {#if t.shopping && !t.completedAt}
+                <ShoppingLink todo={t} place={placeName(t, ($projectsQ as Project[] | undefined) ?? [])} size="xs" />
+              {/if}
+              {#if t.image}
+                <PhotoThumb image={t.image} label={t.title} />
+              {/if}
+            </li>
+          {/each}
+        </ul>
       </section>
     {/if}
 

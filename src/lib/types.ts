@@ -145,6 +145,18 @@ export interface Todo extends Base {
    * into a file of their own rather than to raise the cap.
    */
   image?: string;
+  /**
+   * This to-do is a trip to the shops, and tapping its list opens the To buy
+   * list of the place it lives in — the project, or the era's own list when it
+   * has no project. "Do the groceries" on Today, with the groceries one tap
+   * away.
+   *
+   * A POINTER, NOT A CONTAINER. The things to buy still belong to the project,
+   * exactly as they always did; the to-do only knows where to look. Buy items
+   * hanging UNDER a to-do would be sub-tasks, which is the third level the
+   * depth rule forbids. See shopping.ts.
+   */
+  shopping?: boolean;
   completedAt?: string;
 }
 
