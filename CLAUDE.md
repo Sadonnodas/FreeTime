@@ -843,6 +843,9 @@ one came close to a hard rule, the reasoning is recorded here.
   the era's project order, era-level after, unfiled last) and only then by
   bought/needed/recent. Recent across all eras stays pure recency, because
   that is what the word promises. Rows now name the project as well as the era.
+  **Brain → To-dos does the same** once an era is picked (`byProjectThenNewest`):
+  project by project in the era's order, era-level after, newest first within
+  each. A day list keeps its own dragged order.
   **The four kind-tabs carry the same palette** (`SECTION_TABS`), muted when
   unselected and filled when on, so Brain reads as coloured without four
   full-strength labels shouting over the list underneath.

@@ -132,6 +132,25 @@
     openTodo = null;
   }
 
+  /**
+   * Narrowed to one era, the to-dos sit together by PROJECT, in the era's own
+   * project order, with era-level ones after — newest first within each. The
+   * rows are already washed in their project's colour, and colour only reads
+   * as grouping when the order groups too; newest-first across the era made a
+   * striped list. Same rule as Brain → Buy. A day list keeps its own order.
+   */
+  const byProjectThenNewest = (a: Todo, b: Todo): number => {
+    const tags = (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === fProject)?.tags ?? [];
+    const rank = (t: Todo) => {
+      const i = t.tag ? tags.indexOf(t.tag) : -1;
+      return i < 0 ? Infinity : i;
+    };
+    const ra = rank(a);
+    const rb = rank(b);
+    if (ra !== rb) return ra < rb ? -1 : 1;
+    return b.createdAt.localeCompare(a.createdAt);
+  };
+
   const filteredTodos = $derived(
     (($todosQ as Todo[] | undefined) ?? [])
       .filter((t) => (showClosed ? true : !t.completedAt))
@@ -145,7 +164,9 @@
       .sort(
         day
           ? byDayList(($daysQ as Day[] | undefined)?.find((d) => d.date === day)?.listOrder)
-          : (a, b) => b.createdAt.localeCompare(a.createdAt)
+          : fProject
+            ? byProjectThenNewest
+            : (a, b) => b.createdAt.localeCompare(a.createdAt)
       )
   );
 
