@@ -50,7 +50,8 @@ const FILES: { table: keyof typeof db & string; file: string }[] = [
    * The JSON file is now what makes notes correct; the .md files are the
    * readable copy in Drive.
    */
-  { table: 'notes', file: 'notes.json' }
+  { table: 'notes', file: 'notes.json' },
+  { table: 'quickNotes', file: 'quick-notes.json' }
 ];
 
 export type SyncState =

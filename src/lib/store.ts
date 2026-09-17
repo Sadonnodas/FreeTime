@@ -788,9 +788,66 @@ export async function moveNoteSection(
 
 // ------------------------------------------------------------- soft delete
 
+// ------------------------------------------------------------ quick notes
+
+export async function createQuickNote(text = ''): Promise<string> {
+  const n = stamp({ text });
+  await db.quickNotes.add(n);
+  return n.id;
+}
+
+export async function updateQuickNote(id: string, text: string): Promise<void> {
+  await db.quickNotes.update(id, { text, updatedAt: now() });
+}
+
+/**
+ * A quick note moved into a project's (or an era's) notes: APPENDED, never
+ * replacing, the same rule as the assistant's append_note — a measurement must
+ * not overwrite a page of notes. The quick note is then removed, because it
+ * has moved rather than been copied; two copies of a number drift apart.
+ */
+export async function quickNoteToProjectNote(
+  noteId: string,
+  eraId: string,
+  tag?: string
+): Promise<boolean> {
+  const [note, era] = await Promise.all([db.quickNotes.get(noteId), db.projects.get(eraId)]);
+  const text = note?.text.trim();
+  if (!note || note.deletedAt || !era || !text) return false;
+  const section = tag && (era.tags ?? []).includes(tag) ? tag : undefined;
+  const existing = (await getNote(eraId, section))?.markdown ?? '';
+  await saveNote(eraId, existing.trim() ? `${existing.trimEnd()}\n\n${text}` : text, section);
+  await softDelete('quickNotes', noteId);
+  return true;
+}
+
+/**
+ * A quick note that turned out to be the start of something: a new project in
+ * an era, named by the note's first line (or whatever was typed), with the
+ * whole note as that project's notes. A SIBLING in the era, like every project
+ * — nothing is ever created under anything else. Refuses a name the era
+ * already has, including a sleeping or finished one, rather than merging.
+ */
+export async function quickNoteToProject(
+  noteId: string,
+  eraId: string,
+  name: string
+): Promise<'started' | 'name-taken' | 'nothing'> {
+  const trimmed = name.trim();
+  const [note, era] = await Promise.all([db.quickNotes.get(noteId), db.projects.get(eraId)]);
+  if (!note || note.deletedAt || !era || !trimmed) return 'nothing';
+  if ((era.tags ?? []).includes(trimmed)) return 'name-taken';
+  await setProjectTags(eraId, [...(era.tags ?? []), trimmed]);
+  const text = note.text.trim();
+  // A note that is only the name has nothing more to keep.
+  if (text && text !== trimmed) await saveNote(eraId, text, trimmed);
+  await softDelete('quickNotes', noteId);
+  return 'started';
+}
+
 type SoftDeletable =
   | 'projects' | 'todos' | 'ideas' | 'buyItems'
-  | 'lists' | 'listItems' | 'habits' | 'captures';
+  | 'lists' | 'listItems' | 'habits' | 'captures' | 'quickNotes';
 
 /** Tombstone, so the delete survives a sync instead of the row resurrecting. */
 export async function softDelete(table: SoftDeletable, id: string): Promise<void> {

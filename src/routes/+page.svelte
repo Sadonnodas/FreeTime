@@ -30,6 +30,7 @@
   import Burst from '$lib/components/Burst.svelte';
   import PhotoThumb from '$lib/components/PhotoThumb.svelte';
   import ShoppingListButton from '$lib/components/ShoppingListButton.svelte';
+  import QuickNotes from '$lib/components/QuickNotes.svelte';
   import { randomSticker, stickerUrl } from '$lib/stickers';
   import { pickScene, pickQuip } from '$lib/freeTimeScenes';
 
@@ -169,6 +170,7 @@
   let unlockAvailable = $state(false);
   let picking = $state(false);
   let freeTime = $state(false);
+  let quickNotes = $state(false);
 
   // Arrives on the first open on or after the 1st, then never again that month.
   let monthly = $state<Summary | null>(null);
@@ -446,7 +448,26 @@
 <div class="flex h-full flex-col">
   <div class="flex-1 overflow-y-auto px-4 pt-safe">
     <header class="pt-3 pb-5">
-      <h1 class="large-title">Today</h1>
+      <!--
+        Two ways out of the day for the things that do not belong to it: a
+        note written down this second, and the shopping list. In the empty
+        space beside the title, where Toon asked for them — small and round,
+        so the day's own things are still what the page is about.
+      -->
+      <div class="flex items-center justify-between gap-3">
+        <h1 class="large-title">Today</h1>
+        <div class="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            class="press flex h-11 w-11 items-center justify-center rounded-full bg-surface-1 text-[20px]"
+            onclick={() => (quickNotes = true)}
+            aria-label="Quick notes"
+          >
+            📝
+          </button>
+          <ShoppingListButton look="icon" />
+        </div>
+      </div>
       <p class="footnote mt-1">
         {#if day?.closedAt}
           Day closed. {doneCount} done.
@@ -893,6 +914,10 @@
 
 {#if showClose}
   <DayClose onDismiss={() => (showClose = false)} />
+{/if}
+
+{#if quickNotes}
+  <QuickNotes onclose={() => (quickNotes = false)} />
 {/if}
 
 {#if freeTime}

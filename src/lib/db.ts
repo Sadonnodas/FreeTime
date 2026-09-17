@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import type {
   Project, Todo, Idea, BuyItem, List, ListItem,
   Habit, HabitLog, Day, Capture, Note, ConflictLog, Settings, QueuedAudio,
-  HabitStateChange, Widget, Memo
+  HabitStateChange, Widget, Memo, QuickNote
 } from './types';
 
 /**
@@ -34,6 +34,7 @@ export class FreeTimeDB extends Dexie {
   habitStateChanges!: Table<HabitStateChange, string>;
   widgets!: Table<Widget, string>;
   memos!: Table<Memo, string>;
+  quickNotes!: Table<QuickNote, string>;
 
   constructor() {
     super('freetime');
@@ -96,6 +97,11 @@ export class FreeTimeDB extends Dexie {
      */
     this.version(6).stores({
       notes: 'id, projectId, updatedAt, deletedAt'
+    });
+
+    // Version 7 adds quick notes — a new store, so no data migration.
+    this.version(7).stores({
+      quickNotes: 'id, updatedAt, deletedAt'
     });
   }
 }

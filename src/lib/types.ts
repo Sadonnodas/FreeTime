@@ -349,6 +349,20 @@ export interface Note extends Base {
 }
 
 /**
+ * A quick note: the measurement you just took, a number to remember.
+ *
+ * Asked for as *"like opening Notes on my iPhone — if I have to write down
+ * something super quickly, like I just took a measurement"*. Deliberately NOT
+ * an idea (a measurement is not a thought to develop) and NOT a project note
+ * (there is no project yet, and choosing one is the delay being avoided). It
+ * belongs nowhere, and that is its whole point. Plain text, first line as its
+ * title, the way Notes does it.
+ */
+export interface QuickNote extends Base {
+  text: string;
+}
+
+/**
  * A recording waiting to be transcribed (spec 7.2).
  *
  * Queued whenever the app is offline or Gemini fails. The spec is emphatic

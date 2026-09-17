@@ -12,7 +12,7 @@
    * `chip` sits on Brain → Buy's filter row, beside the era filter — Toon's
    * placement. `row` is the line on Today on the day the list is planned for.
    */
-  let { look = 'chip' }: { look?: 'chip' | 'row' } = $props();
+  let { look = 'chip' }: { look?: 'chip' | 'row' | 'icon' } = $props();
 
   const countQ = liveQuery(async () => (await db.buyItems.toArray()).filter(onList).length);
   const daysQ = liveQuery(() => db.days.toArray());
@@ -28,6 +28,17 @@
     onclick={() => (open = true)}
   >
     🛒 Shopping list{count ? ` · ${count}` : ''}{planned ? ` · ${dayLabel(planned)}` : ''}
+  </button>
+{:else if look === 'icon'}
+  <!-- Beside the Today title. The count is plain text in the button, never a
+       red badge: a number of groceries is not something you are behind on. -->
+  <button
+    type="button"
+    class="press relative flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-full bg-surface-1 px-3 text-[20px]"
+    onclick={() => (open = true)}
+    aria-label={count ? `Shopping list, ${count} to get` : 'Shopping list'}
+  >
+    🛒{#if count}<span class="text-[13px] font-semibold text-ink-200 tabular-nums">{count}</span>{/if}
   </button>
 {:else}
   <button

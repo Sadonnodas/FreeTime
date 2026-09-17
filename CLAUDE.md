@@ -1914,6 +1914,27 @@ device; there is nothing to build. Memos are the exception, below.
   one day carries it and a past one is ignored (no overdue shop). The row
   editor can now also set a buy item's PROJECT, not only its era.
 
+- **Quick notes, and two round buttons beside Today's title**
+  ([QuickNotes.svelte](src/lib/components/QuickNotes.svelte), `QuickNote`,
+  db v7 `quickNotes`, synced as `quick-notes.json`,
+  [quickNotes.test.ts](src/lib/quickNotes.test.ts)). *"Like opening Notes on
+  my iPhone — I just took a measurement and I need to remember the numbers."*
+  📝 opens them and 🛒 opens the shopping list (its count is plain text, never
+  a red badge). **A quick note is its own table, deliberately**: not an idea (a
+  measurement is not a thought to develop) and not a project note (choosing a
+  project is the delay being avoided). The screen opens on a box to write in,
+  with the notes underneath; a note exists from its first letter, there is no
+  Save, and a note left empty is removed on the way out. The top box creates
+  its note exactly once however fast the letters come (`pending`).
+  **A note can move on**, asked for straight after: *"turn a note into a
+  project or add a note to an existing project's notes."*
+  `quickNoteToProjectNote` APPENDS (the append_note rule — a number must not
+  overwrite a page) to a project's or era's notes; `quickNoteToProject` makes
+  a sibling project named by the first line, with the whole note as its
+  notes, and refuses a name the era has (sleeping and finished included).
+  Either way the quick note is removed: it moved, and two copies of a number
+  drift apart.
+
 - **Habits have colours** (`Habit.color`, `habitColor`, `setHabitColor`).
   *"They look bland while they should look inviting."* The project palette,
   handed out at creation (first colour no other habit wears) and changeable on
