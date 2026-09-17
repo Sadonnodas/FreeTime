@@ -12,6 +12,10 @@ import { today } from './store';
  * Same data, opposite message.
  */
 
+/** The order habits are drawn in: where they were dragged to, then oldest first. */
+export const byHabitOrder = (a: Habit, b: Habit): number =>
+  (a.order ?? Infinity) - (b.order ?? Infinity) || a.createdAt.localeCompare(b.createdAt);
+
 export interface Cycle {
   state: HabitState;
   from: string; // ISO

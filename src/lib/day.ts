@@ -60,6 +60,23 @@ export async function addToDay(todoId: string, date = today()): Promise<Day> {
   return { ...day, slots };
 }
 
+/**
+ * The day's three in a new order — dragged on Today.
+ *
+ * Only a REARRANGEMENT is written: ids not already on the day are ignored and
+ * any slot the new order leaves out is kept at the end, so a drag that raced a
+ * change from another device can reorder but never add or drop a slot. The
+ * cap lives in `slots`, and this must not be a way around it.
+ */
+export async function reorderDay(ids: string[], date = today()): Promise<Day> {
+  const day = await ensureDay(date);
+  const kept = ids.filter((id, i) => day.slots.includes(id) && ids.indexOf(id) === i);
+  const slots = [...kept, ...day.slots.filter((id) => !kept.includes(id))];
+  if (slots.join() === day.slots.join()) return day;
+  await db.days.update(day.id, { slots, updatedAt: now() });
+  return { ...day, slots };
+}
+
 /** Skippable without ceremony — no confirmation, no guilt copy (spec 5.2). */
 export async function removeFromDay(todoId: string, date = today()): Promise<Day> {
   const day = await ensureDay(date);

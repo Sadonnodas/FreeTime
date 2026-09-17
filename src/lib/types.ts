@@ -268,6 +268,12 @@ export interface Habit extends Base {
   name: string;
   state: HabitState;
   stateChangedAt: string;
+  /**
+   * Where it sits in the row on Today, set by dragging it there. Unset sorts
+   * after every ordered habit, oldest first, so a new habit joins at the end.
+   * A position you chose, never a rank — nothing reads anything into it.
+   */
+  order?: number;
 }
 
 /** Append-only. Survives every state change, forever. */

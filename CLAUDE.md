@@ -1834,6 +1834,28 @@ device; there is nothing to build. Memos are the exception, below.
   is still needed even though the button hides itself: the cap lives in data
   and two devices share one day.
 
+- **Today's three and its habits reorder by press, hold and drag**
+  ([reorder.svelte.ts](src/lib/reorder.svelte.ts), `reorderDay`,
+  `reorderHabits`, `Habit.order`, [reorder.test.ts](src/lib/reorder.test.ts)).
+  **The hold is the design**: every row there is already a tap (tick, log)
+  and sits in a scrolling page, so a drag begins only after 350ms without
+  moving more than 8px — move sooner and it was a scroll, lift sooner and it
+  was a tap. The tap that follows a drag is swallowed, or lifting off a habit
+  you just moved would log it.
+  **Touch has its own listeners**: stopping the page from scrolling once the
+  drag has begun needs a non-passive `touchmove` calling preventDefault;
+  `touch-action: none` would make Today unscrollable from its biggest
+  targets. The lifted row moves by the CSS `translate`/`scale` properties,
+  never `transform`, because `.rise` holds `transform` with fill-mode both and
+  an animation beats an inline style.
+  The order is previewed live and written ONCE on release. `reorderDay` only
+  rearranges — ids not on the day are ignored and missing slots kept — so a
+  drag that raced another device cannot slip past the three. Habits store a
+  position (unset sorts last, oldest first), and Me uses the same order.
+  Verified with synthetic touch events in the preview; **feel it on a real
+  phone**, since hold timing and iOS scroll interplay only show up there.
+  Not on "Also on today's list", which has no stored order yet.
+
 - **A to-do can open a shopping list** (`Todo.shopping`,
   [shopping.ts](src/lib/shopping.ts),
   [ShoppingSheet.svelte](src/lib/components/ShoppingSheet.svelte),

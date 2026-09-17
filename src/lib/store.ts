@@ -638,6 +638,17 @@ async function recordStateChange(habitId: string, state: HabitState, at: string)
   await db.habitStateChanges.add(change);
 }
 
+/**
+ * Put habits in the order they were dragged into. Every habit named gets its
+ * position, so the order survives a sync as a whole rather than half-applied.
+ */
+export async function reorderHabits(ids: string[]): Promise<void> {
+  const at = now();
+  await db.transaction('rw', db.habits, async () => {
+    for (const [order, id] of ids.entries()) await db.habits.update(id, { order, updatedAt: at });
+  });
+}
+
 export async function createHabit(name: string): Promise<string> {
   const state: HabitState = 'active';
   const at = now();

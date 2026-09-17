@@ -4,13 +4,14 @@
   import type { Habit, HabitState, HabitLog } from '$lib/types';
   import { createHabit } from '$lib/store';
   import { winsSince } from '$lib/queries';
-  import { recentDays } from '$lib/habits';
+  import { recentDays, byHabitOrder } from '$lib/habits';
   import ProjectShare from '$lib/components/ProjectShare.svelte';
   import Empty from '$lib/components/Empty.svelte';
   import { base } from '$app/paths';
 
   const habitsQ = liveQuery(async () =>
-    (await db.habits.toArray()).filter((h) => !h.deletedAt)
+    // In the order they were dragged into on Today, so the two lists agree.
+    (await db.habits.toArray()).filter((h) => !h.deletedAt).sort(byHabitOrder)
   );
 
   // The browsable full history (spec 6) — here for when the user wants it, not

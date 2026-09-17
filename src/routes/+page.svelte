@@ -3,7 +3,7 @@
   import { db } from '$lib/db';
   import type { Todo, Habit, Day, Project } from '$lib/types';
   import {
-    completeTodo, uncompleteTodo, toggleHabitLog, today, projectTagColor
+    completeTodo, uncompleteTodo, toggleHabitLog, today, projectTagColor, reorderHabits
   } from '$lib/store';
   import { allTodos, activeProjects } from '$lib/queries';
   import { ENERGIES, DURATIONS, energyLabel, durationLabel } from '$lib/sizes';
@@ -11,8 +11,12 @@
   import { tomorrow } from '$lib/days';
   import {
     ensureDay, addToDay, removeFromDay, maybeCloseDay,
-    canUnlockOneMore, unlockOneMore, reopenDayIfIncomplete, DayFullError, STARTING_SLOTS
+    canUnlockOneMore, unlockOneMore, reopenDayIfIncomplete, DayFullError, STARTING_SLOTS,
+    reorderDay
   } from '$lib/day';
+  import { byHabitOrder } from '$lib/habits';
+  import { Reorder } from '$lib/reorder.svelte';
+  import { flip } from 'svelte/animate';
   import { tintFor } from '$lib/colors';
   import DayClose from '$lib/components/DayClose.svelte';
   import MonthlySummary from '$lib/components/MonthlySummary.svelte';
@@ -38,8 +42,18 @@
    */
   const dayQ = liveQuery(() => ensureDay());
   const habitsQ = liveQuery(async () =>
-    (await db.habits.toArray()).filter((h) => !h.deletedAt && h.state === 'active')
+    (await db.habits.toArray())
+      .filter((h) => !h.deletedAt && h.state === 'active')
+      .sort(byHabitOrder)
   );
+
+  /**
+   * Press, hold and drag, for the three and for the habits — see reorder.svelte.ts
+   * for why it waits for a hold. The three are a vertical list; habits wrap
+   * into rows, so they reorder in reading order.
+   */
+  const slotDrag = new Reorder((ids) => reorderDay(ids));
+  const habitDrag = new Reorder((ids) => reorderHabits(ids), 'xy');
   const logsTodayQ = liveQuery(async () =>
     (await db.habitLogs.where('date').equals(today()).toArray()).filter((l) => !l.deletedAt)
   );
@@ -464,7 +478,7 @@
         <h2 class="section-label mb-2">To-dos</h2>
       {/if}
       <div class="space-y-3">
-      {#each slotTodos as todo (todo.id)}
+      {#each slotDrag.arrange(slotTodos) as todo (todo.id)}
         <!--
           Tinted like Brain's rows — the same two colours from the same helper,
           so a to-do does not change colour between the screens. Only while it
@@ -480,6 +494,8 @@
                  {tint ? 'row-tint' : ''}"
           style:--row={tint?.fill}
           style:--edge={tint?.edge}
+          use:slotDrag.item={todo.id}
+          animate:flip={{ duration: slotDrag.dragging === todo.id ? 0 : 180 }}
           class:nudge={nudged === todo.id}
           style:--dino-src={nudged === todo.id ? dinoSrc : undefined}
           style:--dino-face={nudged === todo.id ? dinoFace : undefined}
@@ -838,13 +854,15 @@
       <section class="mt-8">
         <h2 class="section-label mb-2">Habits</h2>
         <div class="flex flex-wrap gap-2">
-          {#each habits as habit (habit.id)}
+          {#each habitDrag.arrange(habits) as habit (habit.id)}
             {@const done = habitsDone.has(habit.id)}
             <button
               class="press tap relative rounded-2xl border px-4 py-3 text-[15px] font-medium transition-colors
                      {done
                 ? 'border-good/50 bg-good/[0.14] text-good'
                 : 'border-line-1 bg-surface-1 text-ink-200'}"
+              use:habitDrag.item={habit.id}
+              animate:flip={{ duration: habitDrag.dragging === habit.id ? 0 : 180 }}
               class:nudge={nudged === habit.id}
               style:--dino-src={nudged === habit.id ? dinoSrc : undefined}
               style:--dino-face={nudged === habit.id ? dinoFace : undefined}
