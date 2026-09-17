@@ -676,6 +676,12 @@ export async function reorderHabits(ids: string[]): Promise<void> {
   });
 }
 
+export async function renameHabit(id: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  await db.habits.update(id, { name: trimmed, updatedAt: now() });
+}
+
 export async function setHabitColor(id: string, color: string): Promise<void> {
   await db.habits.update(id, { color, updatedAt: now() });
 }

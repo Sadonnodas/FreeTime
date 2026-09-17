@@ -4,7 +4,12 @@
   import { liveQuery } from 'dexie';
   import type { HabitState } from '$lib/types';
   import { loadHabitDetail, heatmapWeeks, monthLabel, habitColor, ON_COLOR } from '$lib/habits';
-  import { setHabitState, toggleHabitLog, today, setHabitColor, PROJECT_COLORS } from '$lib/store';
+  import {
+    setHabitState, toggleHabitLog, today, setHabitColor, PROJECT_COLORS, renameHabit, softDelete
+  } from '$lib/store';
+  import { goto } from '$app/navigation';
+  import RenameField from '$lib/components/RenameField.svelte';
+  import RemoveButton from '$lib/components/RemoveButton.svelte';
 
   /**
    * Habit detail (spec 3.6): a calendar heatmap and a cycle history.
@@ -37,9 +42,16 @@
     {@const habit = $detailQ.habit}
     {@const hc = habitColor(habit)}
 
+    <!-- Its name, which could not be changed at all until asked about. -->
+    <p class="section-label mb-2">Name</p>
+    <div class="mb-4">
+      <RenameField value={habit.name} label="Name" onrename={(name) => renameHabit(habit.id, name)} />
+    </div>
+
     <!-- Its colour, the same eight the projects use. Tapping one is the whole
          edit; there is nothing to save. -->
-    <div class="mb-4 flex flex-wrap gap-2" role="radiogroup" aria-label="Colour">
+    <p class="section-label mb-2">Colour</p>
+    <div class="mb-6 flex flex-wrap gap-2" role="radiogroup" aria-label="Colour">
       {#each PROJECT_COLORS as swatch (swatch)}
         <button
           class="press h-9 w-9 rounded-full transition-transform {swatch === hc ? 'scale-110' : ''}"
@@ -147,6 +159,29 @@
       <p class="footnote mt-2">
         Moving a habit is always your call — the app never decides you've stopped.
       </p>
+    </section>
+
+    <!--
+      DELETING, for a habit that should never have existed — added while
+      testing, or a typo. Different from Retired, and said so: retiring keeps
+      the history (the six months above, the cycles), deleting takes the habit
+      and its history off every screen. Two taps, like every other delete.
+    -->
+    <section class="mt-8">
+      <h2 class="section-label mb-2">Delete</h2>
+      <p class="footnote mb-2">
+        Removes the habit and its history from every screen. To stop without losing
+        the history, choose Retired above.
+      </p>
+      <RemoveButton
+        label="Delete this habit"
+        confirm="Really delete it?"
+        full
+        onremove={async () => {
+          await softDelete('habits', habit.id);
+          await goto(`${base}/me`, { replaceState: true });
+        }}
+      />
     </section>
   {/if}
 </div>

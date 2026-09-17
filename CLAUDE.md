@@ -1948,6 +1948,13 @@ device; there is nothing to build. Memos are the exception, below.
   in the habit's colour on a plain chip while waiting, a filled circle with a
   ✓ (dark `ON_COLOR`) on a colour-tinted chip once done. Colour says WHICH,
   the circle says WHETHER. Same on the habit's own page.
+  **A habit can be renamed and deleted** (`renameHabit`, the habit's page),
+  which it could not be at all — asked as *"is there a way to adjust my
+  habits?"* Adding (Me) and colour and state (the habit's page) existed and
+  were not findable from Today, so the Habits heading there now carries an
+  Edit link to Me. Delete is two taps and says how it differs from Retired:
+  retiring keeps the history, deleting takes it off every screen (every
+  reader of habitLogs joins to LIVE habits, so orphaned logs show nowhere).
 
 - **A suspended phone never renews its Google token, and that is why a day
   away ended signed out** ([auth.ts](src/lib/google/auth.ts)

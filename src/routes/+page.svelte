@@ -1,5 +1,6 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
+  import { base } from '$app/paths';
   import { db } from '$lib/db';
   import type { Todo, Habit, Day, Project } from '$lib/types';
   import {
@@ -863,7 +864,13 @@
          No streaks, no counts, no percentage. -->
     {#if ($habitsQ as Habit[] | undefined)?.length}
       <section class="mt-8">
-        <h2 class="section-label mb-2">Habits</h2>
+        <!-- Where to change them: the list on Me, where each opens to its
+             name, colour, state and delete. Said here because this is where
+             the habits are looked at, and it was not findable from here. -->
+        <div class="mb-2 flex items-center justify-between">
+          <h2 class="section-label">Habits</h2>
+          <a href="{base}/me" class="press tap-h px-1 text-[13px] text-ink-400">Edit</a>
+        </div>
         <div class="flex flex-wrap gap-2">
           {#each habitDrag.arrange(habits) as habit (habit.id)}
             {@const done = habitsDone.has(habit.id)}
