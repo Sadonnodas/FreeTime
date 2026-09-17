@@ -1865,6 +1865,18 @@ device; there is nothing to build. Memos are the exception, below.
   position (unset sorts last, oldest first), and Me uses the same order.
   Verified with synthetic touch events in the preview; **feel it on a real
   phone**, since hold timing and iOS scroll interplay only show up there.
+  **An era's projects drag too** (`reorderProjectTags`), on the era page's
+  in-progress list. Sleeping and finished projects are not dragged — they keep
+  their places after the dragged ones — and the write is a pure permutation of
+  `tags`, deliberately NOT through setProjectTags, whose job is pruning.
+  Colours are pinned first, since an era from before stored colours falls
+  back to position and would otherwise repaint on a move.
+  **Found on the way: "+ New project" deleted sleeping and finished projects**
+  (10–17 Sept 2026). It wrote `[...tags, name]` where `tags` is the AWAKE
+  list, and setProjectTags pruned everything else — the project left the era
+  while its to-dos, notes and shopping still pointed at its name. Now
+  `allTags`. **Any list on a screen that is a filtered view of `tags` must
+  never be written back as `tags`.**
   **"Also on today's list" drags too**, and its absence was reported as a bug:
   *"when I hold-press a to-do card the text gets highlighted to copy instead
   of lifting the card"* — on those rows there was no drag, so a long press

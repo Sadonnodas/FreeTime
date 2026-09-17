@@ -50,3 +50,18 @@ describe("dragging today's day list", () => {
     expect(rows).toEqual([c, a, b, d]);
   });
 });
+
+describe("dragging an era's projects", () => {
+  it('reorders the awake ones and keeps sleeping and finished ones', async () => {
+    const { createProject, setProjectTags, reorderProjectTags, setProjectTagSleeping } = await import('./store');
+    const era = await createProject('Music');
+    await setProjectTags(era, ['Mixing', 'Covers', 'Old song', 'Album']);
+    await setProjectTagSleeping(era, 'Old song', true);
+    const colours = { ...(await db.projects.get(era))!.tagColors };
+    await reorderProjectTags(era, ['Album', 'Mixing', 'Nonsense', 'Covers']);
+    const after = (await db.projects.get(era))!;
+    expect(after.tags).toEqual(['Album', 'Mixing', 'Covers', 'Old song']);
+    expect(after.sleepingTags).toEqual(['Old song']);
+    expect(after.tagColors).toEqual(colours);
+  });
+});

@@ -101,6 +101,33 @@ function nextColor(taken: string[]): string {
   return PROJECT_COLORS.find((c) => !taken.includes(c)) ?? PROJECT_COLORS[taken.length % PROJECT_COLORS.length];
 }
 
+/**
+ * Put an era's projects in the order they were dragged into.
+ *
+ * Only the ones on screen are dragged — sleeping and finished projects are in
+ * lists of their own — so the dragged names go first and every other name
+ * keeps its place after them. A PERMUTATION ONLY: names the era does not have
+ * are ignored and none is ever dropped, which is why this writes `tags`
+ * directly rather than through setProjectTags, whose whole job is to prune.
+ * Colours are stored per name, so nothing changes colour by moving.
+ */
+export async function reorderProjectTags(id: string, dragged: string[]): Promise<void> {
+  const project = await db.projects.get(id);
+  if (!project) return;
+  const current = project.tags ?? [];
+  const first = dragged.filter((t, i) => current.includes(t) && dragged.indexOf(t) === i);
+  const tags = [...first, ...current.filter((t) => !first.includes(t))];
+  if (tags.join('\u0000') === current.join('\u0000')) return;
+  // Pin every colour before the positions move: an era from before colours
+  // were stored falls back to POSITION (projectTagColor), and reordering would
+  // otherwise repaint it.
+  const tagColors = { ...(project.tagColors ?? {}) };
+  for (const t of current) {
+    if (!tagColors[t]) tagColors[t] = projectTagColor(current, project.tagColors, t);
+  }
+  await db.projects.update(id, { tags, tagColors, updatedAt: now() });
+}
+
 export async function setProjectTags(id: string, tags: string[]): Promise<void> {
   const project = await db.projects.get(id);
   const colors = { ...(project?.tagColors ?? {}) };

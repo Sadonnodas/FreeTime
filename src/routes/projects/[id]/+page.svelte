@@ -11,8 +11,10 @@
     setProjectImage, setProjectTags, removeProjectTag, renameProjectTag,
     setProjectTagColor, setProjectTagDescription, PROJECT_COLORS,
     archiveProject, projectTagColor, softDelete,
-    setProjectTagSleeping, moveProjectTag
+    setProjectTagSleeping, moveProjectTag, reorderProjectTags
   } from '$lib/store';
+  import { Reorder } from '$lib/reorder.svelte';
+  import { flip } from 'svelte/animate';
   import { activeProjects } from '$lib/queries';
   import { goto } from '$app/navigation';
   import { resizeImage, COVER_EDGE } from '$lib/images';
@@ -146,6 +148,9 @@
     new Date(finishedTags[t]!).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
   let showSleeping = $state(false);
 
+  /** Press, hold and drag to put the projects in your own order. */
+  const tagDrag = new Reorder((names) => reorderProjectTags(id, names));
+
   /** Where a project can be moved to: every other era. */
   const otherEras = $derived(
     (($erasQ as Project[] | undefined) ?? []).filter((p) => p.id !== id)
@@ -184,9 +189,13 @@
   async function addTag(e: SubmitEvent) {
     e.preventDefault();
     const name = newTagName.trim();
-    if (!name || tags.includes(name)) return;
+    // Against EVERY project, not just the awake ones: `tags` leaves out the
+    // sleeping and finished projects, and writing it back as the era's list
+    // used to delete them from the era — their to-dos, notes and shopping
+    // still pointing at a name no screen shows any more.
+    if (!name || allTags.includes(name)) return;
 
-    await setProjectTags(id, [...tags, name]);
+    await setProjectTags(id, [...allTags, name]);
     if (newTagColor) await setProjectTagColor(id, name, newTagColor);
     if (newTagDesc.trim()) await setProjectTagDescription(id, name, newTagDesc);
 
@@ -401,10 +410,10 @@
 
   {#if tags.length}
     <ul class="mb-3 space-y-2">
-      {#each tags as t (t)}
+      {#each tagDrag.arrange(tags.map((t) => ({ id: t }))) as { id: t } (t)}
         {@const c = projectTagColor($projectQ?.tags, $projectQ?.tagColors, t)}
         {@const desc = $projectQ?.tagDescriptions?.[t]}
-        <li>
+        <li use:tagDrag.item={t} animate:flip={{ duration: tagDrag.dragging === t ? 0 : 180 }}>
           <div
             class="rise overflow-hidden rounded-[18px]"
             style="background: color-mix(in srgb, {c} 16%, transparent);
