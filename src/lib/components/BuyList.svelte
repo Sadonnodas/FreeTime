@@ -6,6 +6,7 @@
   import PhotoThumb from './PhotoThumb.svelte';
   import PhotoPicker from './PhotoPicker.svelte';
   import RemoveButton from './RemoveButton.svelte';
+  import { tintFor } from '$lib/colors';
 
   /**
    * The buy list, shared by Brain and by a project's Buy tab so the two cannot
@@ -23,7 +24,8 @@
     projects = [],
     sections = [],
     showProject = true,
-    groupBy = 'none'
+    groupBy = 'none',
+    tinted = false
   }: {
     items: BuyItem[];
     projects?: Project[];
@@ -31,7 +33,19 @@
     sections?: string[];
     showProject?: boolean;
     groupBy?: GroupBy;
+    /**
+     * Wash each row in its project's colour with its era's colour down the
+     * edge — the same two colours, from the same helper, as Brain's to-dos, so
+     * "the campervan's things" is a patch of one colour before a word is read.
+     * Only where the list MIXES projects: inside one project every row would
+     * wear the same colour, which says nothing. Needs `projects` to know the
+     * eras.
+     */
+    tinted?: boolean;
   } = $props();
+
+  const tintOf = (item: BuyItem) =>
+    tinted ? tintFor(projects.find((p) => p.id === item.projectId), item.tag) : undefined;
 
   let openId = $state<string | null>(null);
 
@@ -153,7 +167,12 @@
 
   <ul class="space-y-1">
     {#each group.items as item (item.id)}
-    <li class="card-flat px-3 py-1">
+    {@const tint = tintOf(item)}
+    <li
+      class="card-flat px-3 py-1 {tint ? 'row-tint' : ''}"
+      style:--row={tint?.fill}
+      style:--edge={tint?.edge}
+    >
       <div class="flex items-center gap-3">
         <button
           class="press tap shrink-0 {item.purchasedAt ? 'text-good' : 'text-ink-400'}"
@@ -178,7 +197,7 @@
           </p>
           {#if showProject ? projectName(item.projectId) || host(item.url) : host(item.url)}
             <p class="footnote truncate">
-              {[showProject ? projectName(item.projectId) : null, host(item.url)]
+              {[showProject ? projectName(item.projectId) : null, showProject ? item.tag : null, host(item.url)]
                 .filter(Boolean)
                 .join(' · ')}
             </p>

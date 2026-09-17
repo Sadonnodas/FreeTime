@@ -837,7 +837,7 @@
     <!-- Grouped by the project it is for, not by shop. On the era page the
          question is "what does this build still need", and a part with no
          project shown is the thing that made the whole overview ambiguous. -->
-    <BuyList items={buyItems} showProject={false} groupBy="tag" sections={tags} />
+    <BuyList items={buyItems} showProject={false} groupBy="tag" sections={tags} tinted projects={$projectQ ? [$projectQ] : []} />
   </Collapsible>
 
   <Collapsible

@@ -835,6 +835,14 @@ one came close to a hard rule, the reasoning is recorded here.
   would otherwise replace the card's highlight and drop shadow and leave the
   tinted cards looking flat beside the plain ones. The walking dinosaur still
   paints above the tint and below the text.
+  **Buy items wear the same two colours** (`BuyList` `tinted`, on in Brain →
+  Buy and the era overview, off inside a project where every row would match).
+  *"When I filter for eras I have a nice overview with things with the same
+  colour together"* — colour only clusters if the ORDER does, so with an era
+  filter on, or grouped By era, Brain sorts by place first (era order, then
+  the era's project order, era-level after, unfiled last) and only then by
+  bought/needed/recent. Recent across all eras stays pure recency, because
+  that is what the word promises. Rows now name the project as well as the era.
   **The four kind-tabs carry the same palette** (`SECTION_TABS`), muted when
   unselected and filled when on, so Brain reads as coloured without four
   full-strength labels shouting over the list underneath.

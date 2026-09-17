@@ -381,15 +381,43 @@
     await createBuyItem(name, { projectId: fBuyProject || undefined });
   }
 
+  /**
+   * Where a buy item sits among the places: era in list order, then the
+   * project in that era's own order, era-level things after its projects and
+   * unfiled things last.
+   *
+   * Used when the list is narrowed to one era or grouped by era, so every
+   * project's things sit together — which is what makes the row colours read
+   * as an overview (*"when I filter for eras I have a nice overview with
+   * things with the same colour together"*) instead of a striped list. Recent
+   * across ALL eras keeps pure recency, since that is what "Recent" promises.
+   */
+  const placeRank = (b: BuyItem): [number, number] => {
+    const eras = ($projectsQ as Project[] | undefined) ?? [];
+    const ei = eras.findIndex((e) => e.id === b.projectId);
+    if (ei < 0) return [Infinity, 0];
+    const ti = b.tag ? (eras[ei].tags ?? []).indexOf(b.tag) : -1;
+    return [ei, ti < 0 ? Infinity : ti];
+  };
+  const clusterBuy = $derived(!!fBuyProject || buyGroup === 'project');
+
   const filteredBuy = $derived(
     (($buyQ as BuyItem[] | undefined) ?? [])
       .filter((b) => (fBuyProject ? b.projectId === fBuyProject : true))
-      // Bought things stay, but they sink: the list is for what you still need.
-      .sort((a, b) =>
-        (a.purchasedAt ? 1 : 0) - (b.purchasedAt ? 1 : 0) ||
-        (b.needed ? 1 : 0) - (a.needed ? 1 : 0) ||
-        b.createdAt.localeCompare(a.createdAt)
-      )
+      .sort((a, b) => {
+        if (clusterBuy) {
+          const [ae, at] = placeRank(a);
+          const [be, bt] = placeRank(b);
+          if (ae !== be) return ae < be ? -1 : 1;
+          if (at !== bt) return at < bt ? -1 : 1;
+        }
+        // Bought things stay, but they sink: the list is for what you still need.
+        return (
+          (a.purchasedAt ? 1 : 0) - (b.purchasedAt ? 1 : 0) ||
+          (b.needed ? 1 : 0) - (a.needed ? 1 : 0) ||
+          b.createdAt.localeCompare(a.createdAt)
+        );
+      })
   );
 </script>
 
@@ -965,6 +993,7 @@
       items={filteredBuy}
       projects={($projectsQ as Project[] | undefined) ?? []}
       groupBy={buyGroup}
+      tinted
     />
   {/if}
 </div>
