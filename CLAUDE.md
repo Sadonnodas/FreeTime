@@ -1953,6 +1953,24 @@ device; there is nothing to build. Memos are the exception, below.
   Search is always there once there are notes; Select turns rows into tick
   circles with a bottom bar (All/None, "Delete N", two taps).
 
+- **Quick notes do lists — which is what "sum up" meant** ([textLists.ts](src/lib/textLists.ts),
+  [textLists.test.ts](src/lib/textLists.test.ts)). The request *"add sum up
+  and numbers"* was read as arithmetic and built as such (the entry above);
+  what Toon meant was an OPSOMMING — a bulleted or numbered list. Worth
+  remembering when a request is dictated in English by a Dutch speaker:
+  "sum up" can mean enumerate. The calculator stayed, being harmless.
+  Enter on a list line continues it in its own style (`-` `*` `•` `- [ ]`,
+  `1.` `1)`, `a.` `a)`, indentation kept); Enter on an EMPTY item ends the
+  list, the Notes-app way. Done after the fact on `insertLineBreak` /
+  `insertParagraph` rather than by intercepting keydown, which phone
+  keyboards do not reliably send. "• List" and "1. List" toggle the current
+  or selected lines (numbers ↔ bullets ↔ plain), cancel pointerdown so the
+  keyboard stays up, and keep a multi-line selection selected. Totals and
+  row previews strip markers, so "1. milk" is not the number one.
+  **The preview browser's Enter key inserts nothing, even in a bare
+  textarea** — test line breaks with `document.execCommand('insertLineBreak')`,
+  which fires the same InputEvent a keyboard does.
+
 - **Habits have colours** (`Habit.color`, `habitColor`, `setHabitColor`).
   *"They look bland while they should look inviting."* The project palette,
   handed out at creation (first colour no other habit wears) and changeable on

@@ -9,6 +9,7 @@
   import { portal } from '$lib/portal';
   import RemoveButton from './RemoveButton.svelte';
   import { answerFor, totalOf, formatNumber } from '$lib/calc';
+  import { continueList, toggleList, stripMarker } from '$lib/textLists';
 
   /**
    * Quick notes — the phone's Notes app, inside this one.
@@ -173,6 +174,14 @@
   function withAnswer(e: Event & { currentTarget: HTMLTextAreaElement }): string {
     const el = e.currentTarget;
     const ie = e as unknown as InputEvent;
+    // A new line in a list carries the list on (or ends it) — see textLists.ts.
+    if (ie.inputType === 'insertLineBreak' || ie.inputType === 'insertParagraph') {
+      const r = continueList(el.value, el.selectionStart ?? el.value.length);
+      if (!r) return el.value;
+      el.value = r.text;
+      el.setSelectionRange(r.caret, r.caret);
+      return r.text;
+    }
     if (ie.inputType !== 'insertText' || ie.data !== '=') return el.value;
     const caret = el.selectionStart ?? el.value.length;
     const answer = answerFor(el.value, caret);
@@ -185,6 +194,25 @@
   }
 
   let showTotal = $state(false);
+
+  // --- list buttons
+  let composeEl = $state<HTMLTextAreaElement | null>(null);
+  let editEl = $state<HTMLTextAreaElement | null>(null);
+  function listButton(kind: 'bullet' | 'number', which: 'compose' | 'edit') {
+    const el = which === 'compose' ? composeEl : editEl;
+    if (!el) return;
+    const from = el.selectionStart ?? 0;
+    const to = el.selectionEnd ?? 0;
+    const r = toggleList(el.value, from, to, kind);
+    el.value = r.text;
+    el.focus();
+    // Several lines selected stay selected, so a second tap (numbers to
+    // bullets, or off again) acts on the same lines.
+    if (to > from) el.setSelectionRange(r.from ?? 0, r.caret);
+    else el.setSelectionRange(r.caret, r.caret);
+    if (which === 'compose') onCompose(r.text);
+    else onEdit(r.text);
+  }
 
   // --- selecting several, to delete them together
   let selecting = $state(false);
@@ -211,8 +239,10 @@
       .filter((n) => (search.trim() ? n.text.toLowerCase().includes(search.trim().toLowerCase()) : true))
   );
 
-  const firstLine = (t: string) => t.trim().split('\n')[0] || 'Empty note';
-  const rest = (t: string) => t.trim().split('\n').slice(1).join(' ').trim();
+  // Previews read without list markers: "Paint", then "Primer · Brushes".
+  const lines = (t: string) => t.trim().split('\n').map((l) => stripMarker(l).trim()).filter(Boolean);
+  const firstLine = (t: string) => lines(t)[0] || 'Empty note';
+  const rest = (t: string) => lines(t).slice(1).join(' · ');
   function when(iso: string): string {
     const d = new Date(iso);
     const same = d.toDateString() === new Date().toDateString();
@@ -226,6 +256,27 @@
     node.setSelectionRange(node.value.length, node.value.length);
   };
 </script>
+
+{#snippet listTools(which: 'compose' | 'edit')}
+  <!-- pointerdown is cancelled so tapping these keeps the cursor (and the
+       phone's keyboard) where it was. -->
+  <div class="flex gap-1">
+    <button
+      type="button"
+      class="press tap-h rounded-lg px-2.5 text-sm text-ink-200"
+      onpointerdown={(e) => e.preventDefault()}
+      onclick={() => listButton('bullet', which)}
+      aria-label="Bulleted list">• List</button
+    >
+    <button
+      type="button"
+      class="press tap-h rounded-lg px-2.5 text-sm text-ink-200"
+      onpointerdown={(e) => e.preventDefault()}
+      onclick={() => listButton('number', which)}
+      aria-label="Numbered list">1. List</button
+    >
+  </div>
+{/snippet}
 
 {#snippet total(text: string)}
   {@const t = totalOf(text)}
@@ -270,8 +321,10 @@
         }}
       />
     </header>
+    <div class="px-3">{@render listTools('edit')}</div>
     <textarea
       use:focus
+      bind:this={editEl}
       value={editText}
       oninput={(e) => onEdit(withAnswer(e))}
       class="min-h-0 w-full flex-1 resize-none bg-transparent px-5 py-3 text-[17px] leading-relaxed text-ink-50 outline-none"
@@ -357,6 +410,7 @@
       <!-- Write first. Every letter is kept; there is no Save. -->
       <div class="card-flat p-3">
         <textarea
+          bind:this={composeEl}
           value={draft}
           oninput={(e) => onCompose(withAnswer(e))}
           rows={draft.includes('\n') || draft.length > 40 ? 5 : 3}
@@ -367,14 +421,14 @@
         {#if totalOf(draft)}
           <div class="mb-2 border-t border-line-1 pt-2">{@render total(draft)}</div>
         {/if}
-        {#if draft.trim()}
-          <div class="flex items-center justify-between gap-2">
-            <span class="footnote">Saved as you type · end a sum with =</span>
+        <div class="-ml-2 flex items-center justify-between gap-2">
+          {@render listTools('compose')}
+          {#if draft.trim()}
             <button class="press tap-h rounded-lg px-3 text-sm font-medium text-accent" onclick={finishCompose}>
               New note
             </button>
-          </div>
-        {/if}
+          {/if}
+        </div>
       </div>
 
       {#if flash}

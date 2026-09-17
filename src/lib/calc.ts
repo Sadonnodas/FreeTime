@@ -1,3 +1,5 @@
+import { stripMarker } from './textLists';
+
 /**
  * Sums in quick notes: a line ending in "=" is worked out, and a note can be
  * totalled.
@@ -154,7 +156,9 @@ export interface Total {
 export function totalOf(text: string): Total | null {
   const parts: number[] = [];
   let comma = false;
-  for (const line of text.split('\n')) {
+  for (const raw of text.split('\n')) {
+    // "1. milk" is a list item, not the number one.
+    const line = stripMarker(raw);
     const nums = line.match(/-?\d+(?:[.,]\d+)?/g);
     if (!nums) continue;
     const last = nums[nums.length - 1];
