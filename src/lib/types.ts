@@ -308,6 +308,14 @@ export interface Day extends Base {
   slots: string[];
   unlockedCount: number;
   closedAt?: string;
+  /**
+   * The order of this date's DAY LIST — to-dos dated this day that are not in
+   * `slots` — as dragged on Today. Kept on the day rather than on each to-do
+   * because it is a fact about that day's plan, and a to-do moved to another
+   * day should not carry a position with it. Ids not in here sort after, oldest
+   * first; ids in here that are no longer dated this day are simply ignored.
+   */
+  listOrder?: string[];
 }
 
 /**

@@ -12,7 +12,7 @@
   import {
     ensureDay, addToDay, removeFromDay, maybeCloseDay,
     canUnlockOneMore, unlockOneMore, reopenDayIfIncomplete, DayFullError, STARTING_SLOTS,
-    reorderDay
+    reorderDay, reorderDayList, byDayList
   } from '$lib/day';
   import { byHabitOrder } from '$lib/habits';
   import { Reorder } from '$lib/reorder.svelte';
@@ -326,14 +326,12 @@
   const dayList = $derived(
     (($openQ as { all: Todo[] } | undefined)?.all ?? [])
       .filter((t) => t.date === todayIso && !day?.slots.includes(t.id))
-      // A plan for a day reads top to bottom, oldest first — Brain's day list
-      // order — with the ticked ones sinking.
-      .sort(
-        (a, b) =>
-          (a.completedAt ? 1 : 0) - (b.completedAt ? 1 : 0) ||
-          a.createdAt.localeCompare(b.createdAt)
-      )
+      // In the order it was dragged into (Day.listOrder), then oldest first —
+      // the same order Brain's day list uses. Ticked ones are NOT sunk: the
+      // order is yours now, and a row jumping away when ticked would undo it.
+      .sort(byDayList(day?.listOrder))
   );
+  const listDrag = new Reorder((ids) => reorderDayList(ids));
   const dayListOpen = $derived(dayList.filter((t) => !t.completedAt).length);
 
   const candidates = $derived(
@@ -804,12 +802,14 @@
       <section class="mt-8">
         <h2 class="section-label mb-2">Also on today's list</h2>
         <ul class="space-y-1">
-          {#each dayList as t (t.id)}
+          {#each listDrag.arrange(dayList) as t (t.id)}
             {@const tint = t.completedAt ? undefined : tintFor(eraOf(t.projectId), t.tag)}
             <li
               class="card-flat flex items-center gap-3 px-3 {tint ? 'row-tint' : ''}"
               style:--row={tint?.fill}
               style:--edge={tint?.edge}
+              use:listDrag.item={t.id}
+              animate:flip={{ duration: listDrag.dragging === t.id ? 0 : 180 }}
             >
               <span class="relative flex shrink-0">
                 {#if celebrating === t.id}

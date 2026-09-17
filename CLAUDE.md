@@ -1862,7 +1862,15 @@ device; there is nothing to build. Memos are the exception, below.
   position (unset sorts last, oldest first), and Me uses the same order.
   Verified with synthetic touch events in the preview; **feel it on a real
   phone**, since hold timing and iOS scroll interplay only show up there.
-  Not on "Also on today's list", which has no stored order yet.
+  **"Also on today's list" drags too**, and its absence was reported as a bug:
+  *"when I hold-press a to-do card the text gets highlighted to copy instead
+  of lifting the card"* — on those rows there was no drag, so a long press
+  was an ordinary text selection. Its order is `Day.listOrder` (the day's
+  plan, not the to-do's: moving a to-do to another day must not carry a
+  position), and Brain's day list sorts by it too so the two agree. Ticked
+  rows no longer sink there — the order is yours, and a row jumping away when
+  ticked would undo it. Safari needs `webkitUserSelect` set as a property;
+  `setProperty('-webkit-user-select')` is not reliably honoured.
 
 - **A to-do can open a shopping list** (`Todo.shopping`,
   [shopping.ts](src/lib/shopping.ts),

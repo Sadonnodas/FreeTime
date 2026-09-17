@@ -1,7 +1,7 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
-  import type { Todo, Idea, BuyItem, Project, Energy, TimeBucket, Memo } from '$lib/types';
+  import type { Todo, Idea, BuyItem, Project, Energy, TimeBucket, Memo, Day } from '$lib/types';
   import {
     completeTodo, createTodo, createIdea, createBuyItem,
     updateTodo, setTodoAfter, softDelete, today,
@@ -13,6 +13,7 @@
   import ListExport from '$lib/components/ListExport.svelte';
   import { indexById, blockerOf, possibleBlockers } from '$lib/order';
   import { tomorrow, dayLabel, dayPhrase } from '$lib/days';
+  import { byDayList } from '$lib/day';
   import { activeProjects } from '$lib/queries';
   import { allMemos, storageUse, mb, type StorageUse } from '$lib/memos';
   import MemoList from '$lib/components/MemoList.svelte';
@@ -119,6 +120,8 @@
    * pushing it through the three would either break that or lose the list.
    */
   let day = $state('');
+  /** Day records, only for a day list's dragged order. A small table. */
+  const daysQ = liveQuery(() => db.days.toArray());
   const todayIso = today();
   /** The date field is behind a chip: an empty dd/mm/yyyy box parked over the
    *  list is chrome you have to read past every visit, for the rarer case. */
@@ -136,11 +139,13 @@
       .filter((t) => (fProject ? t.projectId === fProject : true))
       .filter((t) => (fEnergy ? t.energy === fEnergy : true))
       .filter((t) => (day || !fDated ? true : fDated === 'yes' ? !!t.date : !t.date))
-      // A day list reads top to bottom in the order it was written — it is a
-      // plan for a day, not a feed. Everywhere else the newest is what you came
-      // back for, so it stays on top.
-      .sort((a, b) =>
-        day ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt)
+      // A day list reads top to bottom — in the order it was dragged into on
+      // Today, then the order it was written. It is a plan for a day, not a
+      // feed. Everywhere else the newest is what you came back for.
+      .sort(
+        day
+          ? byDayList(($daysQ as Day[] | undefined)?.find((d) => d.date === day)?.listOrder)
+          : (a, b) => b.createdAt.localeCompare(a.createdAt)
       )
   );
 

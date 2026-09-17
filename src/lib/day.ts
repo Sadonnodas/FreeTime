@@ -77,6 +77,24 @@ export async function reorderDay(ids: string[], date = today()): Promise<Day> {
   return { ...day, slots };
 }
 
+/** Save the order of a date's day list, as dragged. */
+export async function reorderDayList(ids: string[], date = today()): Promise<void> {
+  const day = await ensureDay(date);
+  const listOrder = ids.filter((id, i) => ids.indexOf(id) === i);
+  if ((day.listOrder ?? []).join() === listOrder.join()) return;
+  await db.days.update(day.id, { listOrder, updatedAt: now() });
+}
+
+/**
+ * Day-list order: where it was dragged to, then oldest first — a plan for a
+ * day reads top to bottom in the order it was written.
+ */
+export function byDayList(order: string[] = []) {
+  const at = new Map(order.map((id, i) => [id, i]));
+  return (a: { id: string; createdAt: string }, b: { id: string; createdAt: string }) =>
+    (at.get(a.id) ?? Infinity) - (at.get(b.id) ?? Infinity) || a.createdAt.localeCompare(b.createdAt);
+}
+
 /** Skippable without ceremony — no confirmation, no guilt copy (spec 5.2). */
 export async function removeFromDay(todoId: string, date = today()): Promise<Day> {
   const day = await ensureDay(date);

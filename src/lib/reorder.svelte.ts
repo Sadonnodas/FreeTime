@@ -87,6 +87,9 @@ export class Reorder {
     node.style.setProperty('-webkit-touch-callout', 'none');
     node.style.setProperty('-webkit-user-select', 'none');
     node.style.userSelect = 'none';
+    // Safari reads the prefixed property; setProperty with the prefix is not
+    // reliably honoured there, and a long press would select the text instead.
+    (node.style as CSSStyleDeclaration & { webkitUserSelect?: string }).webkitUserSelect = 'none';
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     let startX = 0;

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from './db';
 import { createTodo, createHabit, reorderHabits } from './store';
-import { addToDay, ensureDay, reorderDay } from './day';
+import { addToDay, ensureDay, reorderDay, reorderDayList, byDayList } from './day';
+import { today } from './store';
 import { byHabitOrder } from './habits';
 
 beforeEach(async () => {
@@ -35,5 +36,17 @@ describe('dragging habits into a new order', () => {
     const names = (await db.habits.toArray()).sort(byHabitOrder).map((h) => h.name);
     expect(names).toEqual(['Read', 'Guitar', 'Run', 'Walk']);
     expect(walk).toBeTruthy();
+  });
+});
+
+describe("dragging today's day list", () => {
+  it('keeps the dragged order, with new to-dos joining at the end', async () => {
+    const [a, b, c] = await Promise.all(['a', 'b', 'c'].map((t) => createTodo(t, { date: today() })));
+    await reorderDayList([c, a, b, a]);
+    expect((await ensureDay()).listOrder).toEqual([c, a, b]);
+    const d = await createTodo('d', { date: today() });
+    const order = (await ensureDay()).listOrder;
+    const rows = (await db.todos.toArray()).sort(byDayList(order)).map((t) => t.id);
+    expect(rows).toEqual([c, a, b, d]);
   });
 });
