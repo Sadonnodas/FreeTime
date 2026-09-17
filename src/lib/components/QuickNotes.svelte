@@ -8,6 +8,7 @@
   import type { Project, QuickNote } from '$lib/types';
   import { portal } from '$lib/portal';
   import RemoveButton from './RemoveButton.svelte';
+  import { answerFor, totalOf, formatNumber } from '$lib/calc';
 
   /**
    * Quick notes — the phone's Notes app, inside this one.
@@ -86,6 +87,7 @@
 
   function open(n: QuickNote) {
     moving = null;
+    showTotal = false;
     editText = n.text;
     editingId = n.id;
   }
@@ -161,6 +163,46 @@
     onclose();
   }
 
+  // --- sums
+  /**
+   * Typing "=" at the end of a sum writes the answer after it — into the note
+   * itself, so it is kept, synced and can be totalled like any other number.
+   * Only on a typed "=", never on paste or on editing an old line, so going
+   * back over "3 + 4 = 7" does not append another 7.
+   */
+  function withAnswer(e: Event & { currentTarget: HTMLTextAreaElement }): string {
+    const el = e.currentTarget;
+    const ie = e as unknown as InputEvent;
+    if (ie.inputType !== 'insertText' || ie.data !== '=') return el.value;
+    const caret = el.selectionStart ?? el.value.length;
+    const answer = answerFor(el.value, caret);
+    if (answer === null) return el.value;
+    const spaced = el.value[caret - 2] === ' ' ? ` ${answer}` : answer;
+    const next = el.value.slice(0, caret) + spaced + el.value.slice(caret);
+    el.value = next;
+    el.setSelectionRange(caret + spaced.length, caret + spaced.length);
+    return next;
+  }
+
+  let showTotal = $state(false);
+
+  // --- selecting several, to delete them together
+  let selecting = $state(false);
+  let picked = $state<string[]>([]);
+  function togglePick(id: string) {
+    picked = picked.includes(id) ? picked.filter((p) => p !== id) : [...picked, id];
+  }
+  function stopSelecting() {
+    selecting = false;
+    picked = [];
+  }
+  async function deletePicked() {
+    const ids = picked;
+    stopSelecting();
+    for (const id of ids) await softDelete('quickNotes', id);
+    say(`${ids.length} ${ids.length === 1 ? 'note' : 'notes'} deleted.`);
+  }
+
   // --- the list
   let search = $state('');
   const shown = $derived(
@@ -185,6 +227,29 @@
   };
 </script>
 
+{#snippet total(text: string)}
+  {@const t = totalOf(text)}
+  {#if t}
+    <!-- The parts are always on show when it is open: which number was taken
+         from each line is a guess (see calc.ts), so the sum shows its working. -->
+    <button
+      type="button"
+      class="press flex w-full items-baseline gap-2 text-left"
+      onclick={() => (showTotal = !showTotal)}
+      aria-expanded={showTotal}
+    >
+      <span class="section-label">Σ Total</span>
+      <span class="text-[17px] font-semibold tabular-nums">{formatNumber(t.total, t.comma)}</span>
+      <span class="footnote ml-auto">{showTotal ? 'Hide' : `${t.parts.length} numbers`}</span>
+    </button>
+    {#if showTotal}
+      <p class="footnote mt-1 break-words tabular-nums">
+        {t.parts.map((n) => formatNumber(n, t.comma)).join(' + ')} — the last number on each line
+      </p>
+    {/if}
+  {/if}
+{/snippet}
+
 <div
   use:portal
   class="rise fixed inset-0 z-50 flex flex-col bg-ink-950 pt-safe pb-safe"
@@ -208,13 +273,16 @@
     <textarea
       use:focus
       value={editText}
-      oninput={(e) => onEdit(e.currentTarget.value)}
+      oninput={(e) => onEdit(withAnswer(e))}
       class="min-h-0 w-full flex-1 resize-none bg-transparent px-5 py-3 text-[17px] leading-relaxed text-ink-50 outline-none"
       aria-label="Note"
     ></textarea>
 
     <!-- Where a note can go once it turns out to belong somewhere. -->
     <div class="border-t border-line-1 px-4 pt-3 pb-3">
+      {#if totalOf(editText)}
+        <div class="mb-3">{@render total(editText)}</div>
+      {/if}
       {#if !moving}
         <div class="flex gap-2">
           <button
@@ -290,15 +358,18 @@
       <div class="card-flat p-3">
         <textarea
           value={draft}
-          oninput={(e) => onCompose(e.currentTarget.value)}
+          oninput={(e) => onCompose(withAnswer(e))}
           rows={draft.includes('\n') || draft.length > 40 ? 5 : 3}
           placeholder="Write it down…"
           class="w-full resize-none bg-transparent text-[17px] leading-relaxed text-ink-50 outline-none placeholder:text-ink-400"
           aria-label="New quick note"
         ></textarea>
+        {#if totalOf(draft)}
+          <div class="mb-2 border-t border-line-1 pt-2">{@render total(draft)}</div>
+        {/if}
         {#if draft.trim()}
           <div class="flex items-center justify-between gap-2">
-            <span class="footnote">Saved as you type</span>
+            <span class="footnote">Saved as you type · end a sum with =</span>
             <button class="press tap-h rounded-lg px-3 text-sm font-medium text-accent" onclick={finishCompose}>
               New note
             </button>
@@ -310,28 +381,81 @@
         <p class="card-flat mt-3 px-4 py-3 text-sm text-good" role="status">✓ {flash}</p>
       {/if}
 
-      {#if notes.length > 6}
-        <input bind:value={search} placeholder="Search notes" class="field mt-4 w-full" />
+      {#if notes.some((n) => n.id !== composingId)}
+        <!-- Search, always there once there is something to search, and
+             Select beside it for clearing out several at once. -->
+        <div class="mt-4 flex items-center gap-2">
+          <input
+            type="search"
+            bind:value={search}
+            placeholder="Search notes"
+            class="field min-w-0 flex-1"
+            aria-label="Search notes"
+          />
+          <button
+            type="button"
+            class="press tap-h shrink-0 rounded-xl px-3 text-sm font-medium text-accent"
+            onclick={() => (selecting ? stopSelecting() : (selecting = true))}
+          >
+            {selecting ? 'Cancel' : 'Select'}
+          </button>
+        </div>
       {/if}
 
       {#if shown.length}
-        <ul class="mt-4 space-y-1">
+        <ul class="mt-3 space-y-1">
           {#each shown as n (n.id)}
+            {@const on = picked.includes(n.id)}
             <li>
-              <button class="card-flat press w-full px-4 py-3 text-left" onclick={() => open(n)}>
-                <span class="block truncate font-medium">{firstLine(n.text)}</span>
-                <span class="footnote block truncate">
-                  {when(n.updatedAt)}{rest(n.text) ? ` · ${rest(n.text)}` : ''}
+              <button
+                class="card-flat press flex w-full items-center gap-3 px-4 py-3 text-left"
+                onclick={() => (selecting ? togglePick(n.id) : open(n))}
+                aria-pressed={selecting ? on : undefined}
+              >
+                {#if selecting}
+                  <span
+                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-[13px] font-bold
+                           {on ? 'border-accent bg-accent text-ink-950' : 'border-ink-600'}"
+                    aria-hidden="true">{on ? '✓' : ''}</span
+                  >
+                {/if}
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate font-medium">{firstLine(n.text)}</span>
+                  <span class="footnote block truncate">
+                    {when(n.updatedAt)}{rest(n.text) ? ` · ${rest(n.text)}` : ''}
+                  </span>
                 </span>
               </button>
             </li>
           {/each}
         </ul>
+      {:else if search.trim()}
+        <p class="footnote mt-4 px-1">No note has “{search.trim()}” in it.</p>
       {:else if !draft.trim()}
         <p class="footnote mt-4 px-1">
           Measurements, numbers, a name to remember. Nothing to file, nothing to choose.
         </p>
       {/if}
     </div>
+
+    {#if selecting}
+      <!-- At the bottom, where the thumb ends up after picking down a list. -->
+      <div class="flex items-center gap-2 border-t border-line-1 px-4 pt-3 pb-3">
+        <button
+          class="press tap-h px-2 text-sm text-ink-400"
+          onclick={() => (picked = picked.length === shown.length ? [] : shown.map((n) => n.id))}
+        >
+          {picked.length === shown.length && shown.length ? 'None' : 'All'}
+        </button>
+        <span class="footnote flex-1 text-center">{picked.length} selected</span>
+        {#if picked.length}
+          <RemoveButton
+            label="Delete {picked.length}"
+            confirm="Delete {picked.length} {picked.length === 1 ? 'note' : 'notes'}?"
+            onremove={deletePicked}
+          />
+        {/if}
+      </div>
+    {/if}
   {/if}
 </div>

@@ -1935,6 +1935,24 @@ device; there is nothing to build. Memos are the exception, below.
   Either way the quick note is removed: it moved, and two copies of a number
   drift apart.
 
+- **Quick notes do sums, search, and delete in bulk** ([calc.ts](src/lib/calc.ts),
+  [calc.test.ts](src/lib/calc.test.ts)). *"Add, sum up numbers in the quick
+  notes. Also a way to delete multiple. And a search bar."*
+  **A typed "=" at the end of a sum writes the answer after it, INTO the
+  note** — kept, synced, and countable like any other number. Only on a typed
+  "=" (InputEvent `insertText`), so pasting or editing an old "3 + 4 = 7"
+  never appends a second 7. Words before the sum are skipped by trying the
+  longest parseable tail of the line. **Never `eval`**: notes arrive from other
+  devices, so it is a small parser for numbers, + − × ÷ (and x, :) and
+  brackets that returns null for anything else. A comma is a decimal point;
+  thousands separators are refused rather than guessed.
+  **Σ Total adds the LAST number on each line** — where a price or an answer
+  sits — one per line, because "2.43 by 1.10" is one measurement and not two
+  amounts. That is a guess about meaning, so the parts it added are one tap
+  away and always named as "the last number on each line".
+  Search is always there once there are notes; Select turns rows into tick
+  circles with a bottom bar (All/None, "Delete N", two taps).
+
 - **Habits have colours** (`Habit.color`, `habitColor`, `setHabitColor`).
   *"They look bland while they should look inviting."* The project palette,
   handed out at creation (first colour no other habit wears) and changeable on
