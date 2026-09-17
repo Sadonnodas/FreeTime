@@ -1882,9 +1882,14 @@ device; there is nothing to build. Memos are the exception, below.
   of lifting the card"* — on those rows there was no drag, so a long press
   was an ordinary text selection. Its order is `Day.listOrder` (the day's
   plan, not the to-do's: moving a to-do to another day must not carry a
-  position), and Brain's day list sorts by it too so the two agree. Ticked
-  rows no longer sink there — the order is yours, and a row jumping away when
-  ticked would undo it. Safari needs `webkitUserSelect` set as a property;
+  position), and Brain's day list sorts by it too so the two agree.
+  **Done sinks on Today** — the three, the day list and the habits (`sinkDone`),
+  asked for directly. It was briefly the opposite for the day list ("a row
+  jumping away undoes your order"); Toon preferred what is left on top. It is
+  DISPLAY ONLY — the stored order is untouched, so unticking puts a row back
+  where it was — and a just-ticked row is held in place (`settling`) while its
+  burst plays, then slides down, or the celebration would play at a spot the
+  row had already left. Safari needs `webkitUserSelect` set as a property;
   `setProperty('-webkit-user-select')` is not reliably honoured.
 
 - **ONE shopping list, in Brain → Buy** ([shoppingList.ts](src/lib/shoppingList.ts),

@@ -158,7 +158,26 @@
 
   /** Which item is mid-celebration, so its burst renders exactly once. */
   let celebrating = $state<string | null>(null);
+  /**
+   * DONE SINKS, on all three lists — the three, the day list and the habits.
+   * *"Marked as done should move to the bottom of their respective lists"*:
+   * what is left to do stays where the eye starts. Only the DISPLAY order
+   * changes; nothing is written, so unticking brings a row straight back up.
+   *
+   * Not instantly, though: a row that leaves the moment it is ticked takes its
+   * celebration with it, so a just-ticked row is held in place (`settling`)
+   * for as long as the burst plays, then slides down (animate:flip).
+   */
+  let settling = $state<string[]>([]);
+  function sinkDone<T extends { id: string }>(items: T[], isDone: (item: T) => boolean): T[] {
+    const rank = (item: T) => (isDone(item) && !settling.includes(item.id) ? 1 : 0);
+    // Array.prototype.sort is stable, so each half keeps its own order.
+    return [...items].sort((a, b) => rank(a) - rank(b));
+  }
+
   function celebrate(id: string) {
+    settling = [...settling, id];
+    setTimeout(() => (settling = settling.filter((s) => s !== id)), 950);
     celebrating = id;
     // Fire and forget: nothing waits on this, and a second tick during it
     // simply replaces it rather than queueing.
@@ -329,8 +348,8 @@
     (($openQ as { all: Todo[] } | undefined)?.all ?? [])
       .filter((t) => t.date === todayIso && !day?.slots.includes(t.id))
       // In the order it was dragged into (Day.listOrder), then oldest first —
-      // the same order Brain's day list uses. Ticked ones are NOT sunk: the
-      // order is yours now, and a row jumping away when ticked would undo it.
+      // the same order Brain's day list uses. Ticked ones sink below that at
+      // render (`sinkDone`), without touching the stored order.
       .sort(byDayList(day?.listOrder))
   );
   const listDrag = new Reorder((ids) => reorderDayList(ids));
@@ -497,7 +516,7 @@
         <h2 class="section-label mb-2">To-dos</h2>
       {/if}
       <div class="space-y-3">
-      {#each slotDrag.arrange(slotTodos) as todo (todo.id)}
+      {#each slotDrag.arrange(sinkDone(slotTodos, (t) => !!t.completedAt)) as todo (todo.id)}
         <!--
           Tinted like Brain's rows — the same two colours from the same helper,
           so a to-do does not change colour between the screens. Only while it
@@ -817,7 +836,7 @@
           <div class="mb-1"><ShoppingListButton look="row" /></div>
         {/if}
         <ul class="space-y-1">
-          {#each listDrag.arrange(dayList) as t (t.id)}
+          {#each listDrag.arrange(sinkDone(dayList, (t) => !!t.completedAt)) as t (t.id)}
             {@const tint = t.completedAt ? undefined : tintFor(eraOf(t.projectId), t.tag)}
             <li
               class="card-flat flex items-center gap-3 px-3 {tint ? 'row-tint' : ''}"
@@ -872,7 +891,7 @@
           <a href="{base}/me" class="press tap-h inline-flex items-center px-1 text-[13px] text-ink-400">Edit</a>
         </div>
         <div class="flex flex-wrap gap-2">
-          {#each habitDrag.arrange(habits) as habit (habit.id)}
+          {#each habitDrag.arrange(sinkDone(habits, (h) => habitsDone.has(h.id))) as habit (habit.id)}
             {@const done = habitsDone.has(habit.id)}
             {@const hc = habitColor(habit)}
             <!--
