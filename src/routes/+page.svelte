@@ -14,7 +14,7 @@
     canUnlockOneMore, unlockOneMore, reopenDayIfIncomplete, DayFullError, STARTING_SLOTS,
     reorderDay, reorderDayList, byDayList
   } from '$lib/day';
-  import { byHabitOrder } from '$lib/habits';
+  import { byHabitOrder, habitColor, ON_COLOR } from '$lib/habits';
   import { Reorder } from '$lib/reorder.svelte';
   import { flip } from 'svelte/animate';
   import { tintFor } from '$lib/colors';
@@ -29,8 +29,7 @@
   import Dino from '$lib/components/Dino.svelte';
   import Burst from '$lib/components/Burst.svelte';
   import PhotoThumb from '$lib/components/PhotoThumb.svelte';
-  import ShoppingLink from '$lib/components/ShoppingLink.svelte';
-  import { placeName } from '$lib/shopping';
+  import ShoppingListButton from '$lib/components/ShoppingListButton.svelte';
   import { randomSticker, stickerUrl } from '$lib/stickers';
   import { pickScene, pickQuip } from '$lib/freeTimeScenes';
 
@@ -546,17 +545,6 @@
                   running and it moves three times, with no record of having
                   been moved.
                 -->
-                {#if todo.shopping}
-                  <!-- "Do the groceries", with the groceries one tap away. On
-                       its own line: beside the two actions it pushed "Not
-                       today" onto a second one anyway. -->
-                  <div class="mt-2">
-                    <ShoppingLink
-                      {todo}
-                      place={placeName(todo, ($projectsQ as Project[] | undefined) ?? [])}
-                    />
-                  </div>
-                {/if}
                 <div class="-ml-2 mt-1 flex items-center gap-1">
                   {#if tomorrowRoom > 0}
                     <button
@@ -796,11 +784,16 @@
       </section>
     {/if}
 
-    {#if dayList.length}
+    {#if dayList.length || day?.shopping}
       <!-- Everything else you put on today, from Brain's day list. See
            `dayList` for why it is here and why it is not part of the three. -->
       <section class="mt-8">
         <h2 class="section-label mb-2">Also on today's list</h2>
+        {#if day?.shopping}
+          <!-- The shopping list, on the day it was planned for. Not a slot and
+               not a to-do: it is a list, and it opens as one. -->
+          <div class="mb-1"><ShoppingListButton look="row" /></div>
+        {/if}
         <ul class="space-y-1">
           {#each listDrag.arrange(dayList) as t (t.id)}
             {@const tint = t.completedAt ? undefined : tintFor(eraOf(t.projectId), t.tag)}
@@ -836,9 +829,6 @@
                   </p>
                 {/if}
               </div>
-              {#if t.shopping && !t.completedAt}
-                <ShoppingLink todo={t} place={placeName(t, ($projectsQ as Project[] | undefined) ?? [])} size="xs" />
-              {/if}
               {#if t.image}
                 <PhotoThumb image={t.image} label={t.title} />
               {/if}
@@ -856,11 +846,19 @@
         <div class="flex flex-wrap gap-2">
           {#each habitDrag.arrange(habits) as habit (habit.id)}
             {@const done = habitsDone.has(habit.id)}
+            {@const hc = habitColor(habit)}
+            <!--
+              In the habit's own colour — *"they look bland while they should
+              look inviting"*. Waiting: a wash of it with a coloured rim, so the
+              row reads as a set of different things rather than grey pills.
+              Done: filled solid, which is the change you tapped for, stronger
+              than the wash and impossible to mistake for it.
+            -->
             <button
-              class="press tap relative rounded-2xl border px-4 py-3 text-[15px] font-medium transition-colors
-                     {done
-                ? 'border-good/50 bg-good/[0.14] text-good'
-                : 'border-line-1 bg-surface-1 text-ink-200'}"
+              class="press tap relative rounded-2xl border px-4 py-3 text-[15px] font-medium transition-colors"
+              style:background={done ? hc : `color-mix(in srgb, ${hc} 18%, var(--color-surface-1))`}
+              style:border-color={done ? hc : `color-mix(in srgb, ${hc} 55%, transparent)`}
+              style:color={done ? ON_COLOR : 'var(--color-ink-50)'}
               use:habitDrag.item={habit.id}
               animate:flip={{ duration: habitDrag.dragging === habit.id ? 0 : 180 }}
               class:nudge={nudged === habit.id}

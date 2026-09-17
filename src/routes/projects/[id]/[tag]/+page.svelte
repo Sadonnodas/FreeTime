@@ -33,9 +33,6 @@
   import IdeaList from '$lib/components/IdeaList.svelte';
   import ExportSheet from '$lib/components/ExportSheet.svelte';
   import FinishProject from '$lib/components/FinishProject.svelte';
-  import ShoppingLink from '$lib/components/ShoppingLink.svelte';
-  import ShoppingToggle from '$lib/components/ShoppingToggle.svelte';
-  import ShoppingTrip from '$lib/components/ShoppingTrip.svelte';
   import { goto } from '$app/navigation';
 
   /**
@@ -365,9 +362,6 @@
                   </p>
                 {/if}
               </button>
-              {#if todo.shopping}
-                <ShoppingLink {todo} place={tag} size="xs" />
-              {/if}
             </div>
 
             {#if openTodo === todo.id}
@@ -415,10 +409,6 @@
                   onpick={(image) => updateTodo(todo.id, { image })}
                   onremove={() => updateTodo(todo.id, { image: undefined })}
                 />
-
-                <div class="mt-3">
-                  <ShoppingToggle {todo} place={tag} />
-                </div>
 
                 <!-- The one you came into the project to do. Its own line:
                      the row below already carries two controls, and this is
@@ -516,9 +506,6 @@
         <button class="btn btn-primary press">Add</button>
       </form>
       <BuyList items={buyItems} showProject={false} groupBy="none" />
-      {#if buyItems.some((b) => !b.purchasedAt)}
-        <ShoppingTrip {eraId} {tag} />
-      {/if}
     </Collapsible>
 
     <!-- ------------------------------------------------------------------ note -->

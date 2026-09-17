@@ -146,15 +146,10 @@ export interface Todo extends Base {
    */
   image?: string;
   /**
-   * This to-do is a trip to the shops, and tapping its list opens the To buy
-   * list of the place it lives in — the project, or the era's own list when it
-   * has no project. "Do the groceries" on Today, with the groceries one tap
-   * away.
-   *
-   * A POINTER, NOT A CONTAINER. The things to buy still belong to the project,
-   * exactly as they always did; the to-do only knows where to look. Buy items
-   * hanging UNDER a to-do would be sub-tasks, which is the third level the
-   * depth rule forbids. See shopping.ts.
+   * RETIRED. Marked a to-do as a shopping trip that opened its project's To
+   * buy list — replaced a day later by the one shopping list in Brain → Buy
+   * (see shoppingList.ts), because it took three concepts to make a list.
+   * Kept only so records that carry it still type-check; nothing reads it.
    */
   shopping?: boolean;
   completedAt?: string;
@@ -229,7 +224,11 @@ export interface BuyItem extends Base {
   projectId?: string;
   purchasedAt?: string;
   /**
-   * Needed soon, as opposed to eventually.
+   * ON THE SHOPPING LIST. The field name is older than the meaning, and
+   * stayed because it is schema (like `projectId` meaning the era): it began
+   * as a "needed soon" star, and "needed soon" and "on the next shopping
+   * list" turned out to be the same thing said twice, so they became one.
+   * A bought item keeps the flag and simply stops showing on the list.
    *
    * Deliberately a flag and not a priority. The spec bans priority fields
    * because a scale is a second axis you have to maintain and feel bad about,
@@ -274,6 +273,12 @@ export interface Habit extends Base {
    * A position you chose, never a rank — nothing reads anything into it.
    */
   order?: number;
+  /**
+   * Its own colour, from the project palette. Handed out at creation so a new
+   * habit is still one field; a habit from before colours gets one derived
+   * from its id (`habitColor`), so every device agrees without a migration.
+   */
+  color?: string;
 }
 
 /** Append-only. Survives every state change, forever. */
@@ -316,6 +321,9 @@ export interface Day extends Base {
    * first; ids in here that are no longer dated this day are simply ignored.
    */
   listOrder?: string[];
+  /** The shopping list is planned for this day. At most one upcoming day
+   *  carries it; see shoppingList.ts. */
+  shopping?: boolean;
 }
 
 /**

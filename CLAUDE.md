@@ -1887,31 +1887,40 @@ device; there is nothing to build. Memos are the exception, below.
   ticked would undo it. Safari needs `webkitUserSelect` set as a property;
   `setProperty('-webkit-user-select')` is not reliably honoured.
 
-- **A to-do can open a shopping list** (`Todo.shopping`,
-  [shopping.ts](src/lib/shopping.ts),
-  [ShoppingSheet.svelte](src/lib/components/ShoppingSheet.svelte),
-  `ShoppingLink`, `ShoppingToggle`, `ShoppingTrip`,
-  [shopping.test.ts](src/lib/shopping.test.ts)). *"Say I need to do
-  groceries, those are things to buy. Can I have a way to put them all under
-  one list so that I can click that list on the to-do page?"*
-  **The to-do is a POINTER to its place's To buy list, never a container.**
-  Buy items hanging under a to-do would be sub-tasks — the third level the
-  depth rule forbids — and would also vanish from Brain → Buy, the era
-  overview and the printed shopping list. So: a project called Groceries holds
-  the items like any other project, and a to-do in it marked "Shopping trip"
-  shows "🛒 3 to buy" on Today, in Brain and on the project screen, opening
-  that list full screen (it is held in one hand down an aisle) with an add
-  field for the thing you remember at the shelf. Place matches exactly: an
-  era-level trip opens the era's own items, not every project's.
-  **"🛒 Go shopping today"** under a project's To buy does the whole flow in
-  one tap — finds the list's OPEN trip or writes "Shopping: <project>", and
-  puts it in today's three (still three; a full day says so). Reusing the open
-  trip is what stops a second "Shopping" to-do appearing every tap; once one
-  is ticked, the next tap starts a new one, which is next week's shop.
-  The sheet is portalled to <body>: a Today card is transformed for the
-  walking dinosaur, and `position: fixed` inside a transformed element is
-  fixed to that element, not the screen. The assistant cannot set the flag
-  yet.
+- **ONE shopping list, in Brain → Buy** ([shoppingList.ts](src/lib/shoppingList.ts),
+  [ShoppingList.svelte](src/lib/components/ShoppingList.svelte),
+  [ShoppingListButton.svelte](src/lib/components/ShoppingListButton.svelte),
+  [shoppingList.test.ts](src/lib/shoppingList.test.ts)). **It replaced a
+  first attempt that lasted a day**: a to-do marked "shopping trip" opening
+  its project's To buy list. Four concepts (a project, a to-do, a checkbox, a
+  🛒 to find) for "things to get at the shop", and it came back as *"I'm not
+  really following how to make a shopping list. It must be easier otherwise I
+  will never use it."* Toon's own design replaced it, and it is simpler:
+  a "🛒 Shopping list" button beside Brain → Buy's era filter opens the list
+  full screen; things are created there (era and project optional) or put on
+  from any to-buy row's 🛒, or from "Add from your to-buys" inside it; and
+  the list can be given a DAY, on which it appears on Today under "Also on
+  today's list". `Todo.shopping` is retired and read by nothing.
+  **The "needed soon" star BECAME the list** (`BuyItem.needed`, name kept as
+  schema). Asked *"we can star a to-buy, why was that again?"* — it was the
+  priority-that-is-not-a-priority, and "needed soon" is what a shopping list
+  is; two flags for one idea is how the first list became unfollowable.
+  **The list is a VIEW, not a place.** Every item keeps its era and project,
+  so it still shows in Brain, on the era overview, in project To buy sections
+  and on printouts — nothing hangs under anything, and the depth rule holds.
+  Bought items keep the flag and leave the list — except those bought TODAY,
+  which stay ticked, so a tick in the shop does not pull the row from under
+  your thumb. **The day is `Day.shopping`**, on the synced day record; at most
+  one day carries it and a past one is ignored (no overdue shop). The row
+  editor can now also set a buy item's PROJECT, not only its era.
+
+- **Habits have colours** (`Habit.color`, `habitColor`, `setHabitColor`).
+  *"They look bland while they should look inviting."* The project palette,
+  handed out at creation (first colour no other habit wears) and changeable on
+  the habit's page. Older habits derive one from their ID — not the name or
+  position, so renaming or dragging does not repaint them. Waiting on Today is
+  a wash with a coloured rim; done is filled solid with dark text (`ON_COLOR`),
+  replacing the uniform green. Me's rows and the heatmap wear it too.
 
 - **A suspended phone never renews its Google token, and that is why a day
   away ended signed out** ([auth.ts](src/lib/google/auth.ts)

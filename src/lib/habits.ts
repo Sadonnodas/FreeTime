@@ -1,6 +1,6 @@
 import { db } from './db';
 import type { Habit, HabitState, HabitStateChange } from './types';
-import { today } from './store';
+import { today, PROJECT_COLORS } from './store';
 
 /**
  * Cycle history and heatmap data (spec 3.6).
@@ -11,6 +11,24 @@ import { today } from './store';
  * guitar again" into "this is the fourth cycle, and they always come back".
  * Same data, opposite message.
  */
+
+/**
+ * A habit's colour: the one chosen, or one derived from its id.
+ *
+ * Asked for as *"they look bland while they should look inviting"* — habits
+ * were the only grey things left on Today. Derived from the ID, not the name
+ * or the position, so renaming or reordering one does not repaint it and two
+ * devices always agree.
+ */
+export function habitColor(habit: Pick<Habit, 'id' | 'color'>): string {
+  if (habit.color) return habit.color;
+  let h = 0;
+  for (const ch of habit.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PROJECT_COLORS[h % PROJECT_COLORS.length];
+}
+
+/** Text that reads on a filled palette colour, in either theme. */
+export const ON_COLOR = '#161616';
 
 /** The order habits are drawn in: where they were dragged to, then oldest first. */
 export const byHabitOrder = (a: Habit, b: Habit): number =>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { BuyItem, Project } from '$lib/types';
-  import { markPurchased, updateBuyItem, softDelete, toggleBuyNeeded } from '$lib/store';
+  import { markPurchased, updateBuyItem, softDelete } from '$lib/store';
+  import { setOnList } from '$lib/shoppingList';
   import RenameField from '$lib/components/RenameField.svelte';
   import { money } from '$lib/format';
   import PhotoThumb from './PhotoThumb.svelte';
@@ -216,20 +217,20 @@
         {/if}
 
         <!--
-          Needed soon, as opposed to eventually. Deliberately a flag and not a
-          priority: a scale is a second axis to maintain and feel bad about, and
-          it always rots. This is on or off, it floats the item to the top, and
-          never setting it costs nothing.
+          ON THE SHOPPING LIST, or not. This was a "needed soon" star, and
+          "needed soon" is what a shopping list is — two controls for one idea
+          is how the first shopping list became something nobody could follow.
+          Still a flag and never a priority: on or off, and never setting it
+          costs nothing. A basket rather than a star so it says what it does.
         -->
         <button
-          class="press tap-h w-9 shrink-0 text-center {item.needed
-            ? 'text-accent'
-            : 'text-ink-600'}"
-          onclick={() => toggleBuyNeeded(item.id, !item.needed)}
-          aria-label={item.needed ? 'Not needed soon' : 'Needed soon'}
+          class="press tap-h w-10 shrink-0 text-center text-[18px] transition-[filter,opacity]
+                 {item.needed ? '' : 'opacity-35 grayscale'}"
+          onclick={() => setOnList(item.id, !item.needed)}
+          aria-label={item.needed ? `Take ${item.name} off the shopping list` : `Put ${item.name} on the shopping list`}
           aria-pressed={!!item.needed}
         >
-          {item.needed ? '★' : '☆'}
+          🛒
         </button>
       </div>
 
@@ -290,13 +291,37 @@
                   class="chip press {item.projectId === p.id ? 'chip-on' : ''}"
                   onclick={() =>
                     updateBuyItem(item.id, {
-                      projectId: item.projectId === p.id ? undefined : p.id
+                      projectId: item.projectId === p.id ? undefined : p.id,
+                      // A project name belongs to ONE era; carrying it across
+                      // would point at a project that does not exist there.
+                      tag: undefined
                     })}
                 >
                   {p.name}
                 </button>
               {/each}
             </div>
+            {@const eraTags = projects.find((p) => p.id === item.projectId)?.tags ?? []}
+            {#if eraTags.length}
+              <!-- And the project inside it. Items could only be filed to an
+                   era from here, so a thing for the bedroom sat on "Home". -->
+              <div class="flex flex-wrap gap-2">
+                <button
+                  class="chip press {item.tag ? '' : 'chip-on'}"
+                  onclick={() => updateBuyItem(item.id, { tag: undefined })}
+                >
+                  No project
+                </button>
+                {#each eraTags as t (t)}
+                  <button
+                    class="chip press {item.tag === t ? 'chip-on' : ''}"
+                    onclick={() => updateBuyItem(item.id, { tag: item.tag === t ? undefined : t })}
+                  >
+                    {t}
+                  </button>
+                {/each}
+              </div>
+            {/if}
           {/if}
 
           <div class="flex items-center gap-1">

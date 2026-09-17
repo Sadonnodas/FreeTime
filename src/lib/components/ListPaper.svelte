@@ -124,7 +124,7 @@
               <tr>
                 <td class="paper-col-box"><span class="paper-box" aria-hidden="true"></span></td>
                 <td>
-                  {b.name}{#if b.needed}<span class="paper-muted"> · needed</span>{/if}
+                  {b.name}
                   {#if host(b.url)}<span class="paper-muted paper-break block">{host(b.url)}</span>{/if}
                 </td>
                 <td class="paper-num">{b.qty ?? 1}</td>

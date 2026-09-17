@@ -29,9 +29,7 @@
   import PhotoPicker from '$lib/components/PhotoPicker.svelte';
   import AddField from '$lib/components/AddField.svelte';
   import PlanToday from '$lib/components/PlanToday.svelte';
-  import ShoppingLink from '$lib/components/ShoppingLink.svelte';
-  import ShoppingToggle from '$lib/components/ShoppingToggle.svelte';
-  import { placeName } from '$lib/shopping';
+  import ShoppingListButton from '$lib/components/ShoppingListButton.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import { canRecord } from '$lib/audio';
   import { onMount } from 'svelte';
@@ -260,10 +258,6 @@
    * does not — and it is left off entirely inside a day list, where it is the
    * heading over every row and repeating it is just noise down the page.
    */
-  /** What a shopping to-do's list is called: its project, or its era. */
-  const placeOf = (t: Todo): string =>
-    placeName(t, ($projectsQ as Project[] | undefined) ?? []);
-
   const footnote = (t: Todo): string =>
     [
       blockerOf(t, byId) ? `after ${blockerOf(t, byId)!.title}` : null,
@@ -681,9 +675,6 @@
                 <p class="text-xs text-ink-400">{footnote(t)}</p>
               {/if}
             </button>
-            {#if t.shopping && !t.completedAt}
-              <ShoppingLink todo={t} place={placeOf(t)} size="xs" />
-            {/if}
           </div>
 
           {#if openTodo === t.id}
@@ -805,9 +796,6 @@
                   <p class="section-label mb-2">How much head does it need?</p>
                   <EnergyPicker value={t.energy} onpick={(energy) => updateTodo(t.id, { energy })} />
                 </div>
-              {/if}
-              {#if !t.completedAt}
-                <ShoppingToggle todo={t} place={placeOf(t)} />
               {/if}
               <div>
                 <p class="section-label mb-2">Photo</p>
@@ -983,14 +971,17 @@
     </form>
 
     <div class="mb-3 flex items-center gap-2">
-      <select bind:value={fBuyProject} class="field press">
+      <select bind:value={fBuyProject} class="field press min-w-0 flex-1">
         <option value="">All eras</option>
         {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
           <option value={p.id}>{p.name}</option>
         {/each}
       </select>
+      <!-- Beside the era filter, where Toon asked for it: the one list you
+           actually take to a shop. -->
+      <ShoppingListButton />
       <!-- On the filter row, at its far end — see the Ideas note above. -->
-      <span class="ml-auto">
+      <span class="shrink-0">
         <ListExport
           kind="buy"
           title={fBuyProject ? `To buy — ${projectName(fBuyProject)}` : 'To buy'}

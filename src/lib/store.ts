@@ -676,10 +676,20 @@ export async function reorderHabits(ids: string[]): Promise<void> {
   });
 }
 
+export async function setHabitColor(id: string, color: string): Promise<void> {
+  await db.habits.update(id, { color, updatedAt: now() });
+}
+
 export async function createHabit(name: string): Promise<string> {
   const state: HabitState = 'active';
   const at = now();
-  const h: Habit = stamp({ name: name.trim(), state, stateChangedAt: at });
+  // The first palette colour no other habit is wearing, so a new one stands
+  // apart from the ones already on Today.
+  const used = new Set(
+    (await db.habits.toArray()).filter((x) => !x.deletedAt && x.color).map((x) => x.color)
+  );
+  const color = PROJECT_COLORS.find((c) => !used.has(c)) ?? PROJECT_COLORS[used.size % PROJECT_COLORS.length];
+  const h: Habit = stamp({ name: name.trim(), state, stateChangedAt: at, color });
   await db.habits.add(h);
   await recordStateChange(h.id, state, at);
   return h.id;

@@ -4,7 +4,7 @@
   import type { Habit, HabitState, HabitLog } from '$lib/types';
   import { createHabit } from '$lib/store';
   import { winsSince } from '$lib/queries';
-  import { recentDays, byHabitOrder } from '$lib/habits';
+  import { recentDays, byHabitOrder, habitColor } from '$lib/habits';
   import ProjectShare from '$lib/components/ProjectShare.svelte';
   import Empty from '$lib/components/Empty.svelte';
   import { base } from '$app/paths';
@@ -90,7 +90,9 @@
             <li>
               <a
                 href="{base}/me/habits/{h.id}"
-                class="card-flat press flex items-center gap-2 px-4 py-3"
+                class="card-flat press row-tint flex items-center gap-2 px-4 py-3"
+                style:--row={habitColor(h)}
+                style:--edge={habitColor(h)}
               >
                 <div class="min-w-0 flex-1">
                   <p>{h.name}</p>
@@ -109,7 +111,8 @@
                   <div class="mt-1.5 flex gap-[3px]">
                     {#each recentDays(logsFor(h.id)) as d (d.date)}
                       <span
-                        class="h-2 w-2 rounded-[2px] {d.on ? 'bg-good' : 'bg-surface-2'}"
+                        class="h-2 w-2 rounded-[2px] {d.on ? '' : 'bg-surface-2'}"
+                        style:background={d.on ? habitColor(h) : undefined}
                         title={d.date}
                       ></span>
                     {/each}

@@ -65,3 +65,21 @@ describe("dragging an era's projects", () => {
     expect(after.tagColors).toEqual(colours);
   });
 });
+
+describe('habit colours', () => {
+  it('hands each new habit a colour the others are not wearing, and keeps a chosen one', async () => {
+    const { setHabitColor, PROJECT_COLORS } = await import('./store');
+    const { habitColor } = await import('./habits');
+    const a = await createHabit('Guitar');
+    const b = await createHabit('Run');
+    const [ha, hb] = [(await db.habits.get(a))!, (await db.habits.get(b))!];
+    expect(ha.color).toBe(PROJECT_COLORS[0]);
+    expect(hb.color).toBe(PROJECT_COLORS[1]);
+    await setHabitColor(a, PROJECT_COLORS[5]);
+    expect(habitColor((await db.habits.get(a))!)).toBe(PROJECT_COLORS[5]);
+    // One from before colours still gets a stable one.
+    const old = { id: 'abc', color: undefined };
+    expect(habitColor(old)).toBe(habitColor(old));
+    expect(PROJECT_COLORS).toContain(habitColor(old));
+  });
+});

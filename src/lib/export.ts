@@ -151,7 +151,7 @@ export const buyLineTotal = (b: BuyItem) => (b.priceCents ?? 0) * (b.qty ?? 1);
 export function buyDetails(b: BuyItem): string[] {
   const qty = (b.qty ?? 1) > 1 ? b.qty! : 1;
   return [
-    b.needed ? 'needed' : null,
+    b.needed ? 'on the shopping list' : null,
     b.priceCents
       ? qty > 1
         ? `${money(buyLineTotal(b), b.currency)} (${money(b.priceCents, b.currency)} each)`

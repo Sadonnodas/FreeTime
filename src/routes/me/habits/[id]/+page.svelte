@@ -3,8 +3,8 @@
   import { base } from '$app/paths';
   import { liveQuery } from 'dexie';
   import type { HabitState } from '$lib/types';
-  import { loadHabitDetail, heatmapWeeks, monthLabel } from '$lib/habits';
-  import { setHabitState, toggleHabitLog, today } from '$lib/store';
+  import { loadHabitDetail, heatmapWeeks, monthLabel, habitColor, ON_COLOR } from '$lib/habits';
+  import { setHabitState, toggleHabitLog, today, setHabitColor, PROJECT_COLORS } from '$lib/store';
 
   /**
    * Habit detail (spec 3.6): a calendar heatmap and a cycle history.
@@ -35,12 +35,30 @@
 
   {#if $detailQ}
     {@const habit = $detailQ.habit}
+    {@const hc = habitColor(habit)}
+
+    <!-- Its colour, the same eight the projects use. Tapping one is the whole
+         edit; there is nothing to save. -->
+    <div class="mb-4 flex flex-wrap gap-2" role="radiogroup" aria-label="Colour">
+      {#each PROJECT_COLORS as swatch (swatch)}
+        <button
+          class="press h-9 w-9 rounded-full transition-transform {swatch === hc ? 'scale-110' : ''}"
+          style="background: {swatch}; box-shadow: {swatch === hc
+            ? `0 0 0 3px var(--color-ink-950), 0 0 0 5px ${swatch}`
+            : 'none'}"
+          role="radio"
+          aria-checked={swatch === hc}
+          aria-label="Colour {swatch}"
+          onclick={() => setHabitColor(habit.id, swatch)}
+        ></button>
+      {/each}
+    </div>
 
     <button
-      class="press tap mb-6 w-full rounded-2xl border py-4 text-[17px] font-medium transition-colors
-             {loggedToday
-        ? 'border-good/50 bg-good/[0.14] text-good'
-        : 'border-line-1 bg-surface-1 text-ink-200'}"
+      class="press tap mb-6 w-full rounded-2xl border py-4 text-[17px] font-medium transition-colors"
+      style:background={loggedToday ? hc : `color-mix(in srgb, ${hc} 18%, var(--color-surface-1))`}
+      style:border-color={loggedToday ? hc : `color-mix(in srgb, ${hc} 55%, transparent)`}
+      style:color={loggedToday ? ON_COLOR : 'var(--color-ink-50)'}
       onclick={() => toggleHabitLog(habit.id)}
     >
       {loggedToday ? '✓ Done today' : 'Log for today'}
@@ -58,7 +76,8 @@
             <div class="flex flex-col gap-[3px]">
               {#each week as day (day.date)}
                 <div
-                  class="h-3 w-3 rounded-[2px] {day.on ? 'bg-good' : 'bg-surface-2'}"
+                  class="h-3 w-3 rounded-[2px] {day.on ? '' : 'bg-surface-2'}"
+                  style:background={day.on ? hc : undefined}
                   title={day.date}
                 ></div>
               {/each}
