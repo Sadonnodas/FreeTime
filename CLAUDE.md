@@ -1939,9 +1939,15 @@ device; there is nothing to build. Memos are the exception, below.
   *"They look bland while they should look inviting."* The project palette,
   handed out at creation (first colour no other habit wears) and changeable on
   the habit's page. Older habits derive one from their ID — not the name or
-  position, so renaming or dragging does not repaint them. Waiting on Today is
-  a wash with a coloured rim; done is filled solid with dark text (`ON_COLOR`),
-  replacing the uniform green. Me's rows and the heatmap wear it too.
+  position, so renaming or dragging does not repaint them. Me's rows and the
+  heatmap wear it too.
+  **Colour must never be what says DONE.** The first version washed waiting
+  habits in their colour and filled done ones, and a row of different colours
+  read as some already ticked: *"it looks like some are ticked off when the
+  colours are different."* Now a tick circle answers "done?" — an empty ring
+  in the habit's colour on a plain chip while waiting, a filled circle with a
+  ✓ (dark `ON_COLOR`) on a colour-tinted chip once done. Colour says WHICH,
+  the circle says WHETHER. Same on the habit's own page.
 
 - **A suspended phone never renews its Google token, and that is why a day
   away ended signed out** ([auth.ts](src/lib/google/auth.ts)

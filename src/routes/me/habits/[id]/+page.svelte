@@ -56,12 +56,23 @@
 
     <button
       class="press tap mb-6 w-full rounded-2xl border py-4 text-[17px] font-medium transition-colors"
-      style:background={loggedToday ? hc : `color-mix(in srgb, ${hc} 18%, var(--color-surface-1))`}
-      style:border-color={loggedToday ? hc : `color-mix(in srgb, ${hc} 55%, transparent)`}
-      style:color={loggedToday ? ON_COLOR : 'var(--color-ink-50)'}
+      style:background={loggedToday ? `color-mix(in srgb, ${hc} 30%, var(--color-surface-1))` : 'var(--color-surface-1)'}
+      style:border-color={loggedToday ? hc : 'var(--color-line-1)'}
+      style:color={'var(--color-ink-50)'}
       onclick={() => toggleHabitLog(habit.id)}
     >
-      {loggedToday ? '✓ Done today' : 'Log for today'}
+      <!-- The same tick circle as on Today: colour says which habit, the
+           circle says whether. -->
+      <span class="inline-flex items-center gap-2.5">
+        <span
+          class="flex h-6 w-6 items-center justify-center rounded-full border-2 text-[13px] font-bold"
+          style:border-color={hc}
+          style:background={loggedToday ? hc : 'transparent'}
+          style:color={ON_COLOR}
+          aria-hidden="true">{loggedToday ? '✓' : ''}</span
+        >
+        {loggedToday ? 'Done today' : 'Log for today'}
+      </span>
     </button>
 
     <section class="mb-8">

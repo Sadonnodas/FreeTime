@@ -870,16 +870,21 @@
             {@const hc = habitColor(habit)}
             <!--
               In the habit's own colour — *"they look bland while they should
-              look inviting"*. Waiting: a wash of it with a coloured rim, so the
-              row reads as a set of different things rather than grey pills.
-              Done: filled solid, which is the change you tapped for, stronger
-              than the wash and impossible to mistake for it.
+              look inviting"* — but the colour must never be what says DONE.
+              The first version washed waiting habits in their colour and
+              filled done ones, and a row of different colours read as some
+              already ticked: *"it looks like some are ticked off when the
+              colours are different."* So the question "done?" is answered by
+              a TICK CIRCLE, the same shape as a to-do's: an empty ring in the
+              habit's colour on a plain chip while waiting, and a filled circle
+              with a ✓ on a chip filled in its colour once done. Colour says
+              which habit; the circle says whether.
             -->
             <button
-              class="press tap relative rounded-2xl border px-4 py-3 text-[15px] font-medium transition-colors"
-              style:background={done ? hc : `color-mix(in srgb, ${hc} 18%, var(--color-surface-1))`}
-              style:border-color={done ? hc : `color-mix(in srgb, ${hc} 55%, transparent)`}
-              style:color={done ? ON_COLOR : 'var(--color-ink-50)'}
+              class="press tap relative flex items-center gap-2.5 rounded-2xl border py-2.5 pr-4 pl-3 text-[15px] font-medium transition-colors"
+              style:background={done ? `color-mix(in srgb, ${hc} 30%, var(--color-surface-1))` : 'var(--color-surface-1)'}
+              style:border-color={done ? hc : 'var(--color-line-1)'}
+              style:color={'var(--color-ink-50)'}
               use:habitDrag.item={habit.id}
               animate:flip={{ duration: habitDrag.dragging === habit.id ? 0 : 180 }}
               class:nudge={nudged === habit.id}
@@ -887,6 +892,8 @@
               style:--dino-face={nudged === habit.id ? dinoFace : undefined}
               style:--dino-dir={nudged === habit.id ? dinoDir : undefined}
               class:tick-pop={celebrating === habit.id}
+              aria-pressed={done}
+              aria-label={done ? `${habit.name}, done today` : `Log ${habit.name}`}
               onclick={() => {
                 // Only on the way IN. Unticking something is a correction, and
                 // confetti for a correction is the app being pleased about the
@@ -898,7 +905,14 @@
               {#if celebrating === habit.id}
                 <Burst size={108} />
               {/if}
-              {done ? '✓ ' : ''}{habit.name}
+              <span
+                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-[13px] leading-none font-bold transition-colors"
+                style:border-color={hc}
+                style:background={done ? hc : 'transparent'}
+                style:color={ON_COLOR}
+                aria-hidden="true"
+              >{done ? '✓' : ''}</span>
+              {habit.name}
             </button>
           {/each}
         </div>
