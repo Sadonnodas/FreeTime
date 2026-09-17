@@ -1944,9 +1944,11 @@ device; there is nothing to build. Memos are the exception, below.
   **Colour must never be what says DONE.** The first version washed waiting
   habits in their colour and filled done ones, and a row of different colours
   read as some already ticked: *"it looks like some are ticked off when the
-  colours are different."* Now a tick circle answers "done?" — an empty ring
-  in the habit's colour on a plain chip while waiting, a filled circle with a
-  ✓ (dark `ON_COLOR`) on a colour-tinted chip once done. Colour says WHICH,
+  colours are different."* Now a tick circle answers "done?" — waiting is a
+  LIGHT tint with an empty ring in the habit's colour; done is the card FULLY
+  in its colour with a white circle and a ✓. (A plain grey waiting chip was
+  tried in between and Toon wanted the colour back: the tint was never the
+  problem, the missing circle was.) Colour says WHICH,
   the circle says WHETHER. Same on the habit's own page.
   **A habit can be renamed and deleted** (`renameHabit`, the habit's page),
   which it could not be at all — asked as *"is there a way to adjust my

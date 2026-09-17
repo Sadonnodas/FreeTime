@@ -869,7 +869,7 @@
              the habits are looked at, and it was not findable from here. -->
         <div class="mb-2 flex items-center justify-between">
           <h2 class="section-label">Habits</h2>
-          <a href="{base}/me" class="press tap-h px-1 text-[13px] text-ink-400">Edit</a>
+          <a href="{base}/me" class="press tap-h inline-flex items-center px-1 text-[13px] text-ink-400">Edit</a>
         </div>
         <div class="flex flex-wrap gap-2">
           {#each habitDrag.arrange(habits) as habit (habit.id)}
@@ -882,16 +882,19 @@
               filled done ones, and a row of different colours read as some
               already ticked: *"it looks like some are ticked off when the
               colours are different."* So the question "done?" is answered by
-              a TICK CIRCLE, the same shape as a to-do's: an empty ring in the
-              habit's colour on a plain chip while waiting, and a filled circle
-              with a ✓ on a chip filled in its colour once done. Colour says
-              which habit; the circle says whether.
+              a TICK CIRCLE, the same shape as a to-do's. Waiting: a LIGHT tint
+              of the colour with an empty ring in it. Done: the card FULLY in
+              its colour, with a white circle and a ✓. (A plain grey waiting
+              chip was tried for an hour and was "bland" again — the tint was
+              never the problem, the missing circle was.) Colour says which
+              habit, the circle says whether, and the light/full contrast
+              backs the circle up.
             -->
             <button
               class="press tap relative flex items-center gap-2.5 rounded-2xl border py-2.5 pr-4 pl-3 text-[15px] font-medium transition-colors"
-              style:background={done ? `color-mix(in srgb, ${hc} 30%, var(--color-surface-1))` : 'var(--color-surface-1)'}
-              style:border-color={done ? hc : 'var(--color-line-1)'}
-              style:color={'var(--color-ink-50)'}
+              style:background={done ? hc : `color-mix(in srgb, ${hc} 16%, var(--color-surface-1))`}
+              style:border-color={done ? hc : `color-mix(in srgb, ${hc} 40%, transparent)`}
+              style:color={done ? ON_COLOR : 'var(--color-ink-50)'}
               use:habitDrag.item={habit.id}
               animate:flip={{ duration: habitDrag.dragging === habit.id ? 0 : 180 }}
               class:nudge={nudged === habit.id}
@@ -914,9 +917,9 @@
               {/if}
               <span
                 class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-[13px] leading-none font-bold transition-colors"
-                style:border-color={hc}
-                style:background={done ? hc : 'transparent'}
-                style:color={ON_COLOR}
+                style:border-color={done ? 'white' : hc}
+                style:background={done ? 'white' : 'transparent'}
+                style:color={hc}
                 aria-hidden="true"
               >{done ? '✓' : ''}</span>
               {habit.name}
