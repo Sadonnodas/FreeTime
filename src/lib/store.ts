@@ -447,6 +447,8 @@ export async function createTodo(
   opts: {
     projectId?: string; tag?: string; energy?: Energy; takes?: TimeBucket;
     date?: string; notes?: string; after?: string;
+    /** A photo taken while writing it, already resized (THUMB_EDGE). */
+    image?: string;
   } = {}
 ): Promise<string> {
   const t: Todo = stamp({ title: title.trim(), ...opts });

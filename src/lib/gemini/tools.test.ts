@@ -385,3 +385,21 @@ describe('finishing a project through the assistant', () => {
     expect((await db.projects.get(home))!.finishedTags ?? {}).toEqual({});
   });
 });
+
+describe('editing a proposal before it is added', () => {
+  it('rewords the main text and rebuilds the label from it', async () => {
+    const { editableText, withEditedText } = await import('./tools');
+    const p = { name: 'create_todo' as const, args: { title: 'Check app closng' }, label: 'To-do: Check app closng' };
+    expect(editableText(p)).toBe('Check app closng');
+    const next = (await withEditedText(p, '  Check app closing  '))!;
+    expect(next.args.title).toBe('Check app closing');
+    expect(next.label).toBe('To-do: Check app closing');
+  });
+
+  it('refuses an empty edit, and has nothing to edit on an action', async () => {
+    const { editableText, withEditedText } = await import('./tools');
+    const todo = { name: 'create_todo' as const, args: { title: 'x' }, label: 'To-do: x' };
+    expect(await withEditedText(todo, '   ')).toBeNull();
+    expect(editableText({ name: 'complete_todo', args: { id: 'abc' } })).toBeNull();
+  });
+});

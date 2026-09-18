@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { Content } from '$lib/gemini/client';
   import type { ProposedWrite } from '$lib/gemini/tools';
-  import { applyWrite, orderForApply, applyPendingEdits } from '$lib/gemini/tools';
+  import {
+    applyWrite, orderForApply, applyPendingEdits, editableText, withEditedText
+  } from '$lib/gemini/tools';
   import { ask, type Suggestion, type AskContext } from '$lib/gemini/assistant';
   import { base } from '$app/paths';
   import { goto } from '$app/navigation';
@@ -9,7 +11,7 @@
   import { transcribe } from '$lib/gemini/extract';
   import VoiceCapture from './VoiceCapture.svelte';
   import { autogrow } from '$lib/autogrow';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick as nextTick } from 'svelte';
 
   /**
    * Chat with the store (spec 7.1).
@@ -194,10 +196,80 @@
     for (const p of orderForApply(pending)) await applyWrite(p.name, p.args);
     const n = pending.length;
     pending = [];
+    editing = null;
     bubbles = [...bubbles, { role: 'it', text: `Added ${n}.` }];
   }
 
-  const discard = (i: number) => (pending = pending.filter((_, n) => n !== i));
+  const discard = (i: number) => {
+    pending = pending.filter((_, n) => n !== i);
+    editing = null;
+  };
+
+  /**
+   * One proposal added on its own. Anything it is FILED UNDER that is also
+   * still waiting — "put it in a new project called X" is two proposals — goes
+   * in first, or the to-do would land on the era because X does not exist yet
+   * (see orderForApply). Only the places it names by name, nothing else.
+   */
+  async function addOne(i: number) {
+    const p = pending[i];
+    if (!p) return;
+    const same = (a: unknown, b: unknown) =>
+      typeof a === 'string' && typeof b === 'string' && a.trim().toLowerCase() === b.trim().toLowerCase();
+    const needs = pending.filter(
+      (q, n) =>
+        n !== i &&
+        ((q.name === 'create_project' && same(q.args.name, p.args.projectId)) ||
+          ((q.name === 'add_project_to_era' || q.name === 'idea_to_project') &&
+            same(q.args.name, p.args.projectInEra)))
+    );
+    const batch = orderForApply([...needs, p]);
+    for (const q of batch) await applyWrite(q.name, q.args);
+    pending = pending.filter((q) => !batch.includes(q));
+    editing = null;
+    bubbles = [...bubbles, { role: 'it', text: `Added: ${p.label}` }];
+  }
+
+  /** Rewording a proposal in place, before it is added. */
+  let editing = $state<number | null>(null);
+  let editDraft = $state('');
+  function startEdit(i: number) {
+    editDraft = editableText(pending[i]) ?? '';
+    editing = i;
+  }
+  async function saveEdit() {
+    const i = editing;
+    if (i === null) return;
+    const next = await withEditedText(pending[i], editDraft);
+    if (next) pending = pending.map((p, n) => (n === i ? next : p));
+    editing = null;
+  }
+
+  /**
+   * A proposal's card, in three parts: what kind of thing it is, the words
+   * themselves (the big part), and where it will go — split out of the label so
+   * "in Home · Garden" is not read as the end of the to-do's title.
+   */
+  function parts(p: ProposedWrite): { kind: string; text: string; where: string } {
+    const at = p.label.indexOf(': ');
+    if (!(at > 0 && at < 40)) return { kind: '', text: p.label, where: '' };
+    const kind = p.label.slice(0, at);
+    const rest = p.label.slice(at + 2);
+    const words = editableText(p);
+    if (words && rest.startsWith(words)) {
+      return { kind, text: words, where: rest.slice(words.length).replace(/^ in /, '').trim() };
+    }
+    return { kind, text: rest, where: '' };
+  }
+
+  /** The conversation follows its newest line, including proposals arriving. */
+  let scroller = $state<HTMLDivElement | undefined>();
+  $effect(() => {
+    void bubbles.length;
+    void pending.length;
+    void busy;
+    void nextTick().then(() => scroller?.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' }));
+  });
 
   /** Starting over. Only the conversation: nothing here was ever saved. */
   function newChat() {
@@ -238,7 +310,7 @@
     </span>
   </div>
 
-  <div class="flex-1 space-y-3 overflow-y-auto px-4 py-2">
+  <div bind:this={scroller} class="flex-1 space-y-3 overflow-y-auto px-4 py-2">
     {#if !bubbles.length}
       <p class="footnote pt-10 pb-5 text-center">
         Ask what's open, or just say what you need to remember.
@@ -272,6 +344,67 @@
       </div>
     {/each}
 
+    {#if pending.length}
+      <!--
+        PROPOSALS LIVE IN THE CONVERSATION, WHOLE. They used to sit in a strip
+        under it, one truncated line each — a dictated to-do read "Check
+        reliability of app closing beha…" and could only be added or binned
+        unread. Now each is a card in the chat with its full words and where it
+        goes, and three actions: Add (just this one), Edit (reword it before it
+        is saved), Delete. Nothing here is written until an Add — spec 7.1.
+      -->
+      <section class="space-y-2" aria-label="Not added yet">
+        <p class="section-label pt-1">Not added yet</p>
+        {#each pending as p, i (i)}
+          {@const bits = parts(p)}
+          <div class="card p-3">
+            {#if bits.kind}
+              <p class="footnote mb-0.5">{bits.kind}{#if bits.where}{' · '}<span class="text-ink-200">{bits.where}</span>{/if}</p>
+            {/if}
+            {#if editing === i}
+              <textarea
+                bind:value={editDraft}
+                use:autogrow={{ value: editDraft, onenter: saveEdit, max: 240 }}
+                enterkeyhint="done"
+                class="field field-grow w-full"
+                aria-label="Edit"
+              ></textarea>
+              <div class="mt-2 flex justify-end gap-2">
+                <button class="press tap-h px-3 text-sm text-ink-400" onclick={() => (editing = null)}>
+                  Cancel
+                </button>
+                <button class="btn btn-primary press text-sm" disabled={!editDraft.trim()} onclick={saveEdit}>
+                  Save
+                </button>
+              </div>
+            {:else}
+              <p class="text-[16px] leading-snug break-words whitespace-pre-wrap">{bits.text}</p>
+              <div class="-mb-1 mt-2 flex items-center gap-1">
+                <button class="btn btn-primary press px-4 text-sm" onclick={() => addOne(i)}>Add</button>
+                {#if editableText(p) !== null}
+                  <button class="press tap-h rounded-lg px-3 text-sm text-accent" onclick={() => startEdit(i)}>
+                    Edit
+                  </button>
+                {/if}
+                <span class="flex-1"></span>
+                <button class="press tap-h rounded-lg px-3 text-sm text-ink-400" onclick={() => discard(i)}>
+                  Delete
+                </button>
+              </div>
+            {/if}
+          </div>
+        {/each}
+        {#if pending.length > 1}
+          <div class="flex gap-2 pt-1">
+            <button class="press tap flex-1 rounded-xl px-4 text-sm text-ink-400" onclick={() => { pending = []; editing = null; }}>
+              Delete all
+            </button>
+            <button class="btn btn-primary press flex-1 text-sm" onclick={commit}>Add all {pending.length}</button>
+          </div>
+        {/if}
+      </section>
+    {/if}
+
     {#if suggestions.length && !busy}
       <!-- Offered, not taken. The model can point at a screen; only a tap
            actually goes there. -->
@@ -289,35 +422,6 @@
       <p class="card-flat p-3 text-sm text-ink-400">{error}</p>
     {/if}
   </div>
-
-  {#if pending.length}
-    <!-- Nothing here has been written yet. Confirm before writing (spec 7.1):
-         silent AI writes would erode trust in the store, and the store's
-         trustworthiness is the whole product. -->
-    <div class="glass hairline-t p-3">
-      <p class="section-label mb-2">Not saved yet</p>
-      <div class="mb-3 space-y-1">
-        {#each pending as p, i (i)}
-          <div class="card-flat flex items-center gap-2 px-3 py-2">
-            <span class="min-w-0 flex-1 truncate text-[15px]">{p.label}</span>
-            <button class="tap px-1 text-ink-400" onclick={() => discard(i)} aria-label="Discard">
-              ×
-            </button>
-          </div>
-        {/each}
-      </div>
-      <div class="flex gap-2">
-        <button
-          class="press tap flex-1 rounded-xl px-4 text-sm text-ink-400"
-          onclick={() => (pending = [])}>Discard all</button
-        >
-        <button
-          class="btn btn-primary press flex-1 text-sm"
-          onclick={commit}>Add {pending.length}</button
-        >
-      </div>
-    </div>
-  {/if}
 
   {#if listening || transcribing}
     <div class="glass hairline-t flex items-center gap-3 px-4 py-3" role="status" aria-live="polite">

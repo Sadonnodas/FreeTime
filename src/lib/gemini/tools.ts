@@ -479,6 +479,43 @@ export interface ProposedWrite {
   label: string;
 }
 
+/**
+ * The words a proposal is ABOUT, for editing it in the chat before it is
+ * added — the to-do's title, the note's text, the new project's name. Tools
+ * that act on something that already exists (complete a to-do, log a habit)
+ * have nothing of their own to reword, so they have no entry.
+ */
+const EDITABLE_ARG: Partial<Record<WriteTool, string>> = {
+  create_todo: 'title',
+  create_idea: 'text',
+  create_buy_item: 'name',
+  create_project: 'name',
+  add_project_to_era: 'name',
+  create_habit: 'name',
+  append_note: 'text',
+  idea_to_project: 'name'
+};
+
+/** The editable words of a proposal, or null when it has none. */
+export function editableText(p: Pick<ProposedWrite, 'name' | 'args'>): string | null {
+  const key = EDITABLE_ARG[p.name];
+  return key ? (s(p.args[key]) ?? '') : null;
+}
+
+/**
+ * A proposal with its words changed, and its label rebuilt from them — the
+ * label is what the chat shows, so it must never describe the old words.
+ * An empty edit is refused (null): a to-do with no title cannot be read or
+ * found again, the same rule RenameField holds.
+ */
+export async function withEditedText(p: ProposedWrite, text: string): Promise<ProposedWrite | null> {
+  const key = EDITABLE_ARG[p.name];
+  const trimmed = text.trim();
+  if (!key || !trimmed) return null;
+  const args = { ...p.args, [key]: trimmed };
+  return { ...p, args, label: await describeWrite(p.name, args) };
+}
+
 export async function describeWrite(name: WriteTool, args: Args): Promise<string> {
   // Named from what the model said, not only from what exists: the era or
   // project may be created by an earlier proposal in the same batch.
@@ -512,7 +549,9 @@ export async function describeWrite(name: WriteTool, args: Args): Promise<string
     case 'create_habit':
       return `New habit: ${s(args.name) ?? '?'}`;
     case 'append_note':
-      return `Note${where()}: ${short(s(args.text) ?? '')}`;
+      // In full: the chat shows proposals whole, and a note is exactly the
+      // thing whose middle you need to read before adding it.
+      return `Note${where()}: ${s(args.text) ?? ''}`;
     case 'idea_to_todo': {
       const idea = await db.ideas.get(s(args.id) ?? '');
       return `Make a to-do: ${short(idea?.text ?? s(args.id) ?? '?')}`;

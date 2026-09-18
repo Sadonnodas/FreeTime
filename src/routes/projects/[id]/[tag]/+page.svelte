@@ -180,6 +180,8 @@
   let addTodo = $state(false);
   let newEnergy = $state<Energy | undefined>(undefined);
   let newTakes = $state<TimeBucket | undefined>(undefined);
+  /** A photo for the to-do being written, before it exists. */
+  let newImage = $state<string | undefined>(undefined);
   let newBuy = $state('');
 
   function choose(kind: AddKind) {
@@ -304,7 +306,11 @@
         bind:open={addTodo}
         label="Add a to-do"
         placeholder="Add to {tag}"
-        onadd={(title) => createTodo(title, { projectId: eraId, tag, energy: newEnergy, takes: newTakes })}
+        onadd={async (title) => {
+          await createTodo(title, { projectId: eraId, tag, energy: newEnergy, takes: newTakes, image: newImage });
+          // The photo was for this one to-do; the sizes stay for a run of them.
+          newImage = undefined;
+        }}
       >
         {#snippet extra(text)}
           {#if text.trim()}
@@ -324,6 +330,19 @@
                   unset={false}
                   hint={false}
                 />
+              </div>
+              <!-- The photo, while writing it — not add, reopen, then add. -->
+              <div>
+                <p class="section-label mb-2">Photo</p>
+                <PhotoPicker
+                  image={newImage}
+                  onpick={(image) => (newImage = image)}
+                  onremove={() => (newImage = undefined)}
+                />
+                {#if newImage}
+                  <!-- Which photo, before the to-do exists to show it on. -->
+                  <img src={newImage} alt="" class="mt-2 h-20 rounded-lg object-cover" />
+                {/if}
               </div>
             </div>
           {/if}

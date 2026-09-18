@@ -1275,6 +1275,34 @@ one came close to a hard rule, the reasoning is recorded here.
   the next quiet memo being boosted at all. `open()` unloads first now, which
   is also more correct for the car's stray PLAY.
 
+- **Three from the Coding export, again pasted straight back** (2026-09-18).
+  **The assistant's proposals live IN the chat, whole, with Add / Edit /
+  Delete each** ([Assistant.svelte](src/lib/components/Assistant.svelte),
+  `editableText` / `withEditedText` in [gemini/tools.ts](src/lib/gemini/tools.ts)).
+  They sat in a strip under the conversation, one `truncate`d line each —
+  a dictated to-do read "Check reliability of app closing beha…" and could
+  only be added or binned unread, shown with a screenshot. Now each is a card
+  in the scroll: kind and destination in small type ("To-do · Home ·
+  Garden"), the words big and wrapped, Add for just that one, Edit to reword
+  it, Delete; "Add all N" when there are several. The chat scrolls to its
+  newest line. **Edit changes the WORDS only** (title, text or name —
+  `EDITABLE_ARG`), and the label is rebuilt from them so the card never
+  describes the old wording; an empty edit is refused. Where it goes is
+  corrected by saying so ("put it in Garden instead" → `revise_pending`),
+  which already works. **Adding one pulls in the places it names**: a to-do
+  filed under a project that is itself still a proposal would otherwise land
+  on the era, so `addOne` applies those first, matched by name, and nothing
+  else. A note's label is no longer shortened, since a note is the thing
+  whose middle you need to read.
+  **A to-do can get its photo while it is written**, in Brain and inside a
+  project (`createTodo({ image })`), with a small preview — it used to take
+  add, reopen, add photo, for what is usually the reason the to-do exists: a
+  screenshot of the broken thing. The photo resets after each add; the era,
+  project and sizes do not, as a run of to-dos shares those.
+  **The quick-notes writing box grows with its text** (`grow` in
+  QuickNotes.svelte) instead of scrolling inside three lines. Not autogrow.ts:
+  that one makes Enter submit, and a note needs its new lines.
+
 - **Assistant tools** added: `create_habit`, `append_note` (appends — never replaces,
   because a misheard sentence overwriting a page of notes is unrecoverable), and
   `navigate`. Navigation is a third category (`SAFE_TOOLS`): it writes nothing, but it

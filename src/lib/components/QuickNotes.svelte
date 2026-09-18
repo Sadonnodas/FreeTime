@@ -251,6 +251,28 @@
       : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   }
 
+  /**
+   * The writing box grows with what is in it, so a note is read in the page
+   * rather than through a three-line slot — *"after a while I need to start
+   * scrolling"*. Unlike autogrow.ts this keeps Enter as a new line (a note has
+   * lines) and has no cap: the screen scrolls, the box never does. The value
+   * is the parameter only so a change from outside (a list toggled, the box
+   * cleared by New note) re-fits it too.
+   */
+  const grow = (node: HTMLTextAreaElement, _value: string) => {
+    const fit = () => {
+      node.style.height = 'auto';
+      node.style.height = `${node.scrollHeight}px`;
+    };
+    node.style.overflowY = 'hidden';
+    node.addEventListener('input', fit);
+    queueMicrotask(fit);
+    return {
+      update: () => queueMicrotask(fit),
+      destroy: () => node.removeEventListener('input', fit)
+    };
+  };
+
   const focus = (node: HTMLTextAreaElement) => {
     node.focus();
     node.setSelectionRange(node.value.length, node.value.length);
@@ -413,7 +435,8 @@
           bind:this={composeEl}
           value={draft}
           oninput={(e) => onCompose(withAnswer(e))}
-          rows={draft.includes('\n') || draft.length > 40 ? 5 : 3}
+          rows={3}
+          use:grow={draft}
           placeholder="Write it down…"
           class="w-full resize-none bg-transparent text-[17px] leading-relaxed text-ink-50 outline-none placeholder:text-ink-400"
           aria-label="New quick note"

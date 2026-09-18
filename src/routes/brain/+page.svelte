@@ -342,6 +342,14 @@
     if (newTag && !eraTags.includes(newTag)) newTag = '';
   });
 
+  /**
+   * A photo for the to-do being written, chosen before it exists. It used to
+   * take three steps — add it, open it again, add the photo — for what is
+   * usually the reason the to-do was written: a screenshot of the thing that
+   * is broken. Reported as *"that's an extra step"*.
+   */
+  let newImage = $state<string | undefined>(undefined);
+
   async function addTodo(title: string) {
     await createTodo(title, {
       projectId: newEra || undefined,
@@ -350,8 +358,12 @@
       takes: newTakes,
       // The lit day wins: while looking at tomorrow's list, "add" unambiguously
       // means tomorrow, and nothing else on the form says otherwise.
-      date: day || newDate || undefined
+      date: day || newDate || undefined,
+      image: newImage
     });
+    // The photo belongs to THIS to-do; the next one starts without it, unlike
+    // the era and project, which a run of to-dos usually shares.
+    newImage = undefined;
     // The title clears (AddField does that); the destination does not. Writing
     // five things for the same project should not mean setting it five times.
   }
@@ -565,6 +577,19 @@
                 {/each}
               </select>
             </label>
+          </div>
+
+          <div>
+            <p class="section-label mb-2">Photo</p>
+            <PhotoPicker
+              image={newImage}
+              onpick={(image) => (newImage = image)}
+              onremove={() => (newImage = undefined)}
+            />
+            {#if newImage}
+              <!-- Which photo, before the to-do exists to show it on. -->
+              <img src={newImage} alt="" class="mt-2 h-20 rounded-lg object-cover" />
+            {/if}
           </div>
 
           {#if day}
