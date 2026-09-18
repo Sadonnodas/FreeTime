@@ -34,6 +34,7 @@
   import AddField from '$lib/components/AddField.svelte';
   import PlanToday from '$lib/components/PlanToday.svelte';
   import WhenPicker from '$lib/components/WhenPicker.svelte';
+  import ProjectSelect from '$lib/components/ProjectSelect.svelte';
   import ShoppingListButton from '$lib/components/ShoppingListButton.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import { canRecord } from '$lib/audio';
@@ -252,9 +253,6 @@
 
   const eraOf = (id?: string) =>
     (($projectsQ as Project[] | undefined) ?? []).find((p) => p.id === id);
-
-  /** The projects inside one era, for the Belongs-to picker on a row. */
-  const tagsOf = (id?: string) => eraOf(id)?.tags ?? [];
 
   /**
    * The colour down the leading edge of a row: where this thing lives.
@@ -585,18 +583,16 @@
 
             <label class="min-w-0 flex-1">
               <span class="section-label mb-1 block">Project</span>
-              <select
-                bind:value={newTag}
-                class="field press w-full text-sm"
-                disabled={!eraTags.length}
-              >
-                <option value="">
-                  {newEra ? (eraTags.length ? 'No project' : 'None in this era') : 'Pick an era first'}
-                </option>
-                {#each eraTags as t (t)}
-                  <option value={t}>{t}</option>
-                {/each}
-              </select>
+              <!-- Works on its own: picking a project fills in its era. -->
+              <ProjectSelect
+                eras={($projectsQ as Project[] | undefined) ?? []}
+                eraId={newEra || undefined}
+                tag={newTag || undefined}
+                onpick={(era, tag) => {
+                  newEra = era ?? '';
+                  newTag = tag ?? '';
+                }}
+              />
             </label>
           </div>
 
@@ -782,24 +778,12 @@
 
                   <label class="min-w-0 flex-1">
                     <span class="footnote mb-1 block">Project</span>
-                    <select
-                      value={t.tag ?? ''}
-                      class="field press w-full text-sm"
-                      disabled={!tagsOf(t.projectId).length}
-                      onchange={(e) =>
-                        updateTodo(t.id, { tag: e.currentTarget.value || undefined })}
-                    >
-                      <option value="">
-                        {t.projectId
-                          ? tagsOf(t.projectId).length
-                            ? 'No project'
-                            : 'None in this era'
-                          : 'Pick an era first'}
-                      </option>
-                      {#each tagsOf(t.projectId) as tag (tag)}
-                        <option value={tag}>{tag}</option>
-                      {/each}
-                    </select>
+                    <ProjectSelect
+                      eras={($projectsQ as Project[] | undefined) ?? []}
+                      eraId={t.projectId}
+                      tag={t.tag}
+                      onpick={(projectId, tag) => updateTodo(t.id, { projectId, tag })}
+                    />
                   </label>
                 </div>
               </div>

@@ -12,6 +12,7 @@
   import { portal } from '$lib/portal';
   import BuyList from './BuyList.svelte';
   import ListExport from './ListExport.svelte';
+  import ProjectSelect from './ProjectSelect.svelte';
 
   /**
    * The shopping list, full screen — it is held in one hand down an aisle.
@@ -159,15 +160,18 @@
             <option value="">No era</option>
             {#each eras as e (e.id)}<option value={e.id}>{e.name}</option>{/each}
           </select>
-          <select
-            bind:value={newTag}
-            class="field press min-w-0 flex-1 text-sm"
-            disabled={!newEraTags.length}
-            aria-label="Project"
-          >
-            <option value="">{newEra ? (newEraTags.length ? 'No project' : 'No projects') : 'Project'}</option>
-            {#each newEraTags as t (t)}<option value={t}>{t}</option>{/each}
-          </select>
+          <div class="min-w-0 flex-1">
+            <ProjectSelect
+              {eras}
+              eraId={newEra || undefined}
+              tag={newTag || undefined}
+              noneLabel="Project"
+              onpick={(era, tag) => {
+                newEra = era ?? '';
+                newTag = tag ?? '';
+              }}
+            />
+          </div>
         </div>
       {/if}
     </form>

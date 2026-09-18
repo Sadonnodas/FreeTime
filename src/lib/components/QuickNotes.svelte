@@ -8,6 +8,7 @@
   import type { Project, QuickNote } from '$lib/types';
   import { portal } from '$lib/portal';
   import RemoveButton from './RemoveButton.svelte';
+  import ProjectSelect from './ProjectSelect.svelte';
   import { answerFor, totalOf, formatNumber } from '$lib/calc';
   import { continueList, toggleList, stripMarker } from '$lib/textLists';
 
@@ -385,15 +386,18 @@
               {#each eras as e (e.id)}<option value={e.id}>{e.name}</option>{/each}
             </select>
             {#if moving === 'notes'}
-              <select
-                bind:value={toTag}
-                class="field press min-w-0 flex-1 text-sm"
-                aria-label="Project"
-                disabled={!toEraTags.length}
-              >
-                <option value="">{toEraTags.length ? 'The era itself' : 'No projects'}</option>
-                {#each toEraTags as t (t)}<option value={t}>{t}</option>{/each}
-              </select>
+              <div class="min-w-0 flex-1">
+                <ProjectSelect
+                  {eras}
+                  eraId={toEra || undefined}
+                  tag={toTag || undefined}
+                  noneLabel="The era itself"
+                  onpick={(era, tag) => {
+                    if (era) toEra = era;
+                    toTag = tag ?? '';
+                  }}
+                />
+              </div>
             {/if}
           </div>
           {#if moving === 'project'}

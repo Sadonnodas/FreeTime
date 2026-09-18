@@ -1920,6 +1920,17 @@ device; there is nothing to build. Memos are the exception, below.
   row had already left. Safari needs `webkitUserSelect` set as a property;
   `setProperty('-webkit-user-select')` is not reliably honoured.
 
+- **The Project dropdown works on its own** ([ProjectSelect.svelte](src/lib/components/ProjectSelect.svelte)).
+  It listed only the chosen era's projects and sat disabled saying "Pick an
+  era first" — *"can't we make the dropdown work both ways, where when you
+  select a project first the era gets filled in automatically?"* It now lists
+  every project grouped under its era (optgroups), the chosen era's group
+  first, and a pick reports both era and project. Option values carry the era
+  id with the name, since a project name is only unique inside its era. Used
+  by Brain's add form, a to-do's Belongs to, the shopping list's add box and
+  moving a quick note into a project. The Era dropdown is unchanged: picking
+  an era still clears a project that belongs to another.
+
 - **Your own order for to-dos, ideas and to-buys — one per item, everywhere**
   ([rank.ts](src/lib/rank.ts), [rank.test.ts](src/lib/rank.test.ts),
   `rankedReorder` in reorder.svelte.ts, `setRanks`, `Todo/Idea/BuyItem.rank`).
