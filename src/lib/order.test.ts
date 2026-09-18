@@ -54,8 +54,19 @@ describe('one to-do waiting on another', () => {
 
 describe('the order the links produce', () => {
   it('puts what can be started first and reads each chain in sequence', () => {
+    // Within one depth: newest first until dragged (rank.ts), so the bamboo,
+    // written after the clean-up, sits above it — both are ready.
     const order = readyFirst(garden()).map((t) => t.id);
-    expect(order).toEqual(['clean', 'bamboo', 'grass', 'pots']);
+    expect(order).toEqual(['bamboo', 'clean', 'grass', 'pots']);
+  });
+
+  it('follows a dragged order within a depth, but never lifts a to-do above what it waits for', () => {
+    const all = garden().map((t) =>
+      t.id === 'clean' ? { ...t, rank: -1e15 } : t.id === 'pots' ? { ...t, rank: -2e15 } : t
+    );
+    // "clean" dragged to the top of the ready ones; "pots" dragged to the very
+    // top, but it waits on grass, which waits on clean — so it stays at the end.
+    expect(readyFirst(all).map((t) => t.id)).toEqual(['clean', 'bamboo', 'grass', 'pots']);
   });
 
   it('re-sorts itself as things get done', () => {
@@ -63,7 +74,7 @@ describe('the order the links produce', () => {
     all[0] = { ...all[0], completedAt: '2026-09-02T09:00:00.000Z' };
     // Sowing is now ready, so it joins the top group rather than sitting under
     // the bamboo it never actually depended on.
-    expect(readyFirst(all).map((t) => t.id)).toEqual(['clean', 'bamboo', 'grass', 'pots']);
+    expect(readyFirst(all).map((t) => t.id)).toEqual(['grass', 'bamboo', 'clean', 'pots']);
     expect(chainDepth(all[3], indexById(all))).toBe(1);
   });
 

@@ -8,6 +8,8 @@
   import PhotoPicker from './PhotoPicker.svelte';
   import RemoveButton from './RemoveButton.svelte';
   import { tintFor } from '$lib/colors';
+  import { rankedReorder } from '$lib/reorder.svelte';
+  import { flip } from 'svelte/animate';
 
   /**
    * The buy list, shared by Brain and by a project's Buy tab so the two cannot
@@ -49,6 +51,14 @@
     tinted ? tintFor(projects.find((p) => p.id === item.projectId), item.tag) : undefined;
 
   let openId = $state<string | null>(null);
+
+  /**
+   * Hold and drag to put them in your own order (rank.ts). Only in an
+   * UNGROUPED list: grouped by shop or project, a row dragged into another
+   * group would snap back to its own, since what decides the group is where
+   * it is bought, not where it was dropped.
+   */
+  const drag = rankedReorder('buyItems', () => items);
 
   const projectName = (id?: string) => projects.find((p) => p.id === id)?.name;
 
@@ -167,12 +177,14 @@
   {/if}
 
   <ul class="space-y-1">
-    {#each group.items as item (item.id)}
+    {#each groupBy === 'none' ? drag.arrange(group.items) : group.items as item (item.id)}
     {@const tint = tintOf(item)}
     <li
       class="card-flat px-3 py-1 {tint ? 'row-tint' : ''}"
       style:--row={tint?.fill}
       style:--edge={tint?.edge}
+      use:drag.item={{ id: item.id, off: groupBy !== 'none' || openId === item.id }}
+      animate:flip={{ duration: drag.dragging === item.id ? 0 : 180 }}
     >
       <div class="flex items-center gap-3">
         <button

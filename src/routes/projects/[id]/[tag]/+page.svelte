@@ -1,5 +1,8 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { byRank } from '$lib/rank';
+  import { rankedReorder } from '$lib/reorder.svelte';
+  import { flip } from 'svelte/animate';
   import { base } from '$app/paths';
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
@@ -109,7 +112,7 @@
     (($eraIdeasQ as Idea[] | undefined) ?? [])
       .filter((i) => i.tag === tag)
       // Finished ones stay — nothing here is ever deleted by the app — but sink.
-      .sort((a, b) => (a.doneAt ? 1 : 0) - (b.doneAt ? 1 : 0) || b.createdAt.localeCompare(a.createdAt))
+      .sort((a, b) => (a.doneAt ? 1 : 0) - (b.doneAt ? 1 : 0) || byRank(a, b))
   );
   /** Every era, for an idea's Belongs-to and for starting a project from one. */
   const erasQ = liveQuery(() => activeProjects());
@@ -126,6 +129,9 @@
    * arranges itself from the links, so nobody has to drag anything.
    */
   const open = $derived(readyFirst(todosQ.filter((t) => !t.completedAt)));
+  /** Hold and drag for your own order (rank.ts), shared with Brain. What waits
+   *  on something still sits below it — readyFirst keeps chains readable. */
+  const todoDrag = rankedReorder('todos', () => open);
   const closed = $derived(
     todosQ
       .filter((t): t is Todo & { completedAt: string } => !!t.completedAt)
@@ -135,8 +141,9 @@
     [...buyQ].sort(
       (a, b) =>
         (a.purchasedAt ? 1 : 0) - (b.purchasedAt ? 1 : 0) ||
-        (b.needed ? 1 : 0) - (a.needed ? 1 : 0) ||
-        b.createdAt.localeCompare(a.createdAt)
+        // Your own order; what is on the shopping list no longer floats up,
+        // since that would undo a drag — the 🛒 on the row says it.
+        byRank(a, b)
     )
   );
   const memos = $derived(
@@ -350,9 +357,13 @@
       </AddField>
 
       <ul class="space-y-1">
-        {#each open as todo (todo.id)}
+        {#each todoDrag.arrange(open) as todo (todo.id)}
           {@const waiting = blockerOf(todo, byId)}
-          <li class="card-flat px-3">
+          <li
+            class="card-flat px-3"
+            use:todoDrag.item={{ id: todo.id, off: openTodo === todo.id }}
+            animate:flip={{ duration: todoDrag.dragging === todo.id ? 0 : 180 }}
+          >
             <div class="flex items-center gap-3">
               <!--
                 Still tappable while it waits, and deliberately so. Being

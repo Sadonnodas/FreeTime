@@ -152,6 +152,13 @@ export interface Todo extends Base {
    * Kept only so records that carry it still type-check; nothing reads it.
    */
   shopping?: boolean;
+  /**
+   * Your own place for it in a list, set by dragging (rank.ts). Lower is higher
+   * up; unset sorts by when it was written, newest first. One order per item,
+   * shared by every screen that lists it, so a filtered list agrees with the
+   * full one.
+   */
+  rank?: number;
   completedAt?: string;
 }
 
@@ -197,6 +204,13 @@ export interface Idea extends Base {
    * is what the old ListItem 'done' state did.
    */
   doneAt?: string;
+  /**
+   * Your own place for it in a list, set by dragging (rank.ts). Lower is higher
+   * up; unset sorts by when it was written, newest first. One order per item,
+   * shared by every screen that lists it, so a filtered list agrees with the
+   * full one.
+   */
+  rank?: number;
 }
 
 export interface BuyItem extends Base {
@@ -236,6 +250,13 @@ export interface BuyItem extends Base {
    * off, it sorts to the top, and forgetting to set it costs nothing.
    */
   needed?: boolean;
+  /**
+   * Your own place for it in a list, set by dragging (rank.ts). Lower is higher
+   * up; unset sorts by when it was written, newest first. One order per item,
+   * shared by every screen that lists it, so a filtered list agrees with the
+   * full one.
+   */
+  rank?: number;
 }
 
 export interface List extends Base {

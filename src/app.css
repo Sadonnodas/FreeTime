@@ -1533,3 +1533,16 @@ textarea.field-grow {
     animation: none;
   }
 }
+
+/*
+ * Text fields stay selectable inside rows that can be dragged. reorder.svelte.ts
+ * turns selection off on a draggable row (a long press is for lifting it), and
+ * iOS Safari will otherwise refuse to place a cursor or type in a field inside
+ * one. Unlayered, so it wins over any utility.
+ */
+input,
+textarea,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+}

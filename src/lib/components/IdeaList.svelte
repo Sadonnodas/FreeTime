@@ -9,6 +9,8 @@
   import { tintFor } from '$lib/colors';
   import RenameField from './RenameField.svelte';
   import RemoveButton from './RemoveButton.svelte';
+  import { rankedReorder } from '$lib/reorder.svelte';
+  import { flip } from 'svelte/animate';
 
   /**
    * A list of ideas, and everything that can happen to one.
@@ -42,6 +44,10 @@
   } = $props();
 
   let openId = $state<string | null>(null);
+
+  /** Hold and drag to put them in your own order (rank.ts) — one order per
+   *  idea, so this list agrees with every other list the idea is in. */
+  const drag = rankedReorder('ideas', () => ideas);
 
   /** The make-it-a-project form, for whichever row has it open. */
   let growing = $state<string | null>(null);
@@ -81,7 +87,7 @@
 </script>
 
 <ul class="space-y-1">
-  {#each ideas as i (i.id)}
+  {#each drag.arrange(ideas) as i (i.id)}
     <!-- Tinted only where the list mixes projects. Inside one project every row
          would wear the same colour, which says nothing, and would make the ideas
          look like a different kind of thing from the plain to-dos above them. -->
@@ -90,6 +96,8 @@
       class="card-flat px-3 {tint ? 'row-tint' : ''}"
       style:--row={tint?.fill}
       style:--edge={tint?.edge}
+      use:drag.item={{ id: i.id, off: openId === i.id }}
+      animate:flip={{ duration: drag.dragging === i.id ? 0 : 180 }}
     >
       <div class="flex items-center gap-3">
         <!-- Finishing a want is a real thing — a book gets read — and it counts

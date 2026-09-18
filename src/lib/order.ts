@@ -1,4 +1,5 @@
 import type { Todo } from './types';
+import { rankOf } from './rank';
 
 /**
  * Which to-dos are waiting on another one, and what order that puts them in.
@@ -105,16 +106,21 @@ export function possibleBlockers(todo: Todo, siblings: Todo[]): Todo[] {
 /**
  * Ready first, then each chain in the order it has to happen.
  *
- * This is where "give them an order" actually gets answered: nobody arranges
- * the list, the links do it. Within one depth the order is the order they were
- * written, because a project's list is a plan you read down, not a feed.
+ * The links decide which comes first where they exist — what waits sits below
+ * what it waits for, however it was dragged. Within one depth it is your own
+ * order (see below).
  */
 export function readyFirst(todos: Todo[]): Todo[] {
   const byId = indexById(todos);
   return [...todos].sort(
     (a, b) =>
       chainDepth(a, byId) - chainDepth(b, byId) ||
-      a.createdAt.localeCompare(b.createdAt) ||
+      // Within one depth: YOUR order (rank.ts) — dragged, or newest first
+      // until you drag. It was oldest first ("a plan you read down"), and the
+      // plan is now whatever you arrange; what it replaced lost because the
+      // project list and Brain filtered to that project have to agree, and
+      // Brain is newest first so a new to-do shows up under its Add button.
+      rankOf(a) - rankOf(b) ||
       // Two to-dos written in the same millisecond — a sync, an import, a fast
       // machine — would otherwise fall back to whatever order the database
       // returned them in, which follows random ids. Arbitrary, but the SAME

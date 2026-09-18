@@ -1,5 +1,6 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
+  import { byRank } from '$lib/rank';
   import { page } from '$app/state';
   import { db } from '$lib/db';
   import { base } from '$app/paths';
@@ -68,7 +69,7 @@
       (a, b) =>
         (a.doneAt ? 1 : 0) - (b.doneAt ? 1 : 0) ||
         (a.tag ?? '\uffff').localeCompare(b.tag ?? '\uffff') ||
-        b.createdAt.localeCompare(a.createdAt)
+        byRank(a, b)
     )
   );
 
@@ -260,8 +261,7 @@
       .sort(
       (a, b) =>
         (a.purchasedAt ? 1 : 0) - (b.purchasedAt ? 1 : 0) ||
-        (b.needed ? 1 : 0) - (a.needed ? 1 : 0) ||
-        b.createdAt.localeCompare(a.createdAt)
+        byRank(a, b)
     )
   );
 

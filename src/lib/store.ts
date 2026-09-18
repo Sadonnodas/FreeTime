@@ -853,6 +853,23 @@ export async function quickNoteToProject(
   return 'started';
 }
 
+/**
+ * Where a dragged item now sits (rank.ts `placement`). Usually one write — the
+ * item that moved — and the whole visible list only when its neighbours left
+ * no room.
+ */
+export async function setRanks(
+  table: 'todos' | 'ideas' | 'buyItems',
+  writes: { id: string; rank: number }[]
+): Promise<void> {
+  if (!writes.length) return;
+  const at = now();
+  const t = db[table] as unknown as { update(k: string, p: object): Promise<number> };
+  await db.transaction('rw', db[table], async () => {
+    for (const w of writes) await t.update(w.id, { rank: w.rank, updatedAt: at });
+  });
+}
+
 type SoftDeletable =
   | 'projects' | 'todos' | 'ideas' | 'buyItems'
   | 'lists' | 'listItems' | 'habits' | 'captures' | 'quickNotes';

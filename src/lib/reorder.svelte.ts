@@ -1,5 +1,7 @@
 import { tick } from 'svelte';
 import type { Action } from 'svelte/action';
+import { placement, type Rankable } from './rank';
+import { setRanks } from './store';
 
 /**
  * Press, hold, drag: reordering a short list by hand.
@@ -46,10 +48,10 @@ export class Reorder {
   preview = $state<string[] | null>(null);
 
   private nodes = new Map<string, HTMLElement>();
-  private commit: (ids: string[]) => unknown;
+  private commit: (ids: string[], moved: string) => unknown;
   private axis: Axis;
 
-  constructor(commit: (ids: string[]) => unknown, axis: Axis = 'y') {
+  constructor(commit: (ids: string[], moved: string) => unknown, axis: Axis = 'y') {
     this.commit = commit;
     this.axis = axis;
   }
@@ -81,15 +83,29 @@ export class Reorder {
     return x > r.left + r.width / 2;
   }
 
-  item: Action<HTMLElement, string> = (node, initialId) => {
-    let id = initialId!;
+  /**
+   * `use:list.item={id}`, or `{ id, off }` — OFF while a row is open for
+   * editing, because a hold inside a text field is for the text, and because
+   * Safari can refuse typing in a field whose ancestor has user-select: none.
+   * Off restores selection and ignores presses; the row still counts in the
+   * list, so the others can be dragged past it.
+   */
+  item: Action<HTMLElement, string | { id: string; off?: boolean }> = (node, initial) => {
+    const read = (p: string | { id: string; off?: boolean } | undefined) =>
+      typeof p === 'string' ? { id: p, off: false } : { id: p!.id, off: !!p!.off };
+    let { id, off } = read(initial);
     this.nodes.set(id, node);
-    node.style.setProperty('-webkit-touch-callout', 'none');
-    node.style.setProperty('-webkit-user-select', 'none');
-    node.style.userSelect = 'none';
-    // Safari reads the prefixed property; setProperty with the prefix is not
-    // reliably honoured there, and a long press would select the text instead.
-    (node.style as CSSStyleDeclaration & { webkitUserSelect?: string }).webkitUserSelect = 'none';
+    const style = node.style as CSSStyleDeclaration & { webkitUserSelect?: string };
+    const applySelect = () => {
+      const v = off ? '' : 'none';
+      node.style.setProperty('-webkit-touch-callout', v);
+      node.style.setProperty('-webkit-user-select', v);
+      node.style.userSelect = v;
+      // Safari reads the prefixed property; setProperty with the prefix is not
+      // reliably honoured there, and a long press would select the text instead.
+      style.webkitUserSelect = v;
+    };
+    applySelect();
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     let startX = 0;
@@ -181,7 +197,7 @@ export class Reorder {
       settle();
       const changed = keep && after.join() !== before.join();
       if (changed) {
-        void Promise.resolve(this.commit(after)).finally(() => {
+        void Promise.resolve(this.commit(after, id)).finally(() => {
           // Held a moment past the write, so the list does not flash back to
           // the old order before the liveQuery delivers the new one.
           setTimeout(() => {
@@ -205,6 +221,7 @@ export class Reorder {
 
     // --- touch
     const onTouchStart = (e: TouchEvent) => {
+      if (off) return;
       if (e.touches.length !== 1) return end(false);
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
@@ -233,7 +250,7 @@ export class Reorder {
 
     // --- mouse
     const onPointerDown = (e: PointerEvent) => {
-      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      if (off || e.pointerType !== 'mouse' || e.button !== 0) return;
       startX = e.clientX;
       startY = e.clientY;
       clearTimer();
@@ -254,6 +271,20 @@ export class Reorder {
       end(true);
     };
 
+    // ON A COMPUTER, the browser has a drag of its own. Holding and moving a
+    // LINK (an era's project rows are links) or an image starts the browser's
+    // "drag this somewhere" instead, which swallows the mouse — reported as
+    // *"long click moving by dragging doesn't seem to work on the computer
+    // version"*. Touch never does this, so it only ever broke on a laptop.
+    // Cancel it, and the text selection a held mouse starts, on draggable rows.
+    const onNativeDrag = (e: Event) => {
+      if (!off) e.preventDefault();
+    };
+    const onSelectStart = (e: Event) => {
+      if (!off && (timer || active)) e.preventDefault();
+    };
+    node.addEventListener('dragstart', onNativeDrag);
+    node.addEventListener('selectstart', onSelectStart);
     node.addEventListener('touchstart', onTouchStart, { passive: true });
     node.addEventListener('touchmove', onTouchMove, { passive: false });
     node.addEventListener('touchend', onTouchEnd);
@@ -262,10 +293,11 @@ export class Reorder {
     node.addEventListener('pointerdown', onPointerDown);
 
     return {
-      update: (next: string) => {
+      update: (next: string | { id: string; off?: boolean }) => {
         this.nodes.delete(id);
-        id = next;
+        ({ id, off } = read(next));
         this.nodes.set(id, node);
+        applySelect();
       },
       destroy: () => {
         clearTimer();
@@ -277,7 +309,27 @@ export class Reorder {
         node.removeEventListener('touchcancel', onTouchCancel);
         node.removeEventListener('contextmenu', onContext);
         node.removeEventListener('pointerdown', onPointerDown);
+        node.removeEventListener('dragstart', onNativeDrag);
+        node.removeEventListener('selectstart', onSelectStart);
       }
     };
   };
+}
+
+
+/**
+ * A drag that saves as your own order (rank.ts) rather than as a day's or an
+ * era's list. `items` is read at drop time, so the positions come from the
+ * rows as they are then, not as they were when the list was built.
+ */
+export function rankedReorder(
+  table: 'todos' | 'ideas' | 'buyItems',
+  items: () => Rankable[],
+  axis: Axis = 'y'
+): Reorder {
+  return new Reorder((ids, moved) => {
+    const byId = new Map(items().map((x) => [x.id, x]));
+    const ordered = ids.map((id) => byId.get(id)).filter((x): x is Rankable => !!x);
+    return setRanks(table, placement(ordered, moved));
+  }, axis);
 }

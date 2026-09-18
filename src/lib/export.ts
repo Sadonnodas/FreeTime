@@ -1,4 +1,5 @@
 import { db } from './db';
+import { byRank } from './rank';
 import { getNote } from './store';
 import { memosForProject, mmss, displayTitle } from './memos';
 import { widgetsFor } from './widgets';
@@ -107,12 +108,13 @@ export async function collectProject(eraId: string, tag: string): Promise<Projec
     done: mine
       .filter((t) => !!t.completedAt)
       .sort((a, b) => a.completedAt!.localeCompare(b.completedAt!)),
+    // Your own order (rank.ts), the same one the project screen shows.
     ideas: live(ideas)
       .filter((i) => !i.doneAt)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+      .sort(byRank),
     buy: live(buys)
       .filter((b) => !b.purchasedAt)
-      .sort((a, b) => (b.needed ? 1 : 0) - (a.needed ? 1 : 0) || a.createdAt.localeCompare(b.createdAt)),
+      .sort(byRank),
     note: note?.markdown?.trim() || undefined,
     blocks: live(widgets).filter((w) => blockHasContent(w)),
     recordings: live(memos)

@@ -51,8 +51,9 @@ describe('exporting a project as text', () => {
         '',
         '## To-dos',
         '',
-        '- [ ] Card database',
+        // Newest first until dragged — the same order the project screen shows.
         '- [ ] Shuffle and draw',
+        '- [ ] Card database',
         ''
       ].join('\n')
     );

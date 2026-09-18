@@ -6,6 +6,7 @@
   import { listItems, onList, setOnList, setShoppingDate, shoppingDate } from '$lib/shoppingList';
   import { tomorrow, dayLabel } from '$lib/days';
   import { tintFor } from '$lib/colors';
+  import { byRank } from '$lib/rank';
   import { money } from '$lib/format';
   import type { BuyItem, Day, Project } from '$lib/types';
   import { portal } from '$lib/portal';
@@ -44,7 +45,8 @@
     const [be, bt] = rank(b);
     if (ae !== be) return ae < be ? -1 : 1;
     if (at !== bt) return at < bt ? -1 : 1;
-    return a.createdAt.localeCompare(b.createdAt);
+    // Within one project: your own order, so a drag here or anywhere else holds.
+    return byRank(a, b);
   }
 
   const list = $derived(

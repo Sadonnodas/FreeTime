@@ -1920,6 +1920,45 @@ device; there is nothing to build. Memos are the exception, below.
   row had already left. Safari needs `webkitUserSelect` set as a property;
   `setProperty('-webkit-user-select')` is not reliably honoured.
 
+- **Your own order for to-dos, ideas and to-buys — one per item, everywhere**
+  ([rank.ts](src/lib/rank.ts), [rank.test.ts](src/lib/rank.test.ts),
+  `rankedReorder` in reorder.svelte.ts, `setRanks`, `Todo/Idea/BuyItem.rank`).
+  *"Change the order of to-dos within projects as well as within Brain. Maybe
+  also the ideas, to-buys. Of course when we filter the order should reflect
+  the filter."* The last sentence is the design: ONE number per item, not one
+  order per screen, so Brain filtered to Bedroom and the Bedroom screen agree.
+  **Unset means newest first** (`-createdAt`) — Brain's old order, so nothing
+  moves until dragged and a new item appears under the Add it was written in.
+  That REVERSED a project's to-dos, which were oldest first ("a plan you read
+  down"); what lost was the per-screen default, because two defaults for one
+  item cannot both hold once a filter shows the same rows. Chains still win
+  over rank on a project screen (`readyFirst`: depth, then rank) — a waiting
+  to-do never sits above what it waits for.
+  **A drop writes ONE item**, ranked between its new neighbours ON SCREEN
+  (`placement`). That is what makes a filtered drag behave: the hidden rows
+  keep their places. Only when the neighbours leave no room (a tie, or a list
+  sorted by something else first) is the visible list renumbered.
+  **What floated up had to stop floating**: the on-the-shopping-list flag no
+  longer lifts a to-buy above the rest, since that would undo a drag — the 🛒
+  on the row says it. Bought items and done ideas still sink. Grouped buy
+  lists (by shop, by era) do not drag: the group comes from the item, not
+  from where it was dropped. A Brain DAY list drags as `Day.listOrder`, the
+  order Today already uses; one Reorder decides at drop time, because an
+  action bound to a row is not re-bound when the day filter changes.
+  **A row open for editing does not drag** (`{ id, off }`): a hold in a text
+  field is for the text, and iOS Safari can refuse typing in a field inside a
+  `user-select: none` ancestor — app.css now keeps inputs selectable anywhere.
+  **On a computer, dragging projects did nothing**: the era's project rows are
+  LINKS, and a held-and-moved link starts the browser's own drag-this-link,
+  which swallows the mouse. Touch never does that, so only the laptop broke.
+  Draggable rows now cancel `dragstart` and `selectstart`.
+  **The day field in Brain's add form was an empty grey bar wider than its
+  box** — an empty `<input type="date">` on iOS draws as nothing and has a
+  minimum width of its own. [WhenPicker.svelte](src/lib/components/WhenPicker.svelte)
+  is chips — Someday / Today / Tomorrow / "📅 Pick a day" — with the real date
+  field laid invisibly over the last chip, which then shows the day picked.
+  Used by the add form and the row editor, so they cannot drift.
+
 - **ONE shopping list, in Brain → Buy** ([shoppingList.ts](src/lib/shoppingList.ts),
   [ShoppingList.svelte](src/lib/components/ShoppingList.svelte),
   [ShoppingListButton.svelte](src/lib/components/ShoppingListButton.svelte),

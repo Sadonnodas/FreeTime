@@ -1,11 +1,12 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
+  import { byRank } from '$lib/rank';
   import { db } from '$lib/db';
   import type { Todo, Idea, BuyItem, Project, Energy, TimeBucket, Memo, Day } from '$lib/types';
   import {
     completeTodo, createTodo, createIdea, createBuyItem,
     updateTodo, setTodoAfter, softDelete, today,
-    uncompleteTodo, PROJECT_COLORS
+    uncompleteTodo, PROJECT_COLORS, setRanks
   } from '$lib/store';
   import { tintFor } from '$lib/colors';
   import Controls from '$lib/components/Controls.svelte';
@@ -13,7 +14,10 @@
   import ListExport from '$lib/components/ListExport.svelte';
   import { indexById, blockerOf, possibleBlockers } from '$lib/order';
   import { tomorrow, dayLabel, dayPhrase } from '$lib/days';
-  import { byDayList } from '$lib/day';
+  import { byDayList, reorderDayList } from '$lib/day';
+  import { Reorder } from '$lib/reorder.svelte';
+  import { placement } from '$lib/rank';
+  import { flip } from 'svelte/animate';
   import { activeProjects } from '$lib/queries';
   import { allMemos, storageUse, mb, type StorageUse } from '$lib/memos';
   import MemoList from '$lib/components/MemoList.svelte';
@@ -29,6 +33,7 @@
   import PhotoPicker from '$lib/components/PhotoPicker.svelte';
   import AddField from '$lib/components/AddField.svelte';
   import PlanToday from '$lib/components/PlanToday.svelte';
+  import WhenPicker from '$lib/components/WhenPicker.svelte';
   import ShoppingListButton from '$lib/components/ShoppingListButton.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import { canRecord } from '$lib/audio';
@@ -146,8 +151,25 @@
     const ra = rank(a);
     const rb = rank(b);
     if (ra !== rb) return ra < rb ? -1 : 1;
-    return b.createdAt.localeCompare(a.createdAt);
+    return byRank(a, b);
   };
+
+  /**
+   * Hold and drag. In a DAY list the order is that day's plan (Day.listOrder,
+   * the same one Today's "Also on today's list" shows); everywhere else it is
+   * the to-do's own order (rank.ts), shared with its project's screen — so
+   * with a filter on, dragging moves a to-do among the ones you can see and
+   * leaves the hidden ones where they were.
+   */
+  // ONE helper that decides at the drop: an action bound to a row is not
+  // re-bound when the day filter changes, so two helpers swapped by `day`
+  // would leave rows already on screen talking to the wrong one.
+  const todoDrag = new Reorder((ids, moved) => {
+    if (day) return reorderDayList(ids, day);
+    const byId = new Map(filteredTodos.map((t) => [t.id, t]));
+    const ordered = ids.map((id) => byId.get(id)).filter((t): t is Todo => !!t);
+    return setRanks('todos', placement(ordered, moved));
+  });
 
   const filteredTodos = $derived(
     (($todosQ as Todo[] | undefined) ?? [])
@@ -164,7 +186,7 @@
           ? byDayList(($daysQ as Day[] | undefined)?.find((d) => d.date === day)?.listOrder)
           : fProject
             ? byProjectThenNewest
-            : (a, b) => b.createdAt.localeCompare(a.createdAt)
+            : byRank
       )
   );
 
@@ -383,7 +405,7 @@
       // Finished wants stay — nothing here is ever deleted — but they sink.
       .sort(
         (a, b) =>
-          (a.doneAt ? 1 : 0) - (b.doneAt ? 1 : 0) || b.createdAt.localeCompare(a.createdAt)
+          (a.doneAt ? 1 : 0) - (b.doneAt ? 1 : 0) || byRank(a, b)
       )
   );
 
@@ -446,8 +468,7 @@
         // Bought things stay, but they sink: the list is for what you still need.
         return (
           (a.purchasedAt ? 1 : 0) - (b.purchasedAt ? 1 : 0) ||
-          (b.needed ? 1 : 0) - (a.needed ? 1 : 0) ||
-          b.createdAt.localeCompare(a.createdAt)
+          byRank(a, b)
         );
       })
   );
@@ -595,7 +616,10 @@
           {#if day}
             <p class="footnote">Lands on {dayPhrase(day, todayIso)}.</p>
           {:else}
-            <input type="date" bind:value={newDate} class="field w-full text-sm" />
+            <div>
+              <p class="section-label mb-2">When</p>
+              <WhenPicker value={newDate || undefined} onpick={(d) => (newDate = d ?? '')} />
+            </div>
           {/if}
         </div>
         {/if}
@@ -666,12 +690,14 @@
     {/if}
 
     <ul class="space-y-1">
-      {#each filteredTodos as t (t.id)}
+      {#each todoDrag.arrange(filteredTodos) as t (t.id)}
         {@const tint = rowTint(t.projectId, t.tag)}
         <li
           class="card-flat px-3 {tint ? 'row-tint' : ''}"
           style:--row={tint?.fill}
           style:--edge={tint?.edge}
+          use:todoDrag.item={{ id: t.id, off: openTodo === t.id }}
+          animate:flip={{ duration: todoDrag.dragging === t.id ? 0 : 180 }}
         >
           <div class="flex items-center gap-3">
             <button
@@ -789,29 +815,7 @@
                 </div>
                 <div>
                   <p class="section-label mb-2">When</p>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <button
-                      class="chip press {t.date ? '' : 'chip-on'}"
-                      onclick={() => updateTodo(t.id, { date: undefined })}>Someday</button
-                    >
-                    <button
-                      class="chip press {t.date === todayIso ? 'chip-on' : ''}"
-                      onclick={() => updateTodo(t.id, { date: todayIso })}>Today</button
-                    >
-                    <button
-                      class="chip press {t.date === tomorrow(todayIso) ? 'chip-on' : ''}"
-                      onclick={() => updateTodo(t.id, { date: tomorrow(todayIso) })}
-                      >Tomorrow</button
-                    >
-                    <input
-                      type="date"
-                      value={t.date ?? ''}
-                      class="field press text-sm"
-                      aria-label="Another day"
-                      onchange={(e) =>
-                        updateTodo(t.id, { date: e.currentTarget.value || undefined })}
-                    />
-                  </div>
+                  <WhenPicker value={t.date} onpick={(date) => updateTodo(t.id, { date })} />
                 </div>
                 <div>
                   <p class="section-label mb-2">How long will it take?</p>
