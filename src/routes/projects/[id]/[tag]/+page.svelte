@@ -330,7 +330,7 @@
                 <DurationPicker value={newTakes} onpick={(v) => (newTakes = v)} unset={false} />
               </div>
               <div>
-                <p class="section-label mb-2">How much head does it need?</p>
+                <p class="section-label mb-2">How much headspace does it need?</p>
                 <EnergyPicker
                   value={newEnergy}
                   onpick={(v) => (newEnergy = v)}
@@ -427,7 +427,7 @@
                   onpick={(takes) => updateTodo(todo.id, { takes })}
                 />
 
-                <p class="section-label mt-3 mb-2">How much head does it need?</p>
+                <p class="section-label mt-3 mb-2">How much headspace does it need?</p>
                 <EnergyPicker
                   value={todo.energy}
                   onpick={(energy) => updateTodo(todo.id, { energy })}

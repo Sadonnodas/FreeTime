@@ -739,7 +739,7 @@
                 </div>
 
                 <div>
-                  <p class="section-label mb-2">How much head does it need?</p>
+                  <p class="section-label mb-2">How much headspace does it need?</p>
                   <EnergyPicker
                     value={todo.energy}
                     onpick={(energy) => updateTodo(todo.id, { energy })}

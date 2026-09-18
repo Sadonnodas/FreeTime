@@ -559,7 +559,7 @@
           </div>
 
           <div>
-            <p class="section-label mb-2">How much head does it need?</p>
+            <p class="section-label mb-2">How much headspace does it need?</p>
             <EnergyPicker
               value={newEnergy}
               onpick={(v) => (newEnergy = v)}
@@ -822,7 +822,7 @@
                   <DurationPicker value={t.takes} onpick={(takes) => updateTodo(t.id, { takes })} />
                 </div>
                 <div>
-                  <p class="section-label mb-2">How much head does it need?</p>
+                  <p class="section-label mb-2">How much headspace does it need?</p>
                   <EnergyPicker value={t.energy} onpick={(energy) => updateTodo(t.id, { energy })} />
                 </div>
               {/if}
