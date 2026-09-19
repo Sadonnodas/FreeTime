@@ -1,10 +1,10 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
-  import { createBuyItem, today } from '$lib/store';
+  import { createBuyItem, today, softDelete } from '$lib/store';
   import { activeProjects } from '$lib/queries';
   import { listItems, onList, setOnList, setShoppingDate, shoppingDate } from '$lib/shoppingList';
-  import { tomorrow, dayLabel } from '$lib/days';
+  import { dayLabel } from '$lib/days';
   import { tintFor } from '$lib/colors';
   import { byRank } from '$lib/rank';
   import { money } from '$lib/format';
@@ -13,6 +13,8 @@
   import BuyList from './BuyList.svelte';
   import ListExport from './ListExport.svelte';
   import ProjectSelect from './ProjectSelect.svelte';
+  import RemoveButton from './RemoveButton.svelte';
+  import WhenPicker from './WhenPicker.svelte';
 
   /**
    * The shopping list, full screen — it is held in one hand down an aisle.
@@ -144,28 +146,9 @@
 
   <div class="min-h-0 flex-1 overflow-y-auto px-4 pb-8">
     <!-- WHEN. A day puts the list on Today for that day; no day is fine. -->
-    <div class="mb-3 flex flex-wrap items-center gap-2">
-      <span class="section-label mr-1">When</span>
-      <button
-        class="chip press {planned ? '' : 'chip-on'}"
-        onclick={() => setShoppingDate(undefined)}>No day</button
-      >
-      <button
-        class="chip press {planned === todayIso ? 'chip-on' : ''}"
-        onclick={() => setShoppingDate(todayIso)}>Today</button
-      >
-      <button
-        class="chip press {planned === tomorrow(todayIso) ? 'chip-on' : ''}"
-        onclick={() => setShoppingDate(tomorrow(todayIso))}>Tomorrow</button
-      >
-      <input
-        type="date"
-        min={todayIso}
-        value={planned && planned > tomorrow(todayIso) ? planned : ''}
-        class="field press text-sm {planned && planned > tomorrow(todayIso) ? 'ring-2 ring-accent' : ''}"
-        aria-label="Another day"
-        onchange={(e) => setShoppingDate(e.currentTarget.value || undefined)}
-      />
+    <div class="mb-3">
+      <p class="section-label mb-2">When</p>
+      <WhenPicker value={planned} onpick={setShoppingDate} noneLabel="No day" future />
     </div>
 
     <!-- ADD. One field; where it belongs is optional and only shows once
@@ -223,11 +206,13 @@
         <ul class="space-y-1">
           {#each shownOthers as b (b.id)}
             {@const tint = tintFor(eras.find((e) => e.id === b.projectId), b.tag)}
-            <li>
+            <li
+              class="card-flat flex items-center gap-1 pr-1 {tint ? 'row-tint' : ''}"
+              style:--row={tint?.fill}
+              style:--edge={tint?.edge}
+            >
               <button
-                class="card-flat press flex w-full items-center gap-3 px-3 py-2.5 text-left {tint ? 'row-tint' : ''}"
-                style:--row={tint?.fill}
-                style:--edge={tint?.edge}
+                class="press flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-3 text-left"
                 onclick={() => setOnList(b.id, true)}
               >
                 <span class="min-w-0 flex-1">
@@ -236,6 +221,16 @@
                 </span>
                 <span class="shrink-0 text-sm font-medium text-accent">+ Add</span>
               </button>
+              {#if !b.projectId}
+                <!--
+                  Things typed into the list and belonging to no project live
+                  on here once taken off — *"those are irrelevant because
+                  someone else got them already … where do I delete those?"*
+                  The same rule as inside the list: deletable here only when no
+                  project owns it; a project's to-buy is deleted in its project.
+                -->
+                <RemoveButton label="Delete" confirm="Delete it?" onremove={() => softDelete('buyItems', b.id)} />
+              {/if}
             </li>
           {/each}
         </ul>

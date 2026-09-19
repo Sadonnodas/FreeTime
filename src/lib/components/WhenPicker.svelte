@@ -19,8 +19,17 @@
    */
   let {
     value,
-    onpick
-  }: { value?: string; onpick: (date: string | undefined) => void } = $props();
+    onpick,
+    noneLabel = 'Someday',
+    future = false
+  }: {
+    value?: string;
+    onpick: (date: string | undefined) => void;
+    /** What "no day" is called here: Someday for a to-do, No day for a shop. */
+    noneLabel?: string;
+    /** Only today or later can be picked (a shopping trip is never in the past). */
+    future?: boolean;
+  } = $props();
 
   const todayIso = today();
   const tomorrowIso = tomorrow(todayIso);
@@ -29,7 +38,7 @@
 
 <div class="flex flex-wrap items-center gap-2">
   <button type="button" class="chip press {value ? '' : 'chip-on'}" onclick={() => onpick(undefined)}>
-    Someday
+    {noneLabel}
   </button>
   <button type="button" class="chip press {value === todayIso ? 'chip-on' : ''}" onclick={() => onpick(todayIso)}>
     Today
@@ -46,6 +55,7 @@
     <input
       type="date"
       value={value ?? ''}
+      min={future ? todayIso : undefined}
       class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
       aria-label="Pick a day"
       onclick={(e) => {

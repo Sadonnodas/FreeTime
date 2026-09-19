@@ -2006,6 +2006,12 @@ device; there is nothing to build. Memos are the exception, below.
   groceries typed straight into the list; a project's to-buy says "Part of
   Home · Bedroom … to delete it altogether, open that project" instead. The
   list is a view, so it may change what is on it, never what exists.
+  Taken off, a project-less item lands in "Add from your to-buys" — and was
+  then undeletable from anywhere but Brain → Buy: *"those are irrelevant
+  because someone else got them already … where do I delete those?"* Those
+  rows now carry the same two-tap Delete, under the same rule (no project
+  only). The list's When row is WhenPicker too (`noneLabel`, `future`); it
+  was the same bare date field that drew as an empty bar on iOS.
 
 - **Quick notes, and two round buttons beside Today's title**
   ([QuickNotes.svelte](src/lib/components/QuickNotes.svelte), `QuickNote`,
