@@ -32,6 +32,7 @@
   import PhotoThumb from '$lib/components/PhotoThumb.svelte';
   import ShoppingListButton from '$lib/components/ShoppingListButton.svelte';
   import QuickNotes from '$lib/components/QuickNotes.svelte';
+  import { onList } from '$lib/shoppingList';
   import { randomSticker, stickerUrl } from '$lib/stickers';
   import { pickScene, pickQuip } from '$lib/freeTimeScenes';
 
@@ -353,6 +354,16 @@
       .sort(byDayList(day?.listOrder))
   );
   const listDrag = new Reorder((ids) => reorderDayList(ids));
+
+  /**
+   * The shopping list shows on Today only on its day AND while something is
+   * still to get. An empty list planned for today sat there as "Shopping list
+   * — nothing on it yet", which is a line about nothing: *"if there is nothing
+   * in the shopping list, it shouldn't stay on the Today page."* Everything
+   * bought counts as nothing left, too — the trip is done.
+   */
+  const toGetQ = liveQuery(async () => (await db.buyItems.toArray()).filter(onList).length);
+  const shoppingToday = $derived(!!day?.shopping && (($toGetQ as number | undefined) ?? 0) > 0);
   const dayListOpen = $derived(dayList.filter((t) => !t.completedAt).length);
 
   const candidates = $derived(
@@ -825,12 +836,12 @@
       </section>
     {/if}
 
-    {#if dayList.length || day?.shopping}
+    {#if dayList.length || shoppingToday}
       <!-- Everything else you put on today, from Brain's day list. See
            `dayList` for why it is here and why it is not part of the three. -->
       <section class="mt-8">
         <h2 class="section-label mb-2">Also on today's list</h2>
-        {#if day?.shopping}
+        {#if shoppingToday}
           <!-- The shopping list, on the day it was planned for. Not a slot and
                not a to-do: it is a list, and it opens as one. -->
           <div class="mb-1"><ShoppingListButton look="row" /></div>

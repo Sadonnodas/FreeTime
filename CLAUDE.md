@@ -2012,6 +2012,10 @@ device; there is nothing to build. Memos are the exception, below.
   rows now carry the same two-tap Delete, under the same rule (no project
   only). The list's When row is WhenPicker too (`noneLabel`, `future`); it
   was the same bare date field that drew as an empty bar on iOS.
+  **On Today it shows only while something is left to get** (`shoppingToday`):
+  planned for today AND at least one item on it unbought. An empty list on its
+  day sat there as a line about nothing; everything bought means the trip is
+  done, so it goes then too.
 
 - **Quick notes, and two round buttons beside Today's title**
   ([QuickNotes.svelte](src/lib/components/QuickNotes.svelte), `QuickNote`,
