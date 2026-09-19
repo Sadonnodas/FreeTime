@@ -1920,6 +1920,49 @@ device; there is nothing to build. Memos are the exception, below.
   row had already left. Safari needs `webkitUserSelect` set as a property;
   `setProperty('-webkit-user-select')` is not reliably honoured.
 
+- **"Add to FreeTime": a hand-over screen, and a Chrome extension that fills
+  it** ([routes/add](src/routes/add/+page.svelte), [clip.ts](src/lib/clip.ts),
+  [clip.test.ts](src/lib/clip.test.ts), [extension/](extension/README.md)).
+  Asked: *"a Chrome extension … if I see something on a website I would like
+  to buy, add it to a project within FreeTime? Maybe even more things?"*
+  **The extension saves NOTHING.** Everything lives in this origin's IndexedDB,
+  which no extension may write to, and writing to Drive's JSON behind the app
+  would race the sync. So it reads the page and opens `/FreeTime/add#…` with
+  what it found; the app shows it filled in, you pick where it goes, and Add
+  writes through store.ts like any other screen — the assistant's rule
+  (spec 7.1): outside things propose, a tap writes.
+  **In the hash, not the query**: a `#…` never reaches a server, so the page
+  you were reading and its price are in nobody's log, and there is room for a
+  thumbnail. **Validated, not trusted** (`parseClip`): only http(s) links, a
+  photo only as a small `data:image`, never a remote URL for the app to fetch,
+  unknown kinds fall back, and an unparseable price is left out. The app
+  re-shrinks the photo to THUMB_EDGE whatever the sender did.
+  Four kinds: to-buy (name, qty, price, link, photo, optionally straight onto
+  the shopping list), idea and to-do (both gained `url`, shown as "🔗 Open link"
+  in their editors), and note — appended to a project's notes, or a QUICK note
+  when no era is picked. The place is remembered per device
+  (`freetime.clip.place`), since clipping comes in runs for one project.
+  **The extension** (Manifest V3, loaded unpacked — no Web Store) reads
+  schema.org Product JSON-LD first, then og:/product: meta tags, because
+  shops publish those for search engines and they outlast any layout. It
+  fetches and shrinks the photo itself (a shop's server refuses other sites,
+  so the app could not), can screenshot the visible tab into a to-do's photo,
+  and adds right-click entries for a selection, a link and an image.
+  `<all_urls>` is for reading the page you click on and fetching its photo.
+  **Not built yet: the iPhone route.** Chrome extensions do not exist on iOS;
+  a Shortcut in the share sheet opening the same `/add#kind=…&url=…&title=…`
+  is the plan, with title and link only (a Shortcut cannot read the page's
+  price or photo the way the extension can).
+  **A to-buy is added with its details in one go** ([BuyAddForm.svelte](src/lib/components/BuyAddForm.svelte)),
+  asked in the same breath: *"add the quantity, web link and price in the same
+  thing, not adding it first and clicking it open."* Once there is a name,
+  Qty / Price each / Link / Photo appear under it; one form for Brain → Buy,
+  a project's To buy and the shopping list. **The link box is `type="text"`,
+  never `type="url"`**: the latter makes the browser silently refuse to submit
+  "hornbach.nl/glue", which is how links are typed; `https://` is added on
+  save. And a to-buy with a link carries a **↗** on its row that opens the
+  shop — a sibling of the row's button, never inside it.
+
 - **The Project dropdown works on its own** ([ProjectSelect.svelte](src/lib/components/ProjectSelect.svelte)).
   It listed only the chosen era's projects and sat disabled saying "Pick an
   era first" — *"can't we make the dropdown work both ways, where when you

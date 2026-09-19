@@ -9,7 +9,7 @@
   import type { Project, Todo, BuyItem, Memo, Widget, Energy, TimeBucket, Idea } from '$lib/types';
   import { widgetsFor } from '$lib/widgets';
   import {
-    createTodo, completeTodo, uncompleteTodo, updateTodo, setTodoAfter, createBuyItem, saveNote, getNote,
+    createTodo, completeTodo, uncompleteTodo, updateTodo, setTodoAfter, saveNote, getNote,
     projectTagColor, softDelete, createIdea, setProjectTagFinished
   } from '$lib/store';
   import { activeProjects } from '$lib/queries';
@@ -19,6 +19,8 @@
   import Collapsible from '$lib/components/Collapsible.svelte';
   import WidgetBoard from '$lib/components/WidgetBoard.svelte';
   import BuyList from '$lib/components/BuyList.svelte';
+  import BuyAddForm from '$lib/components/BuyAddForm.svelte';
+  import OpenLink from '$lib/components/OpenLink.svelte';
   import MemoList from '$lib/components/MemoList.svelte';
   import MemoRecorder from '$lib/components/MemoRecorder.svelte';
   import Empty from '$lib/components/Empty.svelte';
@@ -189,7 +191,6 @@
   let newTakes = $state<TimeBucket | undefined>(undefined);
   /** A photo for the to-do being written, before it exists. */
   let newImage = $state<string | undefined>(undefined);
-  let newBuy = $state('');
 
   function choose(kind: AddKind) {
     sheet = false;
@@ -402,6 +403,7 @@
                   label="What it is"
                   onrename={(title) => updateTodo(todo.id, { title })}
                 />
+                <OpenLink url={todo.url} />
 
                 <p class="section-label mt-3 mb-2">Comes after</p>
                 <AfterPicker
@@ -517,24 +519,7 @@
 
     <!-- ------------------------------------------------------------------- buy -->
     <Collapsible id={sectionId('buy')} title="To buy" count={buyItems.length} {color} defaultFolded={buyItems.length === 0} open={adding === 'buy'}>
-      <form
-        onsubmit={async (e) => {
-          e.preventDefault();
-          if (!newBuy.trim()) return;
-          await createBuyItem(newBuy, { projectId: eraId, tag });
-          newBuy = '';
-        }}
-        class="mb-2 flex gap-2"
-      >
-        <!-- svelte-ignore a11y_autofocus -->
-        <input
-          bind:value={newBuy}
-          autofocus={adding === 'buy'}
-          placeholder="Something for {tag}"
-          class="field min-w-0 flex-1"
-        />
-        <button class="btn btn-primary press">Add</button>
-      </form>
+      <BuyAddForm projectId={eraId} {tag} placeholder="Something for {tag}" focus={adding === 'buy'} />
       <BuyList items={buyItems} showProject={false} groupBy="none" />
     </Collapsible>
 

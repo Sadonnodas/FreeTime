@@ -240,6 +240,22 @@
           {/if}
         </button>
 
+        {#if item.url}
+          <!-- Straight to the shop's page — *"when you have a link in a to-buy,
+               you could click it to follow it to the article"*. A sibling of
+               the row's button, never inside it (a link inside a button is
+               invalid and one of the two stops working). -->
+          <a
+            href={href(item.url)}
+            target="_blank"
+            rel="noreferrer"
+            class="press tap-h flex w-8 shrink-0 items-center justify-center text-[17px] text-accent"
+            aria-label="Open {item.name} at {host(item.url) ?? 'the shop'}"
+          >
+            ↗
+          </a>
+        {/if}
+
         {#if item.priceCents != null}
           <!-- The LINE total, with the unit price under it only when there is
                more than one — otherwise the same number twice. -->

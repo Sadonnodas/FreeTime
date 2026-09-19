@@ -9,6 +9,7 @@
   import { tintFor } from '$lib/colors';
   import RenameField from './RenameField.svelte';
   import RemoveButton from './RemoveButton.svelte';
+  import OpenLink from './OpenLink.svelte';
   import { rankedReorder } from '$lib/reorder.svelte';
   import { flip } from 'svelte/animate';
 
@@ -151,6 +152,7 @@
               label="What it says"
               onrename={(text) => updateIdea(i.id, { text })}
             />
+            <OpenLink url={i.url} />
           </div>
 
           <!-- Where it belongs, decided whenever you know — which is usually not

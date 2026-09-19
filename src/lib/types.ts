@@ -99,6 +99,9 @@ export type Energy = 'quick' | 'moderate' | 'focus';
 export interface Todo extends Base {
   title: string;
   notes?: string;
+  /** The web page it came from — clipped by the extension or a Shortcut
+   *  (clip.ts). Shown as "Open link" in the row's editor. */
+  url?: string;
   projectId?: string;
   /** One of the parent project's `tags`. One at a time, deliberately: a to-do
    *  that is in three sections at once is how a filter row stops being a
@@ -178,6 +181,9 @@ export interface Todo extends Base {
  */
 export interface Idea extends Base {
   text: string;
+  /** The web page it came from — clipped by the extension or a Shortcut
+   *  (clip.ts). Shown as "Open link" in the row's editor. */
+  url?: string;
   /** The era it belongs to, if any. */
   projectId?: string;
   /**

@@ -449,6 +449,8 @@ export async function createTodo(
     date?: string; notes?: string; after?: string;
     /** A photo taken while writing it, already resized (THUMB_EDGE). */
     image?: string;
+    /** The page it came from (clip.ts). */
+    url?: string;
   } = {}
 ): Promise<string> {
   const t: Todo = stamp({ title: title.trim(), ...opts });
@@ -494,7 +496,7 @@ export async function uncompleteTodo(id: string): Promise<void> {
 
 export async function createIdea(
   text: string,
-  opts: { projectId?: string; tag?: string; group?: string } = {}
+  opts: { projectId?: string; tag?: string; group?: string; url?: string } = {}
 ): Promise<string> {
   const i: Idea = stamp({ text: text.trim(), ...opts });
   await db.ideas.add(i);
@@ -781,6 +783,17 @@ export async function saveNote(
     const n: Note = stamp({ projectId, markdown, tag: section });
     await db.notes.add(n);
   }
+}
+
+/**
+ * Add text to the END of a project's (or an era's) notes, never replacing —
+ * the append_note rule: a clipped paragraph must not overwrite a page.
+ */
+export async function appendToNote(eraId: string, text: string, tag?: string): Promise<void> {
+  const era = await db.projects.get(eraId);
+  const section = tag && (era?.tags ?? []).includes(tag) ? tag : undefined;
+  const existing = (await getNote(eraId, section))?.markdown ?? '';
+  await saveNote(eraId, existing.trim() ? `${existing.trimEnd()}\n\n${text}` : text, section);
 }
 
 /** Renaming a section has to bring its note along, or the lyrics detach from

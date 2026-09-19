@@ -4,7 +4,7 @@
   import { db } from '$lib/db';
   import type { Todo, Idea, BuyItem, Project, Energy, TimeBucket, Memo, Day } from '$lib/types';
   import {
-    completeTodo, createTodo, createIdea, createBuyItem,
+    completeTodo, createTodo, createIdea,
     updateTodo, setTodoAfter, softDelete, today,
     uncompleteTodo, PROJECT_COLORS, setRanks
   } from '$lib/store';
@@ -36,6 +36,8 @@
   import WhenPicker from '$lib/components/WhenPicker.svelte';
   import ProjectSelect from '$lib/components/ProjectSelect.svelte';
   import ShoppingListButton from '$lib/components/ShoppingListButton.svelte';
+  import BuyAddForm from '$lib/components/BuyAddForm.svelte';
+  import OpenLink from '$lib/components/OpenLink.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import { canRecord } from '$lib/audio';
   import { onMount } from 'svelte';
@@ -325,7 +327,6 @@
    *  list is a button, and the list starts where the eye does. */
   let addingTodo = $state(false);
   let newIdeaText = $state('');
-  let newBuyText = $state('');
 
   /**
    * Where a to-do with everything on it gets written.
@@ -424,14 +425,6 @@
     { key: 'shop', label: 'By shop' },
     { key: 'project', label: 'By era' }
   ] as const;
-
-  async function addBuy(e: SubmitEvent) {
-    e.preventDefault();
-    const name = newBuyText.trim();
-    if (!name) return;
-    newBuyText = '';
-    await createBuyItem(name, { projectId: fBuyProject || undefined });
-  }
 
   /**
    * Where a buy item sits among the places: era in list order, then the
@@ -740,6 +733,7 @@
                   label="What it is"
                   onrename={(title) => updateTodo(t.id, { title })}
                 />
+                <OpenLink url={t.url} />
               </div>
               <!--
                 BELONGS TO. A to-do written here used to be stuck wherever it
@@ -972,16 +966,12 @@
       <Empty line="Nothing recorded yet. Hum something." quip="Go on, give us a roar." />
     {/if}
   {:else}
-    <form onsubmit={addBuy} class="mb-3 flex gap-2">
-      <input
-        bind:value={newBuyText}
-        placeholder={fBuyProject
-          ? `Buy for ${projectName(fBuyProject)}`
-          : 'Something to buy'}
-        class="field min-w-0 flex-1"
-      />
-      <button class="btn btn-primary press" disabled={!newBuyText.trim()}>Add</button>
-    </form>
+    <!-- Name, then qty, price, link and photo in the same go; filed under the
+         era filter, as before. -->
+    <BuyAddForm
+      projectId={fBuyProject || undefined}
+      placeholder={fBuyProject ? `Buy for ${projectName(fBuyProject)}` : 'Something to buy'}
+    />
 
     <div class="mb-3 flex items-center gap-2">
       <select bind:value={fBuyProject} class="field press min-w-0 flex-1">

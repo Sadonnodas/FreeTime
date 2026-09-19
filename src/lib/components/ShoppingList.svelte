@@ -1,7 +1,7 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
-  import { createBuyItem, today, softDelete } from '$lib/store';
+  import { today, softDelete } from '$lib/store';
   import { activeProjects } from '$lib/queries';
   import { listItems, onList, setOnList, setShoppingDate, shoppingDate } from '$lib/shoppingList';
   import { dayLabel } from '$lib/days';
@@ -12,7 +12,7 @@
   import { portal } from '$lib/portal';
   import BuyList from './BuyList.svelte';
   import ListExport from './ListExport.svelte';
-  import ProjectSelect from './ProjectSelect.svelte';
+  import BuyAddForm from './BuyAddForm.svelte';
   import RemoveButton from './RemoveButton.svelte';
   import WhenPicker from './WhenPicker.svelte';
 
@@ -60,27 +60,6 @@
   const left = $derived(list.filter(onList));
   const cost = $derived(left.reduce((sum, b) => sum + (b.priceCents ?? 0) * (b.qty ?? 1), 0));
   const others = $derived(all.filter((b) => !b.needed && !b.purchasedAt).sort(byPlace));
-
-  // --- adding
-  let draft = $state('');
-  let newEra = $state('');
-  let newTag = $state('');
-  const newEraTags = $derived(eras.find((e) => e.id === newEra)?.tags ?? []);
-  $effect(() => {
-    if (!newEraTags.includes(newTag)) newTag = '';
-  });
-
-  async function add(e: SubmitEvent) {
-    e.preventDefault();
-    const name = draft.trim();
-    if (!name) return;
-    draft = '';
-    const id = await createBuyItem(name, {
-      projectId: newEra || undefined,
-      tag: newTag || undefined
-    });
-    await setOnList(id, true);
-  }
 
   // --- taking something off, with a way back
   /**
@@ -153,32 +132,7 @@
 
     <!-- ADD. One field; where it belongs is optional and only shows once
          there is something to file. -->
-    <form onsubmit={add} class="mb-3">
-      <div class="flex gap-2">
-        <input bind:value={draft} placeholder="Add to the list" class="field min-w-0 flex-1" />
-        <button class="btn btn-primary press" disabled={!draft.trim()}>Add</button>
-      </div>
-      {#if draft.trim()}
-        <div class="mt-2 flex gap-2">
-          <select bind:value={newEra} class="field press min-w-0 flex-1 text-sm" aria-label="Era">
-            <option value="">No era</option>
-            {#each eras as e (e.id)}<option value={e.id}>{e.name}</option>{/each}
-          </select>
-          <div class="min-w-0 flex-1">
-            <ProjectSelect
-              {eras}
-              eraId={newEra || undefined}
-              tag={newTag || undefined}
-              noneLabel="Project"
-              onpick={(era, tag) => {
-                newEra = era ?? '';
-                newTag = tag ?? '';
-              }}
-            />
-          </div>
-        </div>
-      {/if}
-    </form>
+    <BuyAddForm placeholder="Add to the list" pickPlace={eras} onList />
 
     {#if list.length}
       <BuyList items={list} projects={eras} tinted inList ontakeoff={offered} />
