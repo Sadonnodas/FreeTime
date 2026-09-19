@@ -80,6 +80,27 @@
     await setOnList(id, true);
   }
 
+  // --- taking something off, with a way back
+  /**
+   * The last thing taken off, for a few seconds. One tap removes a row from
+   * the list, which is the right speed for "not on this trip" and the wrong
+   * speed for a thumb that landed on the wrong row — so the list says what
+   * went and offers it back.
+   */
+  let takenOff = $state<BuyItem | null>(null);
+  let takenTimer: ReturnType<typeof setTimeout> | undefined;
+  function offered(item: BuyItem) {
+    takenOff = item;
+    clearTimeout(takenTimer);
+    takenTimer = setTimeout(() => (takenOff = null), 5000);
+  }
+  async function undoTakeOff() {
+    const item = takenOff;
+    takenOff = null;
+    clearTimeout(takenTimer);
+    if (item) await setOnList(item.id, true);
+  }
+
   // --- the others
   let showOthers = $state(false);
   let search = $state('');
@@ -177,7 +198,7 @@
     </form>
 
     {#if list.length}
-      <BuyList items={list} projects={eras} tinted />
+      <BuyList items={list} projects={eras} tinted inList ontakeoff={offered} />
     {:else}
       <p class="footnote px-1 py-2">
         Add things above, or tap 🛒 on anything in Brain → Buy or a project's To buy.
@@ -221,4 +242,13 @@
       {/if}
     {/if}
   </div>
+
+  {#if takenOff}
+    <div class="flex items-center gap-3 border-t border-line-1 px-4 py-3" role="status">
+      <span class="min-w-0 flex-1 truncate text-sm">Took <b>{takenOff.name}</b> off the list</span>
+      <button class="press tap-h shrink-0 px-2 text-sm font-semibold text-accent" onclick={undoTakeOff}>
+        Undo
+      </button>
+    </div>
+  {/if}
 </div>

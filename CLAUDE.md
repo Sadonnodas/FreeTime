@@ -1996,6 +1996,16 @@ device; there is nothing to build. Memos are the exception, below.
   your thumb. **The day is `Day.shopping`**, on the synced day record; at most
   one day carries it and a past one is ignored (no overdue shop). The row
   editor can now also set a buy item's PROJECT, not only its era.
+  **Removing from the list is not deleting** (`BuyList` `inList`). Asked for
+  with the guard spelled out: *"remove shopping list items in case I made a
+  mistake, but it should not be so easy to remove to-buys from other projects
+  from within the shopping list."* In the list the row's button is ✕ — take
+  it off this trip; it stays in its project — with Undo for five seconds,
+  because one tap is right for "not this time" and wrong for a misplaced
+  thumb. Delete (two taps) appears only for things that belong to NO era, the
+  groceries typed straight into the list; a project's to-buy says "Part of
+  Home · Bedroom … to delete it altogether, open that project" instead. The
+  list is a view, so it may change what is on it, never what exists.
 
 - **Quick notes, and two round buttons beside Today's title**
   ([QuickNotes.svelte](src/lib/components/QuickNotes.svelte), `QuickNote`,

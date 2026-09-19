@@ -28,7 +28,9 @@
     sections = [],
     showProject = true,
     groupBy = 'none',
-    tinted = false
+    tinted = false,
+    inList = false,
+    ontakeoff
   }: {
     items: BuyItem[];
     projects?: Project[];
@@ -45,7 +47,28 @@
      * eras.
      */
     tinted?: boolean;
+    /**
+     * Drawn INSIDE the shopping list. Removing a row there means "not on this
+     * trip", never "this thing does not exist": the row's button becomes ✕
+     * (take it off the list — it stays in its project), and Delete is offered
+     * only for things that belong to no era, like groceries typed straight
+     * into the list. A to-buy filed under a project can be deleted from that
+     * project, not from here — *"it should not be so easy to remove to-buys
+     * from other projects from within the shopping list."*
+     */
+    inList?: boolean;
+    /** Told when a row is taken off the list, so the list can offer Undo. */
+    ontakeoff?: (item: BuyItem) => void;
   } = $props();
+
+  function takeOff(item: BuyItem) {
+    if (openId === item.id) openId = null;
+    void setOnList(item.id, false);
+    ontakeoff?.(item);
+  }
+
+  const placeOf = (item: BuyItem) =>
+    [projectName(item.projectId), item.projectId ? item.tag : undefined].filter(Boolean).join(' · ');
 
   const tintOf = (item: BuyItem) =>
     tinted ? tintFor(projects.find((p) => p.id === item.projectId), item.tag) : undefined;
@@ -235,6 +258,20 @@
           Still a flag and never a priority: on or off, and never setting it
           costs nothing. A basket rather than a star so it says what it does.
         -->
+        {#if inList}
+          <!-- In the list itself the question is "on this trip or not", and
+               ✕ says remove where a basket would say nothing. Bought rows keep
+               their tick and have nothing to take off. -->
+          {#if !item.purchasedAt}
+            <button
+              class="press tap-h w-10 shrink-0 text-center text-[17px] text-ink-400"
+              onclick={() => takeOff(item)}
+              aria-label="Take {item.name} off the shopping list"
+            >
+              ✕
+            </button>
+          {/if}
+        {:else}
         <button
           class="press tap-h w-10 shrink-0 text-center text-[18px] transition-[filter,opacity]
                  {item.needed ? '' : 'opacity-35 grayscale'}"
@@ -244,6 +281,7 @@
         >
           🛒
         </button>
+        {/if}
       </div>
 
       {#if openId === item.id}
@@ -348,13 +386,31 @@
               </a>
             {/if}
             <span class="flex-1"></span>
-            <RemoveButton
-              onremove={() => {
-                if (openId === item.id) openId = null;
-                void softDelete('buyItems', item.id);
-              }}
-            />
+            {#if inList && !item.purchasedAt}
+              <button
+                class="press tap-h rounded-lg px-3 text-sm text-accent"
+                onclick={() => takeOff(item)}
+              >
+                Take off the list
+              </button>
+            {/if}
+            {#if !inList || !item.projectId}
+              <RemoveButton
+                onremove={() => {
+                  if (openId === item.id) openId = null;
+                  void softDelete('buyItems', item.id);
+                }}
+              />
+            {/if}
           </div>
+          {#if inList && item.projectId}
+            <!-- Why there is no Delete here: this belongs to a project, and
+                 the list is only a view of it. -->
+            <p class="footnote">
+              Part of {placeOf(item)}. Taking it off the list keeps it there; to delete it
+              altogether, open that project.
+            </p>
+          {/if}
         </div>
         {/if}
       </li>
