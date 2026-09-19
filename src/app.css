@@ -1546,3 +1546,13 @@ textarea,
   -webkit-user-select: text;
   user-select: text;
 }
+
+/*
+ * The Add to FreeTime screen opened by the Chrome extension, in its own small
+ * window over the page being read (routes/add, `popup`). A window that size is
+ * for one thing, so the tab bar and the floating assistant go.
+ */
+.clip-popup nav,
+.clip-popup .ask-wrap {
+  display: none !important;
+}

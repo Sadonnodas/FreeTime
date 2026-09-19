@@ -13,8 +13,8 @@ does the saving, so everything syncs as usual.
 4. Click the puzzle-piece icon in Chrome's toolbar and **pin** "Add to FreeTime",
    so the dinosaur sits next to the address bar.
 
-After pulling a new version of the repo, press the ↻ on the extension's card in
-chrome://extensions to reload it.
+**After pulling a new version of the repo, press the ↻ on the extension's card
+in chrome://extensions** — Chrome keeps running the old copy until you do.
 
 ## Use
 
@@ -29,8 +29,13 @@ chrome://extensions to reload it.
   - *Add this image to FreeTime as a to-buy*
   - *Screenshot to a FreeTime to-do* — what you can see, as the to-do's photo
 
-FreeTime opens in a new tab on the Add screen. Change anything, pick where it
-goes (remembered for next time), tap **Add**, close the tab.
+FreeTime opens in a small window at the right edge of your browser, on the
+Add screen. Change anything, pick where it goes (remembered for next time) and
+tap **Add** — the window closes itself. **Cancel** closes it without adding.
+
+It is a window of its own rather than a panel inside the page on purpose:
+inside a shop's page Chrome would give FreeTime separate, empty storage, so
+your projects would not be there and nothing added would reach the real app.
 
 ## Why it asks to "read and change all your data on all websites"
 

@@ -1949,6 +1949,17 @@ device; there is nothing to build. Memos are the exception, below.
   so the app could not), can screenshot the visible tab into a to-do's photo,
   and adds right-click entries for a selection, a link and an image.
   `<all_urls>` is for reading the page you click on and fetching its photo.
+  **It opens a small window, not a tab** (`chrome.windows.create` type popup,
+  420×760 at the right edge of the browsing window; `#popup=1`): *"it opens an
+  extra tab — can it open a little window in the same tab?"* Not IN the tab,
+  and that is the constraint worth knowing: FreeTime in an iframe or panel on
+  the shop's page is third-party there, and Chrome partitions its storage — an
+  EMPTY IndexedDB with none of your projects, and whatever is added lands in
+  that separate store rather than in your FreeTime. A window of its own is
+  top-level, so it is the real app. In popup mode the tab bar and the
+  assistant hide (`.clip-popup`), there is a Cancel, and it `window.close()`s
+  itself 1.4s after Add (allowed: an extension-opened window with one history
+  entry — /add uses replaceState, never push, to keep it that way).
   **Not built yet: the iPhone route.** Chrome extensions do not exist on iOS;
   a Shortcut in the share sheet opening the same `/add#kind=…&url=…&title=…`
   is the plan, with title and link only (a Shortcut cannot read the page's

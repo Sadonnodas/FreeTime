@@ -48,6 +48,7 @@
   let era = $state('');
   let project = $state('');
   let handedOver = $state(false);
+  let inPopup = $state(false);
   let done = $state<{ what: string; where: string; path?: string } | null>(null);
 
   const PLACE_KEY = 'freetime.clip.place';
@@ -62,6 +63,10 @@
     } catch {
       // No memory of last time is fine: pick a place.
     }
+    // Opened by the extension as a small window of its own (`popup`): drop
+    // the app's chrome, and close by itself once something is added.
+    inPopup = new URLSearchParams(location.hash.replace(/^#/, '')).has('popup');
+    if (inPopup) document.documentElement.classList.add('clip-popup');
     const clip = parseClip(location.hash);
     if (clip) await take(clip);
     // Read once. A reload must not offer the same thing again after it was
@@ -140,6 +145,11 @@
       // Remembering the place is a convenience.
     }
 
+    // In the extension's little window the job is done: let the tick show for
+    // a moment, then get out of the way. A window the browser will not let us
+    // close stays, saying it can be closed.
+    if (inPopup) setTimeout(() => window.close(), 1400);
+
     const label = KINDS.find((k) => k.key === kind)!.label;
     done = {
       what: kind === 'note' ? 'Note' : `${label}: ${name}`,
@@ -177,7 +187,14 @@
 
 <div class="px-4 pt-safe pb-24">
   <header class="pt-3 pb-4">
-    <h1 class="large-title">Add to FreeTime</h1>
+    <div class="flex items-center justify-between gap-3">
+      <h1 class="large-title">Add to FreeTime</h1>
+      {#if inPopup && !done}
+        <button class="press tap-h shrink-0 px-2 text-[15px] text-ink-400" onclick={() => window.close()}>
+          Cancel
+        </button>
+      {/if}
+    </div>
     <p class="footnote mt-1">
       {#if handedOver && host}From {host}. Check it, pick where it goes, and add.
       {:else}Anything from anywhere — or use the Chrome extension or a Shortcut to fill this in.{/if}
@@ -197,7 +214,9 @@
         {/if}
         <button class="press tap rounded-xl text-sm text-accent" onclick={another}>Add something else</button>
       </div>
-      <p class="footnote mt-4">You can close this tab — it is saved.</p>
+      <p class="footnote mt-4">
+        {inPopup ? 'Saved. This window closes by itself.' : 'You can close this tab — it is saved.'}
+      </p>
     </div>
   {:else}
     <form onsubmit={add} class="space-y-4">

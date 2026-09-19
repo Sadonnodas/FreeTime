@@ -6,6 +6,7 @@
  * page you are on and opens FreeTime's "Add to FreeTime" screen with what it
  * found filled in. You pick the project and tap Add there; FreeTime does the
  * saving and syncing. (The app side is src/lib/clip.ts and src/routes/add.)
+ * It opens in a small window of its own — see open().
  *
  * Everything travels after the "#" of the address, which a browser never sends
  * to a server — the page you were on and its price are not in anyone's log.
@@ -40,10 +41,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'page') return clipPage(tab, { ignoreSelection: true });
   if (info.menuItemId === 'selection') {
     const page = await readTab(tab);
-    return open({ kind: 'note', text: info.selectionText, title: page.title, url: page.url });
+    return open({ kind: 'note', text: info.selectionText, title: page.title, url: page.url }, tab);
   }
   if (info.menuItemId === 'link') {
-    return open({ kind: 'idea', url: info.linkUrl, title: info.linkUrl && prettyLink(info.linkUrl) });
+    return open({ kind: 'idea', url: info.linkUrl, title: info.linkUrl && prettyLink(info.linkUrl) }, tab);
   }
   if (info.menuItemId === 'image') {
     const page = await readTab(tab);
@@ -54,11 +55,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       price: page.price,
       currency: page.currency,
       image: await smallImage(info.srcUrl)
-    });
+    }, tab);
   }
   if (info.menuItemId === 'shot') {
     const shot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 80 });
-    return open({ kind: 'todo', title: tab.title, url: tab.url, image: await smallImage(shot) });
+    return open({ kind: 'todo', title: tab.title, url: tab.url, image: await smallImage(shot) }, tab);
   }
 });
 
@@ -76,7 +77,7 @@ async function clipPage(tab, { ignoreSelection = false } = {}) {
     price: kind === 'buy' ? page.price : undefined,
     currency: kind === 'buy' ? page.currency : undefined,
     image: kind === 'buy' && page.imageUrl ? await smallImage(page.imageUrl) : undefined
-  });
+  }, tab);
 }
 
 /** What the page says about itself, or just its title and address when the
@@ -90,10 +91,27 @@ async function readTab(tab) {
   }
 }
 
-function open(fields) {
-  const params = new URLSearchParams();
+/**
+ * FreeTime opens in a small window of its own, floating at the right edge of
+ * the window you are browsing in — not a new tab, and it closes itself after
+ * Add. Not a panel INSIDE the page: FreeTime would then be running inside the
+ * shop's site, where Chrome gives it separate, empty storage, so your projects
+ * would not be there and nothing added would reach the real app.
+ */
+async function open(fields, tab) {
+  const params = new URLSearchParams({ popup: '1' });
   for (const [k, v] of Object.entries(fields)) if (v) params.set(k, String(v));
-  return chrome.tabs.create({ url: `${APP}#${params.toString()}` });
+  const url = `${APP}#${params.toString()}`;
+  const width = 420;
+  const height = 760;
+  try {
+    const from = tab ? await chrome.windows.get(tab.windowId) : await chrome.windows.getCurrent();
+    const left = Math.max(0, (from.left ?? 0) + (from.width ?? width) - width - 24);
+    const top = Math.max(0, (from.top ?? 0) + 80);
+    return await chrome.windows.create({ url, type: 'popup', width, height, left, top, focused: true });
+  } catch {
+    return chrome.tabs.create({ url });
+  }
 }
 
 function prettyLink(url) {
