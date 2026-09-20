@@ -26,8 +26,24 @@ import { GOOGLE_CLIENT_ID, GOOGLE_SCOPES, redirectUri, isGoogleConfigured } from
 
 const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 
-/** Guards against a redirect loop if silent renewal keeps failing. */
-const SILENT_BACKOFF_MS = 30 * 60 * 1000;
+/**
+ * Guards against a redirect loop if silent renewal keeps failing. Five
+ * minutes, not thirty: a prompt=none round trip is invisible and costs one
+ * page load, and half an hour of not trying is how a morning's first open
+ * ends in a manual sign-in that a retry might have avoided.
+ */
+const SILENT_BACKOFF_MS = 5 * 60 * 1000;
+
+/**
+ * Renew BEFORE the hour is up, not after it has run out.
+ *
+ * Renewal only works while Google still considers this browser signed in, and
+ * the app used to wait until the token was already dead — which on a phone is
+ * the next morning, the worst possible moment to ask. Trying while the app is
+ * open and the token has ten minutes left costs nothing when it works, and
+ * when it fails there is still a working token in hand.
+ */
+const RENEW_AHEAD_MS = 10 * 60 * 1000;
 const STATE_KEY = 'freetime.oauth.state';
 const SILENT_KEY = 'freetime.oauth.silent';
 /** Where to send the user back after the round trip. */
@@ -138,7 +154,7 @@ export async function handleRedirect(): Promise<RedirectOutcome> {
     // prompt=none failing is entirely normal — it just means Google wants the
     // user to look at something, so it is not worth reporting. An error from a
     // sign-in the user actually tapped is worth showing verbatim.
-    if (wasSilent) await patch({ lastSilentAuthAt: now() });
+    if (wasSilent) await patch({ lastSilentAuthAt: now(), lastSilentError: error });
     else await patch({ lastAuthError: error });
     return { handled: true, ok: false, error };
   }
@@ -158,6 +174,7 @@ export async function handleRedirect(): Promise<RedirectOutcome> {
     googleGrantedScopes: params.get('scope') ?? undefined,
     googleConnected: true,
     lastSilentAuthAt: undefined,
+    lastSilentError: undefined,
     lastAuthError: undefined
   });
 
@@ -178,13 +195,16 @@ export async function isConnected(): Promise<boolean> {
   return !!s?.googleConnected;
 }
 
-/** True when we hold no valid token but the user has consented before — the
- *  only situation where a silent redirect is appropriate. */
+/**
+ * True when the token is gone or nearly gone and the user has consented
+ * before — the only situation where a silent redirect is appropriate.
+ */
 export async function needsSilentRenewal(): Promise<boolean> {
   if (!isGoogleConfigured()) return false;
   const s = await settings();
   if (!s?.googleConnected) return false;
-  if (await getAccessToken()) return false;
+  const expires = s.googleTokenExpiresAt ? new Date(s.googleTokenExpiresAt).getTime() : 0;
+  if (s.googleAccessToken && expires - Date.now() > RENEW_AHEAD_MS) return false;
 
   const last = s.lastSilentAuthAt ? new Date(s.lastSilentAuthAt).getTime() : 0;
   return Date.now() - last > SILENT_BACKOFF_MS;

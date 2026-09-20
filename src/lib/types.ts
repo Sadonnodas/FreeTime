@@ -555,6 +555,13 @@ export interface Settings {
    *  Worth surfacing verbatim: the useful ones are self-explanatory
    *  (redirect_uri_mismatch, access_denied) and guessing at them wastes time. */
   lastAuthError?: string;
+  /**
+   * Why Google refused the last SILENT renewal — login_required,
+   * interaction_required, consent_required. Kept because "it would not renew
+   * quietly" is three different problems with three different answers, and
+   * without the word Google used they are indistinguishable from the outside.
+   */
+  lastSilentError?: string;
 
   /** Drive ids, remembered to save a lookup. Rediscoverable if lost. */
   driveFolderId?: string;

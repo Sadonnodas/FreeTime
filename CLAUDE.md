@@ -2176,6 +2176,22 @@ device; there is nothing to build. Memos are the exception, below.
   warning you can wave away leaves you believing everything synced. It names
   what is still true ("Everything is still saved here"), because "sync has
   stopped" reads as "your work is at risk" and it is not.
+  **Renewal now happens BEFORE the hour is up, and retries sooner**
+  (`RENEW_AHEAD_MS` 10 min, `SILENT_BACKOFF_MS` 5 min, was 30). Reported again
+  as *"it's kind of annoying I have to log in every day almost."* Waiting for
+  the token to be DEAD put every attempt at the worst possible moment — the
+  next morning, when Google is least likely to say yes quietly — and a refusal
+  then bought half an hour of not trying. Trying with ten minutes left costs
+  one invisible page load while a working token is still in hand.
+  **Google's refusal is now recorded and shown** (`Settings.lastSilentError`,
+  the Settings status line): login_required, interaction_required and
+  consent_required need different answers and were indistinguishable.
+  **If it keeps happening on the iPhone, the answer is a tiny auth backend.**
+  Google issues no refresh token to a client that cannot hold a secret, so the
+  hour is the ceiling for a static site; a Worker holding the secret and the
+  refresh token is the only thing that removes the daily tap. That breaks "no
+  backend" for sign-in alone — data stays local and in Drive — and is Toon's
+  call to make, with the error code above as the evidence.
   **This reduces the frequency; it cannot guarantee a renewal succeeds.**
   prompt=none needs a live Google session in this browser, and an installed
   iOS web app does not necessarily share Safari's. When Google declines, a tap

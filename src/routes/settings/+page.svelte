@@ -18,6 +18,9 @@
   let sync = $state<SyncState>({ status: 'idle' });
   let connected = $state(false);
   let authError = $state<string | undefined>(undefined);
+  /** Google's own word for why the quiet renewal failed — login_required and
+   *  consent_required need opposite answers, so the code is shown. */
+  let silentError = $state<string | undefined>(undefined);
   let silentFailed = $state(false);
   /** Whether this device is holding a token that has not run out. */
   let hasToken = $state(true);
@@ -70,6 +73,7 @@
     // Set only when a silent renewal FAILED, and cleared the moment one
     // succeeds — so it is a reliable "Google will not do this quietly".
     silentFailed = !!st?.lastSilentAuthAt;
+    silentError = st?.lastSilentError;
     hasToken = !!(await getAccessToken());
     apiKey = (await getApiKey()) ?? '';
     queued = await pendingAudioCount();
@@ -123,7 +127,7 @@
         return 'Not signed in on this device, so nothing is syncing to it.';
       if (sync.reason === 'no-token')
         return silentFailed
-          ? 'Google wants a fresh sign-in — it would not renew quietly.'
+          ? `Google wants a fresh sign-in — it would not renew quietly${silentError ? ` (${silentError})` : ''}.`
           : 'Google session expired. It renews itself next time the app opens.';
       return 'Not set up.';
     }

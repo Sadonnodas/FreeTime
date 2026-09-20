@@ -100,3 +100,42 @@ describe('renewing when the app comes back to the front', () => {
     expect(listeners.has('visibilitychange')).toBe(false);
   });
 });
+
+/**
+ * Renewing only AFTER the token died meant the attempt landed the next
+ * morning, when Google is least likely to say yes quietly — and if it said no,
+ * the app then sat for half an hour before trying again. Both were reported as
+ * one thing: *"it's kind of annoying I have to log in every day almost."*
+ */
+describe('renewing before the hour is up', () => {
+  const session = (minutesLeft: number, extra: Record<string, unknown> = {}) =>
+    db.settings.put({
+      id: 'settings',
+      googleConnected: true,
+      googleAccessToken: 'live',
+      googleTokenExpiresAt: new Date(Date.now() + minutesLeft * 60 * 1000).toISOString(),
+      updatedAt: new Date().toISOString(),
+      ...extra
+    });
+
+  it('leaves a token with most of its hour left alone', async () => {
+    stubBrowser();
+    await session(40);
+    expect(await needsSilentRenewal()).toBe(false);
+  });
+
+  it('renews while the token is still alive but nearly out', async () => {
+    stubBrowser();
+    await session(5);
+    expect(await needsSilentRenewal()).toBe(true);
+  });
+
+  it('waits a few minutes after a refusal, not half an hour', async () => {
+    stubBrowser();
+    await session(5, { lastSilentAuthAt: new Date(Date.now() - 60 * 1000).toISOString() });
+    expect(await needsSilentRenewal()).toBe(false);
+
+    await session(5, { lastSilentAuthAt: new Date(Date.now() - 6 * 60 * 1000).toISOString() });
+    expect(await needsSilentRenewal()).toBe(true);
+  });
+});
