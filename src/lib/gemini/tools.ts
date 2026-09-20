@@ -8,7 +8,7 @@ import {
 import { activeProjects, openTodos, closedTodos } from '../queries';
 import { allMemos, displayTitle } from '../memos';
 import type { FunctionDeclaration } from './client';
-import type { Energy, Project } from '../types';
+import type { Energy, TimeBucket, Project } from '../types';
 
 /**
  * The assistant's tools (spec 7.1).
@@ -109,8 +109,29 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
         title: str('What to do, in their words.'),
         projectId: ERA,
         projectInEra: PROJECT_IN_ERA,
-        energy: { type: 'string', enum: ['quick', 'moderate', 'focus'] },
-        date: str('YYYY-MM-DD. ONLY for a real obligation they stated. Never inferred.')
+        /*
+         * TWO SIZES, AND THEY ARE INDEPENDENT (sizes.ts says why). `energy` is
+         * how much of your head it takes; `takes` is how long it takes. The
+         * app has had both for months and this tool only ever offered the
+         * first, so *"both are quick, 20 minutes to-dos"* could set the
+         * effort and had nowhere to put the twenty minutes — reported exactly
+         * that way. A model cannot fill a field that is not in the schema.
+         */
+        energy: {
+          type: 'string',
+          enum: ['quick', 'moderate', 'focus'],
+          description: 'How much head it takes. "Quick" is this, not a duration.'
+        },
+        takes: {
+          type: 'string',
+          enum: ['20min', '1-2h', 'half day', 'all day'],
+          description: 'How long it takes on the clock. "20 minutes" is this, not energy.'
+        },
+        date: str(
+          'YYYY-MM-DD. ONLY for a day they actually said — including a relative ' +
+            'one like "tomorrow" or "Friday", which you resolve against today\'s ' +
+            'date given above. Never inferred from urgency.'
+        )
       },
       required: ['title']
     }
@@ -577,6 +598,7 @@ export async function applyWrite(name: WriteTool, args: Args): Promise<void> {
         projectId: era?.id,
         tag,
         energy: s(args.energy) as Energy | undefined,
+        takes: s(args.takes) as TimeBucket | undefined,
         date: s(args.date)
       });
       break;

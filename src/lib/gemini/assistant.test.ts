@@ -3,7 +3,7 @@ import { db } from '../db';
 import { setApiKey } from './client';
 import { ask } from './assistant';
 import { createProject } from '../store';
-import { describeWrite } from './tools';
+import { describeWrite, applyWrite, TOOL_DECLARATIONS } from './tools';
 
 /**
  * Gemini 3 puts an opaque thoughtSignature on the first function call of a
@@ -152,6 +152,60 @@ describe('the assistant round-trip', () => {
       { kind: 'revise', number: 1, changes: { number: 1, date: '2026-09-18' } }
     ]);
     expect(turn.proposals).toEqual([]);
+  });
+
+  /**
+   * *"Add two to-dos for tomorrow... both are quick, 20 minutes to-dos"* came
+   * back undated and unsized. Two causes, both here: nothing ever told the
+   * model what day it is, so "tomorrow" could not become YYYY-MM-DD; and
+   * create_todo had no `takes` argument at all, so the twenty minutes had
+   * nowhere to go.
+   */
+  it('tells the model what day it is, so a stated "tomorrow" can be a date', async () => {
+    stub([{ text: 'ok' }]);
+    await ask([], 'add a to-do for tomorrow');
+    const system = (bodies[0] as unknown as { systemInstruction: { parts: { text: string }[] } })
+      .systemInstruction.parts[0]!.text;
+
+    const now = new Date();
+    const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    expect(system).toContain(iso);
+    expect(system).toContain('Tomorrow is');
+    // And the rule still forbids the thing it was written for.
+    expect(system).toMatch(/Never set a date unless they said a day/);
+  });
+
+  it('offers both sizes on create_todo, since a sentence usually gives both', async () => {
+    const todo = TOOL_DECLARATIONS.find((t) => t.name === 'create_todo')!;
+    const props = todo.parameters.properties as Record<string, { enum?: string[] }>;
+
+    // "Quick" is energy and "20 minutes" is takes — two axes, and the tool
+    // used to offer only the first.
+    expect(props.energy!.enum).toContain('quick');
+    expect(props.takes!.enum).toContain('20min');
+    expect(props.takes!.enum).toEqual(['20min', '1-2h', 'half day', 'all day']);
+  });
+
+  it('writes the duration the model asked for', async () => {
+    const era = await createProject('Family');
+    stub([
+      {
+        functionCall: {
+          name: 'create_todo',
+          args: { title: 'Finn medication', projectId: era, energy: 'quick', takes: '20min' }
+        },
+        thoughtSignature: 'S'
+      },
+      { text: 'Added.' }
+    ]);
+
+    const turn = await ask([], 'add finn medication, quick, 20 minutes');
+    const p = turn.proposals[0]!;
+    await applyWrite(p.name, p.args);
+
+    const written = (await db.todos.toArray())[0]!;
+    expect(written.takes).toBe('20min');
+    expect(written.energy).toBe('quick');
   });
 
   it('tells the model which project is on screen', async () => {

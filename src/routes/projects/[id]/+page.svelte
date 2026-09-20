@@ -25,6 +25,8 @@
   import StickerPicker from '$lib/components/StickerPicker.svelte';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import EnergyPicker from '$lib/components/EnergyPicker.svelte';
+  import WhenPicker from '$lib/components/WhenPicker.svelte';
+  import { dayLabel } from '$lib/days';
   import DurationPicker from '$lib/components/DurationPicker.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
   import RenameField from '$lib/components/RenameField.svelte';
@@ -692,13 +694,16 @@
                 onclick={() => (openTodo = openTodo === todo.id ? null : todo.id)}
               >
                 <p class={blockerOf(todo, byId) ? 'text-ink-400' : ''}>{todo.title}</p>
-                {#if blockerOf(todo, byId) || todo.energy || todo.date}
+                {#if blockerOf(todo, byId) || todo.energy || todo.takes || todo.date}
                   <p class="footnote">
                     {[
                       blockerOf(todo, byId) ? `after ${blockerOf(todo, byId)!.title}` : null,
+                      // Named, not the raw 2026-09-21: every other list says
+                      // "Tomorrow", and a date you have to decode is one you
+                      // misread.
+                      todo.date ? dayLabel(todo.date) : null,
                       todo.takes,
-                      todo.energy,
-                      todo.date
+                      todo.energy
                     ]
                       .filter(Boolean)
                       .join(' · ')}
@@ -728,6 +733,25 @@
                     )}
                     onpick={(after) => setTodoAfter(todo.id, after)}
                   />
+                </div>
+
+                <!--
+                  The day it is promised for. This screen is where an ERA-LEVEL
+                  to-do lives — one filed to Family with no project inside it —
+                  so leaving When off here meant those particular to-dos could
+                  only be dated from Brain, which is exactly how it was
+                  reported. The project screen gained this a day earlier and
+                  this page was missed: when a capability is added to one list,
+                  check the others that show the same rows.
+
+                  Far from "Do it today" in the action row below, for the
+                  reason Brain's editor gives: a date is an obligation, that
+                  button is today's three, and two controls saying Today a
+                  centimetre apart read as one.
+                -->
+                <div>
+                  <p class="section-label mb-2">When</p>
+                  <WhenPicker value={todo.date} onpick={(date) => updateTodo(todo.id, { date })} />
                 </div>
 
                 <div>

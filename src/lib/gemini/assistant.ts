@@ -1,5 +1,7 @@
 import { generate, type Content } from './client';
 import { db } from '../db';
+import { today } from '../store';
+import { tomorrow } from '../days';
 import { buildDigest } from './digest';
 import {
   TOOL_DECLARATIONS, isWrite, isNavigation, isPendingEdit, runQuery, describeWrite,
@@ -25,9 +27,10 @@ When they want something recorded, call the matching function. You may call seve
 
 How their things are organised: ERAS are lasting areas of life (Coding, Music, Family). PROJECTS live inside an era (MTG simulator inside Coding). Nothing goes deeper than that — a project is never inside another project. To make a project, use add_project_to_era, never create_project, which makes an era. To file something into a project, give its era as projectId and the project's name as projectInEra. "In the notes write…" means append_note for that project; a project's description is only its one-line tagline.
 An idea is not a to-do: only turn one into a to-do or a project when they ask.
+A to-do has TWO INDEPENDENT sizes, and a sentence often gives both: energy is how much head it takes (quick / moderate / focus), takes is how long it takes on the clock (20min / 1-2h / half day / all day). "Quick, twenty minutes" is BOTH — energy quick AND takes 20min. Set only what they actually said.
 
 Hard rules, which come from why this app exists:
-- Never set a date unless they stated a real deadline. There is no concept of overdue here, and an invented date creates one.
+- Never set a date unless they said a day. A day they said — "tomorrow", "Friday", "the 3rd" — IS stated, so resolve it against today's date below and set it. What is forbidden is inventing one because something sounds urgent: there is no concept of overdue here, and an invented date creates one.
 - Never mention streaks, percentages, being behind, or catching up.
 - A quiet project is allowed to be quiet. Do not editorialise about neglect.
 - Do not invent work. If they are thinking out loud, just talk.
@@ -107,6 +110,19 @@ export async function ask(
   pending: ProposedWrite[] = []
 ): Promise<AssistantTurn> {
   const [digest, where] = await Promise.all([buildDigest(), contextLine(context)]);
+  /*
+   * WHAT DAY IT IS. Nothing ever told the model, so "add this for tomorrow"
+   * could not become a date — it has no clock, and `date` wants YYYY-MM-DD.
+   * Reported as two to-dos asked for tomorrow that arrived on Someday. The
+   * weekday is given too, so "Friday" resolves without counting.
+   */
+  const now = new Date();
+  const dateLine = `Today is ${now.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  })} — ${today(now)} in YYYY-MM-DD. Tomorrow is ${tomorrow(today(now))}.`;
 
   const contents: Content[] = [
     ...history,
@@ -121,7 +137,7 @@ export async function ask(
   for (let round = 0; round <= MAX_READ_ROUNDS; round++) {
     const result = await generate({
       contents,
-      systemInstruction: `${SYSTEM}\n\nWhere they are: ${where}\n\nCurrent state:\n${digest.text}${pendingBlock(pending)}`,
+      systemInstruction: `${SYSTEM}\n\n${dateLine}\n\nWhere they are: ${where}\n\nCurrent state:\n${digest.text}${pendingBlock(pending)}`,
       tools: TOOL_DECLARATIONS,
       maxOutputTokens: 1200
     });

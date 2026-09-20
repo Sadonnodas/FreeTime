@@ -2240,6 +2240,39 @@ device; there is nothing to build. Memos are the exception, below.
   The add form offers it too, and the day STAYS between to-dos like the sizes,
   since a run of them written in one go is usually for one day; the photo is
   still the odd one out and resets.
+  **And the ERA OVERVIEW was missed the first time round**, reported a day
+  later: *"from the project page I couldn't set a date for these to-dos, only
+  in Brain."* Those particular to-dos were filed to the era with no project,
+  so they live on `/projects/[id]` — a different file, with its own row editor
+  — and only the project screen had been given the picker. Same lesson as
+  *"a to-do can be re-filed after it is written"*, which landed on the project
+  screens while Brain kept the gap for months: **WHEN A CAPABILITY IS ADDED TO
+  ONE LIST, CHECK EVERY OTHER SCREEN THAT SHOWS THE SAME ROWS.** There are
+  three: Brain, the era overview, the project. The era row also printed the
+  raw `2026-09-21`; it names the day now, like every other list.
+
+- **The assistant could not set how long a to-do takes, and did not know what
+  day it was** ([gemini/tools.ts](src/lib/gemini/tools.ts) `create_todo`,
+  [gemini/assistant.ts](src/lib/gemini/assistant.ts),
+  [assistant.test.ts](src/lib/gemini/assistant.test.ts)). One sentence exposed
+  both: *"add two to-dos for tomorrow… both are quick, 20 minutes to-dos"*
+  arrived undated and with no duration.
+  **`create_todo` had `energy` and no `takes`.** The app has had two
+  independent sizes for months (sizes.ts: how much head, and how long) and the
+  tool only ever offered the first, so the twenty minutes had nowhere to go —
+  a model cannot fill a field that is not in the schema. Both are there now,
+  each saying in its description which words belong to it, and the prompt says
+  a sentence often gives BOTH.
+  **Nothing ever told the model the date.** `date` wants YYYY-MM-DD and the
+  model has no clock, so "tomorrow" could not be expressed and came out as
+  Someday — correctly, by its own rules. The system instruction now carries
+  today's weekday and ISO date, and tomorrow's.
+  **The no-date rule had to be reworded, not relaxed.** It said *"never set a
+  date unless they stated a real deadline"*, which a model can read as "only a
+  hard external commitment". A day they SAID — tomorrow, Friday, the 3rd — is
+  stated, and refusing it is the app losing information the user gave it. What
+  stays banned is inventing one because something sounds urgent: that is what
+  would manufacture the overdue state this app does not have.
 
 - **A suspended phone never renews its Google token, and that is why a day
   away ended signed out** ([auth.ts](src/lib/google/auth.ts)
