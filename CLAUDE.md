@@ -2283,6 +2283,30 @@ device; there is nothing to build. Memos are the exception, below.
   prompt=none needs a live Google session in this browser, and an installed
   iOS web app does not necessarily share Safari's. When Google declines, a tap
   is the only way through — which is what the notice is for.
+  **And the first real reading came back `interaction_required`, from a
+  LAPTOP that was signed in to Google in the same browser at that moment**
+  (`Settings.googleAccountId`, `login_hint` in beginSignIn, `rememberAccount`).
+  That combination rules out the session — which is what `login_required`
+  would have said — and leaves the other thing prompt=none cannot do: PICK AN
+  ACCOUNT. "Do this without showing me anything" is unanswerable in a browser
+  holding two Google accounts, because the account chooser is interaction, so
+  Google refuses. Nothing in the request said which account it was.
+  It does now, on SILENT attempts only: an explicit sign-in must still offer
+  the chooser, or the app quietly becomes single-account with no way to switch.
+  The id is `sub`, read once from Google's `tokeninfo` endpoint, which needs no
+  extra scope — asking for `email` instead would put a fresh consent screen in
+  front of every existing install to learn something we do not otherwise want.
+  **A failed lookup must cost nothing**: with no hint stored, a renewal is
+  exactly what it was before, so the fetch is swallowed whole. Devices that
+  predate this learn the id at app start while a working token is still in
+  hand, rather than waiting for the very failure it prevents.
+  **Still outstanding, and Toon's to do in the Console**: the consent screen is
+  in TESTING (config.ts says why — it trades an "unverified app" warning for
+  skipping verification of `calendar.readonly`). Google expires a testing app's
+  grant after seven days whatever the flow, so a re-sign-in roughly weekly is
+  the published behaviour of that setting, not a bug here. Publishing it to
+  *In production* removes the seven days and keeps the warning; it is the
+  second half of this fix.
 
 - **"Connected" with a dead token had no way forward but Disconnect**
   ([settings/+page.svelte](src/routes/settings/+page.svelte) `needsFreshSignIn`).

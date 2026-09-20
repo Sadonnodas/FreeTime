@@ -573,6 +573,17 @@ export interface Settings {
    * without the word Google used they are indistinguishable from the outside.
    */
   lastSilentError?: string;
+  /**
+   * Which Google account this device is signed in as (the `sub` identifier).
+   *
+   * Sent as `login_hint` on a SILENT renewal only. With prompt=none and no
+   * hint, a browser holding more than one Google account cannot be renewed at
+   * all — Google needs the account chooser and answers `interaction_required`,
+   * which is exactly what a laptop reported. Device-local like everything else
+   * in Settings, and correctly so: which account a browser is signed in as is
+   * a fact about that browser.
+   */
+  googleAccountId?: string;
 
   /** Drive ids, remembered to save a lookup. Rediscoverable if lost. */
   driveFolderId?: string;

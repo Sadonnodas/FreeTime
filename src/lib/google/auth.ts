@@ -25,6 +25,9 @@ import { GOOGLE_CLIENT_ID, GOOGLE_SCOPES, redirectUri, isGoogleConfigured } from
  */
 
 const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
+/** Says which account a token belongs to, without asking for a single extra
+ *  scope — see `rememberAccount`. */
+const TOKENINFO_ENDPOINT = 'https://oauth2.googleapis.com/tokeninfo';
 
 /**
  * Guards against a redirect loop if silent renewal keeps failing. Five
@@ -109,7 +112,25 @@ export async function beginSignIn(silent = false): Promise<void> {
     // does not silently drop Drive access.
     include_granted_scopes: 'true'
   });
-  if (silent) params.set('prompt', 'none');
+  if (silent) {
+    params.set('prompt', 'none');
+    /*
+     * WHICH ACCOUNT, and this is the whole reason a laptop could not renew.
+     *
+     * prompt=none means "do it without showing me anything". A browser signed
+     * in to more than one Google account cannot answer that question on its
+     * own — it would have to show the account chooser, which is interaction,
+     * so Google refuses with `interaction_required`. Reported from a laptop
+     * that was demonstrably signed in to Google at the time, which is what
+     * ruled out every session-related cause.
+     *
+     * Naming the account removes the question. Only on a SILENT attempt: a
+     * sign-in the user actually tapped should still offer the chooser, since
+     * that is the only moment they can pick a different account.
+     */
+    const hint = (await settings())?.googleAccountId;
+    if (hint) params.set('login_hint', hint);
+  }
 
   location.assign(`${AUTH_ENDPOINT}?${params}`);
 }
@@ -178,7 +199,40 @@ export async function handleRedirect(): Promise<RedirectOutcome> {
     lastAuthError: undefined
   });
 
+  // Not awaited: the app is already usable and this only matters an hour from
+  // now. Re-read on every success, so switching account corrects it.
+  void rememberAccount(token);
+
   return { handled: true, ok: true };
+}
+
+/**
+ * Asks Google which account a token belongs to, and keeps the answer for the
+ * next silent renewal's `login_hint`.
+ *
+ * `tokeninfo` needs no scope of its own and returns `sub`, the stable id for
+ * the signed-in user — which is what `login_hint` takes, an email address or a
+ * sub. Asking for the `email` scope instead would mean a fresh consent screen
+ * for every existing install, to learn something we do not otherwise want.
+ *
+ * FAILING HERE COSTS NOTHING: with no hint stored, a renewal is exactly what
+ * it was before. So it is one fetch, swallowed whole, and never in the way of
+ * a sign-in completing.
+ */
+export async function rememberAccount(token: string): Promise<void> {
+  try {
+    if (typeof fetch !== 'function') return;
+    const res = await fetch(`${TOKENINFO_ENDPOINT}?access_token=${encodeURIComponent(token)}`);
+    if (!res.ok) return;
+    const info = (await res.json()) as { sub?: string; email?: string };
+    // The email reads better in a log and works identically as a hint, but it
+    // is only present when the email scope was granted; sub always is.
+    const id = info.sub || info.email;
+    if (id) await patch({ googleAccountId: id });
+  } catch {
+    // Offline, blocked, or a shape we did not expect. The hint is an
+    // optimisation and the flow has to work without it.
+  }
 }
 
 /** A usable token, or null. Never triggers a redirect on its own — navigating
@@ -216,6 +270,15 @@ export async function needsSilentRenewal(): Promise<boolean> {
  * what they were doing, and no sync is worth that.
  */
 export async function renewIfSafe(): Promise<void> {
+  // Learn the account while there is still a live token to ask with. Every
+  // install that predates login_hint has none stored, and waiting for the next
+  // manual sign-in to learn it would mean waiting for exactly the failure the
+  // hint exists to prevent. Costs one request, once per device.
+  const s = await settings();
+  if (s?.googleConnected && !s.googleAccountId) {
+    const token = await getAccessToken();
+    if (token) await rememberAccount(token);
+  }
   if (await needsSilentRenewal()) await beginSignIn(true);
 }
 
@@ -261,6 +324,9 @@ export async function signOut(): Promise<void> {
     googleAccessToken: undefined,
     googleTokenExpiresAt: undefined,
     googleGrantedScopes: undefined,
-    googleConnected: false
+    googleConnected: false,
+    // Forgotten too, or signing back in as somebody else would be silently
+    // renewed against the account that was left.
+    googleAccountId: undefined
   });
 }
