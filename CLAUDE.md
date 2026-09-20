@@ -695,6 +695,40 @@ one came close to a hard rule, the reasoning is recorded here.
   deliberate. The grid's order control offers *Quiet first* — deliberately a sort you
   ask for and never a badge the app assigns, which is what keeps it the right side of
   the no-nag rule.
+
+- **"Touched" means INTERACTED WITH, not finished** (`projectPulses` in
+  [queries.ts](src/lib/queries.ts), [pulse.test.ts](src/lib/pulse.test.ts)).
+  The line under an era's name on the Eras card is the pulse, and it used to
+  count only the most recent COMPLETED to-do plus a note's date — so an era
+  filled with a dozen to-dos still read *"nothing yet"*. Reported as a
+  question: *"I added some to-dos to them, I thought that would remove the
+  nothing yet — so what does it stand for?"* The answer is Toon's own:
+  *"interacting with an era — adding projects, to-dos, to-buys, memos — is
+  part of planning for something and is work towards that era."*
+  It now takes the latest of everything that happened in there: a to-do
+  written or ticked, an idea written or finished, a thing wanted or bought, a
+  recording made, a note or a block edited, and the ERA RECORD changing, which
+  is what adding, renaming, recolouring or reordering a project inside it does.
+  **The era's own creation is the one exclusion**, and it is what keeps
+  "nothing yet" meaning anything: count it and every era reads as touched from
+  the moment it exists, so the state could never be seen. `updatedAt >
+  createdAt` is "something has happened to this since it was made".
+  **ONE definition, four readers, and broadening it moved all four on
+  purpose.** The card; the assistant's digest; the *"you haven't touched X in
+  a while — on purpose?"* question, which used to ask that about an era filled
+  last week; and **Free Time's neglected slot**, which will no longer resurface
+  an era you have been actively planning in. That last one is the real change
+  and it is the intended one — the slot exists to bring back what has gone
+  quiet, and an era you were writing into yesterday has not. If a split is ever
+  wanted, `closedLast30` is already the "what came out" measure and is the
+  place to start, not a second timestamp.
+  **Found while looking: the note half took the FIRST note it found for the
+  era**, not the newest. An era holds a note per project since sections
+  existed, so it reported an arbitrary row's date — usually not the one last
+  written in. Every note in the era is considered now.
+  Reading six tables here is what keeps it live — a liveQuery only re-runs for
+  the tables it actually read. Memo blobs cost nothing to scan: IndexedDB
+  hands back a reference to the stored bytes rather than the bytes.
 - **Sections** (`Project.tags`, `Todo.tag`). Named groups within a project — Creating /
   Mixing / Mastering, or one per song. Rendered as a chip row over ONE flat list, not
   as pages: the project still has exactly three tabs and nothing is deeper than two

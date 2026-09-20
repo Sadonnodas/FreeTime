@@ -79,7 +79,10 @@ export async function datedTodos(onOrBefore = today()): Promise<Todo[]> {
 
 export interface ProjectPulse {
   project: Project;
-  /** ISO timestamp of the most recent completion or note edit; undefined if never. */
+  /**
+   * When anything last happened in this era — undefined only for one made and
+   * never filled. See `projectPulses` for what counts and why it is broad.
+   */
   lastTouchedAt?: string;
   closedLast30: number;
   openCount: number;
@@ -95,36 +98,110 @@ export async function archivedProjects(): Promise<Project[]> {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Rows of a table that belong to one era, still alive, grouped in one pass. */
+function byEra<T extends { projectId?: string; deletedAt?: string }>(rows: T[]): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const r of rows) {
+    if (r.deletedAt || !r.projectId) continue;
+    const list = map.get(r.projectId);
+    if (list) list.push(r);
+    else map.set(r.projectId, [r]);
+  }
+  return map;
+}
+
 /**
  * Pulse replaces progress bars (spec 4.2). A progress bar on an open-ended
  * personal project is always wrong and always reads as failure; "last touched"
- * and "closed recently" describe activity without implying a finish line.
- * A quiet project should look quiet, not behind.
+ * describes activity without implying a finish line, and a quiet era should
+ * look quiet rather than behind.
+ *
+ * TOUCHED MEANS INTERACTED WITH, NOT FINISHED, and it used to mean only the
+ * latter — the most recent COMPLETED to-do, plus a note's date. So an era you
+ * had spent an evening filling with to-dos still said "nothing yet", which is
+ * how it was reported: *"I have some that say nothing yet, even though I added
+ * to-dos to them. I thought that would remove the nothing yet."* Fair, and the
+ * broader reading is Toon's own: *"interacting with an era — adding projects,
+ * to-dos, to-buys, memos — is part of planning for something and is work
+ * towards that era."*
+ *
+ * So it now takes the latest of everything that happened in there: a to-do
+ * written or ticked, an idea written or finished, a thing wanted or bought, a
+ * recording made, a note or a block edited, and the era's own record changing
+ * (which is what adding, renaming, recolouring or reordering a project inside
+ * it does).
+ *
+ * **The era's own CREATION deliberately does not count**, which is the one
+ * exclusion that keeps "nothing yet" meaning something: without it every era
+ * would read as touched the moment it existed and the state could never be
+ * seen. `updatedAt > createdAt` is "something has happened to this since it
+ * was made".
+ *
+ * **This is one definition shared by four readers**, and broadening it moved
+ * all of them on purpose rather than by accident: the Eras card, the assistant's
+ * digest, the "haven't touched X in a while — on purpose?" question (which is
+ * now right, where it used to ask that about an era you had filled last week),
+ * and Free Time's NEGLECTED SLOT, which will no longer resurface an era you
+ * have been actively planning in. That last one is the real change and it is
+ * the intended one — the slot exists to bring back what has gone quiet, and an
+ * era you were writing into yesterday has not.
+ *
+ * Reading every table here is what keeps it live: a liveQuery only re-runs for
+ * the tables it actually read. Memo blobs cost nothing to scan — IndexedDB
+ * hands back a reference to the stored bytes, not the bytes.
  */
 export async function projectPulses(): Promise<ProjectPulse[]> {
-  const [projects, todos, notes] = await Promise.all([
+  const [projects, todos, ideas, buys, notes, widgets, memos] = await Promise.all([
     activeProjects(),
     db.todos.toArray(),
-    db.notes.toArray()
+    db.ideas.toArray(),
+    db.buyItems.toArray(),
+    db.notes.toArray(),
+    db.widgets.toArray(),
+    db.memos.toArray()
   ]);
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 30);
   const cutoffIso = cutoff.toISOString();
 
+  const todosBy = byEra(todos);
+  const ideasBy = byEra(ideas);
+  const buysBy = byEra(buys);
+  const notesBy = byEra(notes);
+  const widgetsBy = byEra(widgets);
+  const memosBy = byEra(memos);
+
   return projects.map((project) => {
-    const mine = todos.filter(notDeleted).filter((t) => t.projectId === project.id);
+    const mine = todosBy.get(project.id) ?? [];
     const completions = mine
       .map((t) => t.completedAt)
       .filter((c): c is string => !!c)
       .sort();
-    const note = notes.filter(notDeleted).find((n) => n.projectId === project.id);
 
-    const candidates = [completions.at(-1), note?.updatedAt].filter((v): v is string => !!v);
+    const touches = [
+      // What came out of it.
+      ...completions,
+      ...(buysBy.get(project.id) ?? []).map((b) => b.purchasedAt),
+      ...(ideasBy.get(project.id) ?? []).map((i) => i.doneAt),
+      ...(memosBy.get(project.id) ?? []).map((m) => m.recordedAt),
+      // And what went into it, which is work on it too.
+      ...mine.map((t) => t.createdAt),
+      ...(ideasBy.get(project.id) ?? []).map((i) => i.createdAt),
+      ...(buysBy.get(project.id) ?? []).map((b) => b.createdAt),
+      // Every note in the era, not the first one found — an era with a note
+      // per project used to report whichever came back first, which is an
+      // arbitrary row and usually not the one last written in.
+      ...(notesBy.get(project.id) ?? []).map((n) => n.updatedAt),
+      ...(widgetsBy.get(project.id) ?? []).map((w) => w.updatedAt),
+      // The era record itself: a project added to it, a rename, a colour, a
+      // cover. Never its creation — see above.
+      project.updatedAt > project.createdAt ? project.updatedAt : undefined
+    ].filter((v): v is string => !!v);
 
     return {
       project,
-      lastTouchedAt: candidates.sort().at(-1),
+      lastTouchedAt: touches.sort().at(-1),
       closedLast30: completions.filter((c) => c >= cutoffIso).length,
       openCount: mine.filter((t) => !t.completedAt).length
     };
