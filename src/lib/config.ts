@@ -23,9 +23,17 @@ export const GOOGLE_CLIENT_ID = '496272789427-0lq9nkvi967inpgrff51a7pa2o79gls1.a
 /**
  * drive.file grants access only to files this app itself created, which keeps
  * the rest of the user's Drive entirely out of scope and avoids Google's
- * verification review. calendar.readonly IS a sensitive scope — the consent
- * screen stays in Testing mode with the user as sole test user, which trades a
- * one-time "unverified app" warning for skipping verification altogether.
+ * verification review. calendar.readonly IS a sensitive scope, so the app
+ * stays UNVERIFIED and shows a one-time "unverified app" warning rather than
+ * going through review.
+ *
+ * It is PUBLISHED (external, production) as of September 2026, and was in
+ * Testing mode before that. The difference is not cosmetic: Google expires a
+ * testing app's grant after seven days whatever the flow, which is what kept
+ * demanding a fresh sign-in roughly weekly — see google/auth.ts. Publishing
+ * needs a home page and a privacy policy URL, which is why /privacy exists.
+ * **If this is ever moved back to Testing, the weekly sign-in comes back with
+ * it.**
  */
 export const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/drive.file',

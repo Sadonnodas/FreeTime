@@ -618,6 +618,9 @@ Do not "fix" these without talking to Toon first.
   Only prior turns from EARLIER messages may be text-only, which is why
   Assistant.svelte's history can keep just the reply.
 - **`Error 403: access_denied` at sign-in is a missing test user, not verification.**
+  Applies only while the app is in Testing mode; it has been published since
+  September 2026, so the test-user list no longer gates anything. Kept because
+  moving it back to Testing brings this failure back with it.
   The screen says the app "has not completed the Google verification process", which sends
   you to the wrong place, and it has **no Advanced link** — it is a refusal, not the
   click-through warning. Fix: *Google Auth Platform → Audience → Test users → Add* (the
@@ -2300,13 +2303,15 @@ device; there is nothing to build. Memos are the exception, below.
   exactly what it was before, so the fetch is swallowed whole. Devices that
   predate this learn the id at app start while a working token is still in
   hand, rather than waiting for the very failure it prevents.
-  **Still outstanding, and Toon's to do in the Console**: the consent screen is
-  in TESTING (config.ts says why — it trades an "unverified app" warning for
-  skipping verification of `calendar.readonly`). Google expires a testing app's
-  grant after seven days whatever the flow, so a re-sign-in roughly weekly is
-  the published behaviour of that setting, not a bug here. Publishing it to
-  *In production* removes the seven days and keeps the warning; it is the
-  second half of this fix.
+  **The second half was not code at all: the consent screen was in TESTING
+  mode, and Google expires a testing app's grant after SEVEN DAYS whatever the
+  flow.** So a re-sign-in roughly weekly was the documented behaviour of that
+  setting rather than a bug here, and no amount of renewal logic could have
+  fixed it. Published to external production on 20 September 2026; the app
+  stays unverified, which costs a one-time "unverified app" warning
+  (Advanced → Go to FreeTime) and nothing else at this scale. **Moving it back
+  to Testing brings the weekly sign-in back**, which is why config.ts now says
+  so beside the scopes.
   **Publishing needs a privacy policy URL, which is why the app has a
   `/privacy` page** ([privacy/+page.svelte](src/routes/privacy/+page.svelte),
   linked from Settings → Data). Google refuses to switch an app to external
