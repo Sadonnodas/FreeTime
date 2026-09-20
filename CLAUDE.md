@@ -2307,6 +2307,21 @@ device; there is nothing to build. Memos are the exception, below.
   the published behaviour of that setting, not a bug here. Publishing it to
   *In production* removes the seven days and keeps the warning; it is the
   second half of this fix.
+  **Publishing needs a privacy policy URL, which is why the app has a
+  `/privacy` page** ([privacy/+page.svelte](src/routes/privacy/+page.svelte),
+  linked from Settings → Data). Google refuses to switch an app to external
+  production without a valid app name, support email, home page AND privacy
+  policy — so the page is the price of not being signed out every seven days.
+  It is written as FACTS ABOUT THIS APP, not boilerplate: every claim names
+  something checkable in the code (drive.file only touches files this app
+  made, calendar events are read and never stored, the Gemini key lives only
+  in IndexedDB, the map asks OpenStreetMap for tiles and never uploads a
+  coordinate). **If the app ever starts doing something else, that page is
+  wrong and has to change with it** — a privacy policy describing a different
+  app is worse than none. Its date is `__APP_VERSION__`, so it cannot drift
+  from the build it describes. Home page is the app's own URL; the App logo
+  stays EMPTY on the Branding page, since uploading one forces the brand
+  verification review that publishing is meant to avoid.
 
 - **"Connected" with a dead token had no way forward but Disconnect**
   ([settings/+page.svelte](src/routes/settings/+page.svelte) `needsFreshSignIn`).

@@ -363,5 +363,12 @@
       <span class="flex-1">Import from Notion</span>
       <span class="text-ink-400">›</span>
     </a>
+    <!-- Written for Google, who will not take an OAuth app out of Testing mode
+         without one — but it belongs in the app too, next to the sync it
+         describes, rather than only on a consent screen. -->
+    <a href="{base}/privacy" class="list-group list-row press mt-2">
+      <span class="flex-1">Privacy</span>
+      <span class="text-ink-400">›</span>
+    </a>
   </section>
 </div>
