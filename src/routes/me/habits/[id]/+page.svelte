@@ -3,9 +3,13 @@
   import { base } from '$app/paths';
   import { liveQuery } from 'dexie';
   import type { HabitState } from '$lib/types';
-  import { loadHabitDetail, heatmapWeeks, monthLabel, habitColor, ON_COLOR } from '$lib/habits';
   import {
-    setHabitState, toggleHabitLog, today, setHabitColor, PROJECT_COLORS, renameHabit, softDelete
+    loadHabitDetail, heatmapWeeks, monthLabel, habitColor, habitWeek, rhythmLabel,
+    RHYTHM_CHOICES, ON_COLOR
+  } from '$lib/habits';
+  import {
+    setHabitState, toggleHabitLog, today, setHabitColor, setHabitRhythm, PROJECT_COLORS,
+    renameHabit, softDelete
   } from '$lib/store';
   import { goto } from '$app/navigation';
   import RenameField from '$lib/components/RenameField.svelte';
@@ -24,6 +28,9 @@
 
   const grid = $derived(heatmapWeeks($detailQ?.logDates ?? []));
   const loggedToday = $derived(($detailQ?.logDates ?? []).includes(today()));
+  // `thisWeek`, not `week`: the heatmap's own {#each grid as week} below would
+  // shadow it, and two different weeks under one name is a bug waiting.
+  const thisWeek = $derived($detailQ ? habitWeek($detailQ.habit, $detailQ.logDates) : undefined);
 
   const STATE_NOTE: Record<HabitState, string> = {
     active: 'Showing on Today.',
@@ -66,8 +73,44 @@
       {/each}
     </div>
 
+    <!--
+      HOW OFTEN IT COMES ROUND. *"A way to track weekly habits (e.g. 3 times a
+      week) without specific days"* — so this is a count and never a set of
+      weekdays: picking days would make four of them a thing you were late for,
+      which is the overdue state the app does not have. "Most days" is what
+      every habit was before this and stays the default.
+
+      One tap, no field, nothing to save — the same shape as the colour row
+      above it. habits.ts holds the rules that keep a rhythm from turning into
+      a target.
+    -->
+    <p class="section-label mb-2">How often</p>
+    <div class="mb-1 flex flex-wrap gap-2" role="radiogroup" aria-label="How often">
+      <button
+        class="chip press {habit.timesPerWeek ? '' : 'chip-on'}"
+        role="radio"
+        aria-checked={!habit.timesPerWeek}
+        onclick={() => setHabitRhythm(habit.id, undefined)}>Most days</button
+      >
+      {#each RHYTHM_CHOICES as n (n)}
+        <button
+          class="chip press {habit.timesPerWeek === n ? 'chip-on' : ''}"
+          role="radio"
+          aria-checked={habit.timesPerWeek === n}
+          onclick={() => setHabitRhythm(habit.id, n)}>{n}×</button
+        >
+      {/each}
+    </div>
+    <p class="footnote mb-6">
+      {rhythmLabel(habit.timesPerWeek)}{habit.timesPerWeek
+        ? ', no particular days. Once the week has had its ' +
+          habit.timesPerWeek +
+          ', it settles to the end of the row on Today and stops asking.'
+        : '. It sits on Today every day.'}
+    </p>
+
     <button
-      class="press tap mb-6 w-full rounded-2xl border py-4 text-[17px] font-medium transition-colors"
+      class="press tap mb-2 w-full rounded-2xl border py-4 text-[17px] font-medium transition-colors"
       style:background={loggedToday ? hc : `color-mix(in srgb, ${hc} 16%, var(--color-surface-1))`}
       style:border-color={loggedToday ? hc : `color-mix(in srgb, ${hc} 40%, transparent)`}
       style:color={loggedToday ? ON_COLOR : 'var(--color-ink-50)'}
@@ -86,6 +129,16 @@
         {loggedToday ? 'Done today' : 'Log for today'}
       </span>
     </button>
+
+    <!-- What has happened, never what is left: no "1 to go" and no fraction,
+         for the reasons set out in habits.ts. -->
+    {#if thisWeek?.weekly}
+      <p class="footnote mb-6">
+        {thisWeek.label}{thisWeek.met ? " — that's the rhythm kept." : '.'}
+      </p>
+    {:else}
+      <div class="mb-6"></div>
+    {/if}
 
     <section class="mb-8">
       <h2 class="section-label mb-2">

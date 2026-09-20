@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { buildCycles, heatmapWeeks, type Cycle, recentDays } from './habits';
+import {
+  buildCycles, heatmapWeeks, type Cycle, recentDays, timesThisWeek, habitWeek, rhythmLabel
+} from './habits';
 import type { Habit, HabitStateChange, HabitState } from './types';
 
 const habit = (over: Partial<Habit> = {}): Habit => ({
@@ -133,5 +135,70 @@ describe('the fortnight on a habit row', () => {
     expect(dates).toContain('2026-02-28');
     expect(dates).toContain('2026-03-01');
     expect(new Set(dates).size).toBe(14);
+  });
+});
+
+describe('a habit with a rhythm of its own', () => {
+  // Monday 14 September 2026 through Sunday the 20th. Built from parts, since
+  // new Date('2026-09-14') is UTC midnight and would be the Sunday before
+  // anywhere west of Greenwich.
+  const wednesday = new Date(2026, 8, 16);
+  const sunday = new Date(2026, 8, 20);
+
+  it('counts only the days inside this week, Monday to Sunday', () => {
+    const logs = ['2026-09-13', '2026-09-14', '2026-09-16'];
+    // The 13th is the Sunday BEFORE: last week's, and last week is never
+    // mentioned again.
+    expect(timesThisWeek(logs, wednesday)).toBe(2);
+    // Sunday still belongs to the week that began on Monday.
+    expect(timesThisWeek([...logs, '2026-09-20'], sunday)).toBe(3);
+  });
+
+  it('does not count a day that has not happened yet', () => {
+    // A log dated later in the week arrives from a device whose clock or
+    // timezone is ahead. Counting it would call the rhythm kept before it was.
+    expect(timesThisWeek(['2026-09-16', '2026-09-18'], wednesday)).toBe(1);
+  });
+
+  it('counts a day once, however many rows say so', () => {
+    // Two devices can each write the same date before they merge.
+    expect(timesThisWeek(['2026-09-16', '2026-09-16'], wednesday)).toBe(1);
+  });
+
+  it('is kept once the week has had its three, and stays kept', () => {
+    const h = { timesPerWeek: 3 };
+    const logs = ['2026-09-14', '2026-09-15', '2026-09-16'];
+    expect(habitWeek(h, logs, wednesday).met).toBe(true);
+    // Still met on Sunday with nothing added since: a rhythm that is met stops
+    // asking for the rest of the week, which is the whole point of having one.
+    expect(habitWeek(h, logs, sunday).met).toBe(true);
+    // And doing more than the rhythm is never remarked on.
+    expect(habitWeek(h, [...logs, '2026-09-17'], sunday).met).toBe(true);
+  });
+
+  it('says what has happened and never what is left', () => {
+    const w = habitWeek({ timesPerWeek: 3 }, ['2026-09-14', '2026-09-16'], wednesday);
+    expect(w.done).toBe(2);
+    expect(w.met).toBe(false);
+    // No fraction, no count-down, nowhere: "2 of 3" and "1 to go" are the
+    // completion percentage the spec bans, and habits.ts says why the number
+    // the user typed is still allowed to exist.
+    expect(w.label).toBe('2 this week');
+    expect(JSON.stringify(w)).not.toMatch(/of 3|to go|1 left/);
+  });
+
+  it('leaves a habit with no rhythm exactly as it was', () => {
+    const w = habitWeek({}, ['2026-09-14', '2026-09-16'], wednesday);
+    expect(w.weekly).toBe(false);
+    // Never met, so nothing about a "most days" habit settles or sinks early —
+    // its only question is still today's.
+    expect(w.met).toBe(false);
+    expect(rhythmLabel(undefined)).toBe('Most days');
+  });
+
+  it('names a rhythm the way it is said out loud', () => {
+    expect(rhythmLabel(1)).toBe('Once a week');
+    expect(rhythmLabel(2)).toBe('Twice a week');
+    expect(rhythmLabel(3)).toBe('3 times a week');
   });
 });

@@ -55,3 +55,19 @@ export function dayPhrase(iso: string, ref: string = today()): string {
   const label = dayLabel(iso, ref);
   return ['Today', 'Tomorrow', 'Yesterday'].includes(label) ? label.toLowerCase() : label;
 }
+
+/**
+ * Local midnight on the Monday of the week containing `d`.
+ *
+ * ONE definition of where a week starts, because two would eventually
+ * disagree: the weekly look-back and a habit's rhythm both have to mean the
+ * same seven days, or a habit could read "3 this week" on a screen that has
+ * already moved on to the next one.
+ */
+export function weekStart(d: Date): Date {
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  // getDay: Sunday is 0. Sunday belongs to the week that began six days ago.
+  const back = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - back);
+  return start;
+}

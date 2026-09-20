@@ -1,6 +1,9 @@
 import { db } from './db';
 import { now } from './store';
 import { displayTitle } from './memos';
+// One definition of where a week starts, shared with a habit's rhythm.
+import { weekStart } from './days';
+export { weekStart };
 import type { Project } from './types';
 
 /**
@@ -66,15 +69,6 @@ export interface WeeklySummary {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 export const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-/** Local midnight on the Monday of the week containing `d`. */
-export function weekStart(d: Date): Date {
-  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  // getDay: Sunday is 0. Sunday belongs to the week that began six days ago.
-  const back = (start.getDay() + 6) % 7;
-  start.setDate(start.getDate() - back);
-  return start;
-}
 
 function weekLabel(from: Date, toExclusive: Date): string {
   const last = new Date(

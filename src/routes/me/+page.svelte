@@ -4,7 +4,7 @@
   import type { Habit, HabitState, HabitLog } from '$lib/types';
   import { createHabit } from '$lib/store';
   import { winsSince } from '$lib/queries';
-  import { recentDays, byHabitOrder, habitColor } from '$lib/habits';
+  import { recentDays, byHabitOrder, habitColor, rhythmShort } from '$lib/habits';
   import ProjectShare from '$lib/components/ProjectShare.svelte';
   import Empty from '$lib/components/Empty.svelte';
   import { base } from '$app/paths';
@@ -120,8 +120,14 @@
                   <!-- The state word is left off: the group heading above already
                        says Active, Dormant or Retired, and repeating it on every
                        row costs space that the date needs. -->
+                  <!-- Its rhythm is a FACT ABOUT THE HABIT, stated where the
+                       other facts are, not a score: what is never here is how
+                       this week is going against it. -->
                   <p class="footnote mt-1.5">
-                    {logsFor(h.id).length} logged · since {since(h.stateChangedAt)}
+                    {[rhythmShort(h.timesPerWeek), `${logsFor(h.id).length} logged`,
+                      `since ${since(h.stateChangedAt)}`]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </p>
                 </div>
                 <span class="text-ink-400">›</span>

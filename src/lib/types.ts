@@ -306,6 +306,17 @@ export interface Habit extends Base {
    * from its id (`habitColor`), so every device agrees without a migration.
    */
   color?: string;
+  /**
+   * How often it is meant to come round, when that is not "most days": 3 for
+   * "three times a week, no particular days". Unset is the original habit —
+   * something you look at every day — and stays the default.
+   *
+   * THIS IS A RHYTHM THAT CAN BE SATISFIED, NEVER A TARGET THAT CAN BE MISSED,
+   * and habits.ts holds the rules that keep it that way. Nothing counts what
+   * is left, nothing reports a week that came up short, and the number is only
+   * ever one the user typed — the app never infers one.
+   */
+  timesPerWeek?: number;
 }
 
 /** Append-only. Survives every state change, forever. */

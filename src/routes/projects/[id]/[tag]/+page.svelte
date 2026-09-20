@@ -15,6 +15,7 @@
   import { activeProjects } from '$lib/queries';
   import { memosForProject } from '$lib/memos';
   import { indexById, readyFirst, blockerOf, possibleBlockers } from '$lib/order';
+  import { dayLabel } from '$lib/days';
   import { canRecord } from '$lib/audio';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import WidgetBoard from '$lib/components/WidgetBoard.svelte';
@@ -33,6 +34,7 @@
   import AddField from '$lib/components/AddField.svelte';
   import PlanToday from '$lib/components/PlanToday.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
+  import WhenPicker from '$lib/components/WhenPicker.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
   import ProjectTagEditor from '$lib/components/ProjectTagEditor.svelte';
   import IdeaList from '$lib/components/IdeaList.svelte';
@@ -191,6 +193,16 @@
   let newTakes = $state<TimeBucket | undefined>(undefined);
   /** A photo for the to-do being written, before it exists. */
   let newImage = $state<string | undefined>(undefined);
+  /**
+   * The day it is promised for, while writing it. Asked for as *"allow setting
+   * a date on to-dos inside the project view, not just from Brain"* — walking
+   * out to Brain to find the to-do you wrote ten seconds ago is the same trip
+   * that "Belongs to" was added to end.
+   *
+   * It stays between to-dos, like the sizes: a run of them written in one go
+   * is usually for one day. The photo is the odd one out and still resets.
+   */
+  let newDate = $state<string | undefined>(undefined);
 
   function choose(kind: AddKind) {
     sheet = false;
@@ -315,7 +327,14 @@
         label="Add a to-do"
         placeholder="Add to {tag}"
         onadd={async (title) => {
-          await createTodo(title, { projectId: eraId, tag, energy: newEnergy, takes: newTakes, image: newImage });
+          await createTodo(title, {
+            projectId: eraId,
+            tag,
+            energy: newEnergy,
+            takes: newTakes,
+            date: newDate,
+            image: newImage
+          });
           // The photo was for this one to-do; the sizes stay for a run of them.
           newImage = undefined;
         }}
@@ -326,6 +345,13 @@
                  afterwards. Free Time can only rule a job out of a short window
                  if the job says how long it is. -->
             <div class="card mt-2 space-y-3 p-3">
+              <!-- A DATE, not today's three. The chips are WhenPicker's, so an
+                   empty day cannot draw as the blank grey bar an
+                   <input type="date"> is on iOS. -->
+              <div>
+                <p class="section-label mb-2">When</p>
+                <WhenPicker value={newDate} onpick={(d) => (newDate = d)} />
+              </div>
               <div>
                 <p class="section-label mb-2">How long will it take?</p>
                 <DurationPicker value={newTakes} onpick={(v) => (newTakes = v)} unset={false} />
@@ -385,9 +411,17 @@
                 onclick={() => (openTodo = openTodo === todo.id ? null : todo.id)}
               >
                 <p class={waiting ? 'text-ink-400' : ''}>{todo.title}</p>
-                {#if waiting || todo.takes || todo.energy}
+                {#if waiting || todo.date || todo.takes || todo.energy}
+                  <!-- The day leads, because it is the one that says when this
+                       has to happen; without it on the row, a date set here
+                       would be invisible from the screen that set it. -->
                   <p class="footnote">
-                    {[waiting ? `after ${waiting.title}` : null, todo.takes, todo.energy]
+                    {[
+                      waiting ? `after ${waiting.title}` : null,
+                      todo.date ? dayLabel(todo.date) : null,
+                      todo.takes,
+                      todo.energy
+                    ]
                       .filter(Boolean)
                       .join(' · ')}
                   </p>
@@ -411,6 +445,18 @@
                   options={possibleBlockers(todo, todosQ)}
                   onpick={(after) => setTodoAfter(todo.id, after)}
                 />
+
+                <!--
+                  THE DAY IT IS PROMISED FOR, and deliberately not the same
+                  thing as "Do it today" down in the action row: a date feeds
+                  Free Time's obligation slot and Brain's day list, while that
+                  button puts it in today's three. Two controls saying "Today"
+                  a centimetre apart would read as one, which is why they sit
+                  at opposite ends of this editor — the same arrangement Brain
+                  settled on.
+                -->
+                <p class="section-label mt-3 mb-2">When</p>
+                <WhenPicker value={todo.date} onpick={(date) => updateTodo(todo.id, { date })} />
 
                 <!--
                   TWO QUESTIONS, because they are two different things. How long

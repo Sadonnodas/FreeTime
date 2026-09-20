@@ -2151,6 +2151,59 @@ device; there is nothing to build. Memos are the exception, below.
   retiring keeps the history, deleting takes it off every screen (every
   reader of habitLogs joins to LIVE habits, so orphaned logs show nowhere).
 
+- **A habit can have a RHYTHM — "3 times a week, no particular days"**
+  (`Habit.timesPerWeek`, `habitWeek` / `timesThisWeek` / `rhythmLabel` in
+  [habits.ts](src/lib/habits.ts), `setHabitRhythm`,
+  [habits.test.ts](src/lib/habits.test.ts)). Asked for as *"a way to track
+  weekly habits (e.g. 3 times a week) without specific days"*. Every habit
+  showed on Today every day, so one meant three times a week sat there
+  un-ticked on the other four — **an overdue state arriving by accident**, in
+  the app whose first rule is that it does not have one.
+  **A rhythm can be satisfied; it can never be missed**, and that sentence is
+  the whole design. Nothing counts what is left (no "1 to go", no bar, no
+  fraction anywhere); a week that came up short is never mentioned, on Monday
+  or ever; and the number is only ever one you typed — nothing is inferred
+  from how often something happens to get logged, which is the judgement the
+  old tracker made and lost trust over. **Meeting it is the only thing it
+  changes**: the habit settles to the end of the row and drops out of the
+  wave for the rest of the week. That is permission to stop, which is the
+  opposite of a target.
+  **"2 of 3" is deliberately never rendered**, and the difference from the
+  banned "out of 7" (weekly.ts) is WHERE THE DENOMINATOR CAME FROM: seven is
+  a number the app would be inventing on your behalf, three is one you set.
+  That is the argument to check anything new here against — and the chip says
+  "2 this week", a fact, with the rhythm itself living on the habit's own page.
+  **The chip now answers two questions with two channels.** THE CIRCLE IS
+  ALWAYS TODAY — it is what the tap does, and a tap must always be visible.
+  THE FILL ANSWERS THE HABIT'S OWN QUESTION: "today?" for a daily one, so the
+  two coincide exactly as before; "this week?" for one with a rhythm, so it
+  fills on the third and stays filled whether or not today was one of them. A
+  line under the name says which state it is in in words, because the colours
+  alone were misread once already ("it looks like some are ticked off").
+  **A count, never a set of weekdays.** Picking Mon/Wed/Fri would make four
+  days of the week something to be late for; the request said "without
+  specific days" and the rule agrees with it.
+  Only up to today counts (a log dated later in the week comes from a device
+  whose clock is ahead, and would call the rhythm kept before it was), and a
+  date counts once however many rows say so, since two devices can each write
+  it before they merge. `weekStart` moved to [days.ts](src/lib/days.ts) so the
+  look-back and a rhythm cannot disagree about which seven days a week is.
+
+- **A to-do's DAY can be set inside a project, not only from Brain**
+  (the project screen's row editor and its add form, `WhenPicker`). Asked for
+  directly. Every other field was editable there — name, blocker, both sizes,
+  photo, where it belongs — and the one that says WHEN was only in Brain, so
+  the to-do written ten seconds ago had to be found again on another screen.
+  It is the same WhenPicker Brain uses, so the chips cannot drift, and it sits
+  at the TOP of the editor while "Do it today" stays down in the action row:
+  a date feeds Free Time's obligation slot and Brain's day list, that button
+  puts it in today's three, and two controls saying "Today" a centimetre apart
+  read as one. The row footnote names the day now (leading, ahead of the
+  sizes) — without it, a date set on this screen would be invisible from it.
+  The add form offers it too, and the day STAYS between to-dos like the sizes,
+  since a run of them written in one go is usually for one day; the photo is
+  still the odd one out and resets.
+
 - **A suspended phone never renews its Google token, and that is why a day
   away ended signed out** ([auth.ts](src/lib/google/auth.ts)
   `startRenewalWatch`, [auth.test.ts](src/lib/google/auth.test.ts),

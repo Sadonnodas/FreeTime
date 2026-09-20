@@ -1,6 +1,7 @@
 import { db } from './db';
 import type { Habit, HabitState, HabitStateChange } from './types';
 import { today, PROJECT_COLORS } from './store';
+import { weekStart } from './days';
 
 /**
  * Cycle history and heatmap data (spec 3.6).
@@ -29,6 +30,92 @@ export function habitColor(habit: Pick<Habit, 'id' | 'color'>): string {
 
 /** Text that reads on a filled palette colour, in either theme. */
 export const ON_COLOR = '#161616';
+
+// ------------------------------------------------------- a weekly rhythm
+
+/**
+ * SOME HABITS ARE NOT DAILY ONES, and the app used to have no way to say so.
+ *
+ * Asked for as *"a way to track weekly habits (e.g. 3 times a week) without
+ * specific days"*. Every habit showed on Today every day, so one meant three
+ * times a week sat there un-ticked on the other four — which is an overdue
+ * state arriving by accident, in the one app that promises never to have one.
+ *
+ * `Habit.timesPerWeek` is that sentence written down. WHAT MAKES IT A RHYTHM
+ * AND NOT A TARGET is everything it is not allowed to do, and these rules are
+ * load-bearing rather than styling:
+ *
+ * - **Nothing ever counts what is left.** There is no "1 to go", no bar, no
+ *   fraction on any screen. What is shown is what has happened — "2 this
+ *   week" — which is the same argument that lets the fortnight of dots and the
+ *   "where the work went" chart exist.
+ * - **A week that came up short is never mentioned.** Monday starts again in
+ *   silence; nothing looks back at last week's count, and the weekly look-back
+ *   keeps its own rule ("habits as days, never out of 7").
+ * - **The number is only ever the one you typed.** The app never infers a
+ *   rhythm from how often something happens to get logged — that is the same
+ *   judgement the old habit tracker made and lost trust over, and it is why
+ *   dormant is an explicit choice too.
+ * - **Meeting it is the ONLY thing it changes.** A habit whose rhythm is met
+ *   stops asking for the rest of the week: it settles to the end of the row
+ *   and drops out of the wave. That is the whole feature — permission to stop,
+ *   not a score to chase.
+ *
+ * "Out of 3" is deliberately never rendered, and the difference from the
+ * banned "out of 7" is where the denominator came from: seven is a number the
+ * app would be inventing on your behalf, three is one you set. That is the
+ * argument to check anything new here against.
+ */
+export const RHYTHM_CHOICES = [1, 2, 3, 4, 5, 6];
+
+/** "Most days" — what a habit with no rhythm set is. */
+export function rhythmLabel(timesPerWeek?: number): string {
+  if (!timesPerWeek) return 'Most days';
+  if (timesPerWeek === 1) return 'Once a week';
+  if (timesPerWeek === 2) return 'Twice a week';
+  return `${timesPerWeek} times a week`;
+}
+
+/** The short form for a row that is already carrying other facts. */
+export function rhythmShort(timesPerWeek?: number): string | undefined {
+  return timesPerWeek ? `${timesPerWeek}× a week` : undefined;
+}
+
+/** How many of `logDates` fall in the week containing `on`, Monday-first. */
+export function timesThisWeek(logDates: string[], on: Date = new Date()): number {
+  const from = today(weekStart(on));
+  const to = today(on);
+  // Only up to today: a log dated later in the week is somebody else's clock
+  // or a correction, and counting it would say the rhythm was met before it
+  // was. Deduplicated, because two devices can each write the same day.
+  return new Set(logDates.filter((d) => d >= from && d <= to)).size;
+}
+
+export interface HabitWeek {
+  /** It has a rhythm of its own; false means "most days", the original habit. */
+  weekly: boolean;
+  /** Times logged this week so far. Descriptive — never compared out loud. */
+  done: number;
+  /** The rhythm has been kept. Only ever true for a weekly habit. */
+  met: boolean;
+  /** "2 this week". What the chip says; never "2 of 3". */
+  label: string;
+}
+
+export function habitWeek(
+  habit: Pick<Habit, 'timesPerWeek'>,
+  logDates: string[],
+  on: Date = new Date()
+): HabitWeek {
+  const weekly = !!habit.timesPerWeek;
+  const done = timesThisWeek(logDates, on);
+  return {
+    weekly,
+    done,
+    met: weekly && done >= habit.timesPerWeek!,
+    label: done === 0 ? 'Not yet this week' : done === 1 ? 'Once this week' : `${done} this week`
+  };
+}
 
 /** The order habits are drawn in: where they were dragged to, then oldest first. */
 export const byHabitOrder = (a: Habit, b: Habit): number =>

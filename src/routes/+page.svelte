@@ -2,20 +2,20 @@
   import { liveQuery } from 'dexie';
   import { base } from '$app/paths';
   import { db } from '$lib/db';
-  import type { Todo, Habit, Day, Project } from '$lib/types';
+  import type { Todo, Habit, HabitLog, Day, Project } from '$lib/types';
   import {
     completeTodo, uncompleteTodo, toggleHabitLog, today, projectTagColor, reorderHabits
   } from '$lib/store';
   import { allTodos, activeProjects } from '$lib/queries';
   import { ENERGIES, DURATIONS, energyLabel, durationLabel } from '$lib/sizes';
   import { indexById, blockerOf } from '$lib/order';
-  import { tomorrow } from '$lib/days';
+  import { tomorrow, weekStart } from '$lib/days';
   import {
     ensureDay, addToDay, removeFromDay, maybeCloseDay,
     canUnlockOneMore, unlockOneMore, reopenDayIfIncomplete, DayFullError, STARTING_SLOTS,
     reorderDay, reorderDayList, byDayList
   } from '$lib/day';
-  import { byHabitOrder, habitColor, ON_COLOR } from '$lib/habits';
+  import { byHabitOrder, habitColor, habitWeek, ON_COLOR } from '$lib/habits';
   import { Reorder } from '$lib/reorder.svelte';
   import { flip } from 'svelte/animate';
   import { tintFor } from '$lib/colors';
@@ -56,9 +56,19 @@
    */
   const slotDrag = new Reorder((ids) => reorderDay(ids));
   const habitDrag = new Reorder((ids) => reorderHabits(ids), 'xy');
-  const logsTodayQ = liveQuery(async () =>
-    (await db.habitLogs.where('date').equals(today()).toArray()).filter((l) => !l.deletedAt)
-  );
+  /**
+   * A WEEK of habit logs, not just today's, because a habit can have a rhythm
+   * of its own now ("3 times a week") and the chip has to say how the week has
+   * gone. One query over the same table: today's are picked out of it below.
+   * `today()` is called inside the callback, so a liveQuery re-run after
+   * midnight reads the new week rather than the old key.
+   */
+  const logsWeekQ = liveQuery(async () => {
+    const from = today(weekStart(new Date()));
+    return (await db.habitLogs.where('date').between(from, today(), true, true).toArray()).filter(
+      (l) => !l.deletedAt
+    );
+  });
   /**
    * Every live to-do, read once — the open ones to choose from, and the whole
    * set to resolve "comes after" against, since the thing standing in the way
@@ -294,9 +304,27 @@
    * on that. It just makes sure you can see what you are picking.
    */
   const habits = $derived(($habitsQ as Habit[] | undefined) ?? []);
+  const weekLogs = $derived(($logsWeekQ as HabitLog[] | undefined) ?? []);
   const habitsDone = $derived(
-    new Set((($logsTodayQ as { habitId: string }[] | undefined) ?? []).map((l) => l.habitId))
+    new Set(weekLogs.filter((l) => l.date === today()).map((l) => l.habitId))
   );
+  /** Each habit's week so far — see habits.ts for why it counts up, never down. */
+  const weekByHabit = $derived.by(() => {
+    const dates = new Map<string, string[]>();
+    for (const l of weekLogs) {
+      const list = dates.get(l.habitId);
+      if (list) list.push(l.date);
+      else dates.set(l.habitId, [l.date]);
+    }
+    return new Map(habits.map((h) => [h.id, habitWeek(h, dates.get(h.id) ?? [])]));
+  });
+  /**
+   * DONE FOR NOW — which is not the same question as "done today" once a habit
+   * has a rhythm. A weekly habit that has had its three is settled for the rest
+   * of the week: it sinks and it stops waving, which is the entire point of
+   * giving it a rhythm. A daily one settles exactly as before.
+   */
+  const habitSettled = (h: Habit) => habitsDone.has(h.id) || !!weekByHabit.get(h.id)?.met;
 
   /**
    * Everything on this screen that is still waiting, to-dos and habits in ONE
@@ -305,7 +333,7 @@
    */
   const waiting = $derived([
     ...slotTodos.filter((t) => !t.completedAt).map((t) => t.id),
-    ...habits.filter((h) => !habitsDone.has(h.id)).map((h) => h.id)
+    ...habits.filter((h) => !habitSettled(h)).map((h) => h.id)
   ]);
 
   onMount(() => {
@@ -902,8 +930,9 @@
           <a href="{base}/me" class="press tap-h inline-flex items-center px-1 text-[13px] text-ink-400">Edit</a>
         </div>
         <div class="flex flex-wrap gap-2">
-          {#each habitDrag.arrange(sinkDone(habits, (h) => habitsDone.has(h.id))) as habit (habit.id)}
+          {#each habitDrag.arrange(sinkDone(habits, habitSettled)) as habit (habit.id)}
             {@const done = habitsDone.has(habit.id)}
+            {@const week = weekByHabit.get(habit.id)}
             {@const hc = habitColor(habit)}
             <!--
               In the habit's own colour — *"they look bland while they should
@@ -919,12 +948,24 @@
               never the problem, the missing circle was.) Colour says which
               habit, the circle says whether, and the light/full contrast
               backs the circle up.
+
+              TWO QUESTIONS ONCE A HABIT HAS A RHYTHM, and they are answered by
+              two different parts of the chip. THE CIRCLE IS ALWAYS "TODAY" —
+              it is what the tap does, and a tap must always be visible. THE
+              FILL ANSWERS THE HABIT'S OWN QUESTION: for a daily habit that
+              question is "today?", so the two coincide exactly as before; for
+              one meant three times a week it is "this week?", so the chip
+              fills when the third is logged and stays filled for the rest of
+              the week, whether or not today was one of them. The line
+              underneath says which week state it is in, in words, so there is
+              nothing to infer from the colours — the mistake above, made once.
             -->
+            {@const filled = week?.weekly ? week.met : done}
             <button
               class="press tap relative flex items-center gap-2.5 rounded-2xl border py-2.5 pr-4 pl-3 text-[15px] font-medium transition-colors"
-              style:background={done ? hc : `color-mix(in srgb, ${hc} 16%, var(--color-surface-1))`}
-              style:border-color={done ? hc : `color-mix(in srgb, ${hc} 40%, transparent)`}
-              style:color={done ? ON_COLOR : 'var(--color-ink-50)'}
+              style:background={filled ? hc : `color-mix(in srgb, ${hc} 16%, var(--color-surface-1))`}
+              style:border-color={filled ? hc : `color-mix(in srgb, ${hc} 40%, transparent)`}
+              style:color={filled ? ON_COLOR : 'var(--color-ink-50)'}
               use:habitDrag.item={habit.id}
               animate:flip={{ duration: habitDrag.dragging === habit.id ? 0 : 180 }}
               class:nudge={nudged === habit.id}
@@ -933,7 +974,13 @@
               style:--dino-dir={nudged === habit.id ? dinoDir : undefined}
               class:tick-pop={celebrating === habit.id}
               aria-pressed={done}
-              aria-label={done ? `${habit.name}, done today` : `Log ${habit.name}`}
+              aria-label={[
+                habit.name,
+                done ? 'done today' : 'log for today',
+                week?.weekly ? week.label.toLowerCase() : null
+              ]
+                .filter(Boolean)
+                .join(', ')}
               onclick={() => {
                 // Only on the way IN. Unticking something is a correction, and
                 // confetti for a correction is the app being pleased about the
@@ -947,12 +994,29 @@
               {/if}
               <span
                 class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-[13px] leading-none font-bold transition-colors"
-                style:border-color={done ? 'white' : hc}
-                style:background={done ? 'white' : 'transparent'}
-                style:color={hc}
+                style:border-color={done
+                  ? filled
+                    ? 'white'
+                    : hc
+                  : filled
+                    ? `color-mix(in srgb, ${ON_COLOR} 45%, transparent)`
+                    : hc}
+                style:background={done ? (filled ? 'white' : hc) : 'transparent'}
+                style:color={done && !filled ? 'white' : hc}
                 aria-hidden="true"
               >{done ? '✓' : ''}</span>
-              {habit.name}
+              <span class="flex flex-col items-start leading-tight">
+                {habit.name}
+                <!--
+                  Only ever what has happened — "2 this week", never "2 of 3".
+                  The rhythm itself is on the habit's own page; nothing here
+                  counts down to it, and a week that ends short is never
+                  mentioned. See habits.ts for why that line matters.
+                -->
+                {#if week?.weekly}
+                  <span class="text-[11px] font-normal opacity-70">{week.label}</span>
+                {/if}
+              </span>
             </button>
           {/each}
         </div>

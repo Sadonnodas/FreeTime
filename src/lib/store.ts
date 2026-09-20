@@ -690,6 +690,18 @@ export async function setHabitColor(id: string, color: string): Promise<void> {
   await db.habits.update(id, { color, updatedAt: now() });
 }
 
+/**
+ * How often a habit is meant to come round: a number of times a week, or
+ * undefined for "most days", which is what every habit was before this.
+ *
+ * `undefined` really removes the field (Dexie's update deletes a property set
+ * to undefined — see memos.ts), which is what we want: a habit back on "most
+ * days" must not carry a stale rhythm that another device would read.
+ */
+export async function setHabitRhythm(id: string, timesPerWeek?: number): Promise<void> {
+  await db.habits.update(id, { timesPerWeek, updatedAt: now() });
+}
+
 export async function createHabit(name: string): Promise<string> {
   const state: HabitState = 'active';
   const at = now();
