@@ -13,6 +13,8 @@
   } from '$lib/store';
   import { goto } from '$app/navigation';
   import RenameField from '$lib/components/RenameField.svelte';
+  import MilestoneCard from '$lib/components/MilestoneCard.svelte';
+  import { habitMilestones, milestoneToday, milestoneWhen, type Milestone } from '$lib/milestones';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
 
   /**
@@ -31,6 +33,17 @@
   // `thisWeek`, not `week`: the heatmap's own {#each grid as week} below would
   // shadow it, and two different weeks under one name is a bug waiting.
   const thisWeek = $derived($detailQ ? habitWeek($detailQ.habit, $detailQ.logDates) : undefined);
+
+  /**
+   * The shelf: everything this habit has reached, newest first.
+   *
+   * Never a current run, never a best to be compared with, never a distance to
+   * the next one — see milestones.ts. What is here happened, and stays here.
+   */
+  const milestones = $derived(
+    $detailQ ? habitMilestones($detailQ.habit, $detailQ.logDates) : []
+  );
+  let celebrating = $state<Milestone | null>(null);
 
   const STATE_NOTE: Record<HabitState, string> = {
     active: 'Showing on Today.',
@@ -114,7 +127,12 @@
       style:background={loggedToday ? hc : `color-mix(in srgb, ${hc} 16%, var(--color-surface-1))`}
       style:border-color={loggedToday ? hc : `color-mix(in srgb, ${hc} 40%, transparent)`}
       style:color={loggedToday ? ON_COLOR : 'var(--color-ink-50)'}
-      onclick={() => toggleHabitLog(habit.id)}
+      onclick={async () => {
+        const logged = await toggleHabitLog(habit.id);
+        // The logs this page holds are from before the write, so the new date
+        // is added by hand rather than waiting for the liveQuery to come back.
+        if (logged) celebrating = milestoneToday(habit, [...$detailQ!.logDates, today()]);
+      }}
     >
       <!-- The same tick circle as on Today: colour says which habit, the
            circle says whether. -->
@@ -138,6 +156,31 @@
       </p>
     {:else}
       <div class="mb-6"></div>
+    {/if}
+
+    {#if milestones.length}
+      <section class="mb-8">
+        <h2 class="section-label mb-2">Milestones</h2>
+        <ul class="space-y-1">
+          {#each milestones as m (m.kind + m.value + m.at)}
+            <li class="card-flat flex items-center gap-3 px-4 py-3">
+              <span
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-bold"
+                style:background="color-mix(in srgb, {hc} 22%, var(--color-surface-1))"
+                style:color={hc}
+                aria-hidden="true">{m.value}</span
+              >
+              <div class="min-w-0 flex-1">
+                <p>{m.label}</p>
+                <p class="footnote">{milestoneWhen(m)}</p>
+              </div>
+            </li>
+          {/each}
+        </ul>
+        <!-- No "next milestone", on purpose: a card that hands you the next
+             number turns what you did into what you have not done yet. -->
+        <p class="footnote mt-2">These stay, whatever happens next.</p>
+      </section>
     {/if}
 
     <section class="mb-8">
@@ -238,3 +281,12 @@
     </section>
   {/if}
 </div>
+
+{#if celebrating && $detailQ}
+  <MilestoneCard
+    milestone={celebrating}
+    habitName={$detailQ.habit.name}
+    color={habitColor($detailQ.habit)}
+    onclose={() => (celebrating = null)}
+  />
+{/if}

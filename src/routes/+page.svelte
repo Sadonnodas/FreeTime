@@ -16,6 +16,8 @@
     reorderDay, reorderDayList, byDayList
   } from '$lib/day';
   import { byHabitOrder, habitColor, habitWeek, ON_COLOR } from '$lib/habits';
+  import { milestoneToday, type Milestone } from '$lib/milestones';
+  import MilestoneCard from '$lib/components/MilestoneCard.svelte';
   import { Reorder } from '$lib/reorder.svelte';
   import { flip } from 'svelte/animate';
   import { tintFor } from '$lib/colors';
@@ -169,6 +171,25 @@
 
   /** Which item is mid-celebration, so its burst renders exactly once. */
   let celebrating = $state<string | null>(null);
+
+  /**
+   * A milestone reached by the tap that just happened — "100 times", "8 weeks
+   * running". Checked after the write, from that habit's own logs, because
+   * this page only reads THIS WEEK's and a hundredth time is a fact about
+   * every week there has been.
+   *
+   * Only ever on the way IN, like the confetti: crossing a milestone backwards
+   * is not a thing that can happen, and celebrating an untick would be the app
+   * pleased about the wrong thing.
+   */
+  let milestone = $state<{ m: Milestone; name: string; color: string } | null>(null);
+  async function checkMilestone(habit: Habit) {
+    const logs = (await db.habitLogs.where('habitId').equals(habit.id).toArray())
+      .filter((l) => !l.deletedAt)
+      .map((l) => l.date);
+    const m = milestoneToday(habit, logs);
+    if (m) milestone = { m, name: habit.name, color: habitColor(habit) };
+  }
   /**
    * DONE SINKS, on all three lists — the three, the day list and the habits.
    * *"Marked as done should move to the bottom of their respective lists"*:
@@ -1022,7 +1043,12 @@
                 // confetti for a correction is the app being pleased about the
                 // wrong thing.
                 if (!done) celebrate(habit.id);
-                void toggleHabitLog(habit.id);
+                void toggleHabitLog(habit.id).then((logged) => {
+                  // After the write, so the hundredth is counted as the
+                  // hundredth. The burst above has already played; this lands
+                  // on top of it, which is the right order for a rare thing.
+                  if (logged) void checkMilestone(habit);
+                });
               }}
             >
               {#if celebrating === habit.id}
@@ -1079,6 +1105,15 @@
        -whole-day case it has always been; fewer once something is on the day,
        where it tops up instead of replacing. -->
   <FreeTime room={roomLeft} onDone={() => (freeTime = false)} />
+{/if}
+
+{#if milestone}
+  <MilestoneCard
+    milestone={milestone.m}
+    habitName={milestone.name}
+    color={milestone.color}
+    onclose={() => (milestone = null)}
+  />
 {/if}
 
 {#if monthly}

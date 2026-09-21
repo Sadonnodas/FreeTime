@@ -36,8 +36,21 @@ describe('when an era was last touched', () => {
 
   it('counts adding a project to the era', async () => {
     const era = await createProject('Campervan');
+    // Backdated, so the two writes cannot share a millisecond: a tie made this
+    // test fail about one run in three, which is the same clock-resolution
+    // trap that once broke a deploy on CI's faster runner.
+    await db.projects.update(era, { createdAt: '2026-01-01T00:00:00.000Z' });
     await setProjectTags(era, ['Bedroom']);
     expect((await pulseFor(era)).lastTouchedAt).toBeDefined();
+  });
+
+  it('counts a project added in the same millisecond the era was made', async () => {
+    // An import or the assistant applying two proposals at once. The timestamps
+    // are equal, so only the project itself proves anything happened.
+    const era = await createProject('Music');
+    const at = (await db.projects.get(era))!.createdAt;
+    await db.projects.update(era, { tags: ['Mixing'], updatedAt: at });
+    expect((await pulseFor(era)).lastTouchedAt).toBe(at);
   });
 
   it('takes the LATEST note in the era, not the first one it finds', async () => {

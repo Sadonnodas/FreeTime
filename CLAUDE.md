@@ -79,6 +79,8 @@ From spec §11 and the post-mortem that produced it. These are not preferences.
 
 - **No streaks. No completion percentages. No progress bars. No "overdue" state, red
   badge, or nag.** No weekly/monthly planning views. No priority field. No analytics.
+  A MILESTONE IS NOT A STREAK and is allowed — see *What you have done* below for
+  the line between them, which is that nothing a milestone produces can go down.
 - **Completed items are never deleted and never hidden** *by the app*. Deleting one
   row by hand is a different thing and is allowed: there is a per-row two-tap
   Delete on to-dos and buy items ([RemoveButton.svelte](src/lib/components/RemoveButton.svelte)),
@@ -1777,7 +1779,9 @@ device; there is nothing to build. Memos are the exception, below.
   tap on Today is visible immediately and the row obviously leads somewhere.
   **Still no streak, and that is the spec's rule rather than an oversight**: a
   streak counter can only ever tell you that you broke it, and the fear of
-  breaking one is what made the previous system a machine for guilt. What is
+  breaking one is what made the previous system a machine for guilt. (What
+  DOES exist is milestones — past tense, permanent, nothing to lose. See
+  *What you have done* above for why that is a different thing.) What is
   shown is what happened — days on or off against no target, gaps that nothing
   counts — which is the same argument that lets the "where the work went" chart
   exist. If a streak is asked for again, this is the paragraph to read first.
@@ -2254,6 +2258,48 @@ device; there is nothing to build. Memos are the exception, below.
   date counts once however many rows say so, since two devices can each write
   it before they merge. `weekStart` moved to [days.ts](src/lib/days.ts) so the
   look-back and a rhythm cannot disagree about which seven days a week is.
+
+- **What you have done: MILESTONES, which are not streaks**
+  ([milestones.ts](src/lib/milestones.ts),
+  [MilestoneCard.svelte](src/lib/components/MilestoneCard.svelte),
+  [milestones.test.ts](src/lib/milestones.test.ts)). Asked for with the danger
+  named in the same breath, which is why it could be built at all: *"I know
+  streaks are dangerous, because when you build one up and then lose it, it can
+  trigger me to give up instead of rebuilding. But it would be nice to have
+  something that tells me: you did this habit 100 times. Or 4 consecutive weeks
+  of ear training. Something that pushes me to keep going without leaving the
+  emptiness of losing."*
+  **THE BAN IS NOT ON COUNTING — IT IS ON A NUMBER YOU CAN LOSE.** The app
+  already counts, on every habit row ("47 logged") and in the cycle history,
+  and nobody ever objected to those. What a streak adds is that the number is
+  LIVE: it sits on screen at 23, you watch it, and one quiet Tuesday it reads
+  0. That zero is the thing this app exists not to do, and the old system's
+  whole failure in one digit.
+  So every milestone is **past tense and permanent**, the same shape as a win
+  in the wins feed or a finished project: reached on a day, and nothing that
+  happens afterwards removes it or reduces it. The rules that keep it there,
+  all pinned by tests: **no run in progress is ever shown as a number**, so
+  there is nothing to watch and nothing to drop; **nothing says a run ended**,
+  or was broken, or was your best; **nothing says how far it is to the next
+  one**, because a card that hands you the next number turns what you did into
+  what you have not done yet.
+  **All time, never per year.** The request said "100 times this year", and a
+  yearly count is a streak with a calendar for a trigger — on 1 January a habit
+  done 300 times reads 2, which is precisely the emptiness being avoided.
+  **One line per RUN, at the highest it reached** (4, 8, 12, 26, 52 weeks), so
+  a twelve-week run is one entry rather than three, and **a later run earns its
+  own line** rather than being compared with the first: coming back and doing
+  four more weeks is recognised, which is the exact moment the old system
+  punished. A week counts when the habit met its OWN rhythm — three times for
+  a habit meant three times a week — since "at least once" would hand a weekly
+  habit runs it did not do.
+  Derived from the logs every time, never stored: no table, nothing to migrate,
+  and a log arriving from another device counts the moment it lands. The moment
+  is found by asking whether any milestone is dated TODAY, which is stateless;
+  the cost is that unticking and reticking the hundredth replays the card, and
+  that is a shrug next to a table for remembering confetti.
+  Not done and worth considering: naming milestones reached in the weekly
+  look-back, which is already a "what happened" surface.
 
 - **A to-do's DAY can be set inside a project, not only from Brain**
   (the project screen's row editor and its add form, `WhenPicker`). Asked for

@@ -196,7 +196,16 @@ export async function projectPulses(): Promise<ProjectPulse[]> {
       ...(widgetsBy.get(project.id) ?? []).map((w) => w.updatedAt),
       // The era record itself: a project added to it, a rename, a colour, a
       // cover. Never its creation — see above.
-      project.updatedAt > project.createdAt ? project.updatedAt : undefined
+      //
+      // `tags.length` is checked as well as the timestamps, because an era
+      // created and given a project in the SAME MILLISECOND (an import, the
+      // assistant applying two proposals, a fast script) has
+      // updatedAt === createdAt and would read as untouched while visibly
+      // holding a project. Nothing seeds tags at creation, so having one is
+      // itself proof that something happened afterwards.
+      (project.tags ?? []).length || project.updatedAt > project.createdAt
+        ? project.updatedAt
+        : undefined
     ].filter((v): v is string => !!v);
 
     return {
