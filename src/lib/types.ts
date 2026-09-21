@@ -574,6 +574,16 @@ export interface Settings {
    */
   lastSilentError?: string;
   /**
+   * When that refusal happened — and BOTH SURVIVE A SUCCESSFUL RECONNECT.
+   *
+   * They used to be cleared the moment a sign-in worked, which meant the
+   * evidence was destroyed by the very action taken to fix the problem: the
+   * only way to read the reason was to notice the notice, resist tapping it,
+   * and go to Settings first. Diagnosing a failure that happens overnight
+   * cannot depend on catching it in the act.
+   */
+  lastSilentErrorAt?: string;
+  /**
    * Which Google account this device is signed in as (the `sub` identifier).
    *
    * Sent as `login_hint` on a SILENT renewal only. With prompt=none and no

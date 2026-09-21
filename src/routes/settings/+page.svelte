@@ -21,6 +21,9 @@
   /** Google's own word for why the quiet renewal failed — login_required and
    *  consent_required need opposite answers, so the code is shown. */
   let silentError = $state<string | undefined>(undefined);
+  /** When Google last refused to renew quietly. Kept after a reconnect, so a
+   *  failure that happened overnight can still be read the next morning. */
+  let silentErrorAt = $state<string | undefined>(undefined);
   let silentFailed = $state(false);
   /** Whether this device is holding a token that has not run out. */
   let hasToken = $state(true);
@@ -74,6 +77,7 @@
     // succeeds — so it is a reliable "Google will not do this quietly".
     silentFailed = !!st?.lastSilentAuthAt;
     silentError = st?.lastSilentError;
+    silentErrorAt = st?.lastSilentErrorAt;
     hasToken = !!(await getAccessToken());
     apiKey = (await getApiKey()) ?? '';
     queued = await pendingAudioCount();
@@ -214,6 +218,19 @@
     {:else}
       <div class="card p-4">
         <p class="text-sm">{statusLine}</p>
+        <!--
+          THE LAST REFUSAL, KEPT. A renewal that fails does so overnight, and
+          the reason used to be wiped by the reconnect that fixes it — so
+          reading it meant noticing the notice and NOT tapping it, which is
+          asking someone to debug instead of getting on with their morning.
+          Only shown once there has been one, and only while it is recent
+          enough to mean anything.
+        -->
+        {#if silentError && silentErrorAt}
+          <p class="footnote mt-2">
+            Google last refused a quiet renewal {ago(silentErrorAt)} — {silentError}.
+          </p>
+        {/if}
         {#if connected}
           {#if needsFreshSignIn}
             <!-- The primary action while there is no token: everything else in

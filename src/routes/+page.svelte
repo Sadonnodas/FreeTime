@@ -207,13 +207,49 @@
   let monthly = $state<Summary | null>(null);
   // And last week, on the first open of a new one. See weekly.ts.
   let weekly = $state<WeeklySummaryData | null>(null);
-  onMount(async () => {
+  /**
+   * THE LOOK-BACKS HAVE TO BE ASKED FOR AGAIN WHEN THE APP COMES BACK, not
+   * only at a cold launch.
+   *
+   * Reported as the weekly review arriving on the laptop and never on the
+   * phone — and the giveaway was WHEN it arrived on the laptop: right after
+   * signing in to Google, which is a full-page redirect, which reloads the
+   * page, which is the only thing that runs `onMount`. An installed app on a
+   * phone is SUSPENDED rather than closed, so Monday morning it resumes with
+   * the same JavaScript still in memory and nobody ever asks again.
+   *
+   * Fourth time this exact shape: the calendar cache, the theme, the update
+   * check and the Google token all learned that a device which has been asleep
+   * has to be told to look again. Anything keyed on "a new day/week/month has
+   * begun" must be checked on the way back to the foreground too.
+   *
+   * Guarded so it can never land on top of something: not while a full-screen
+   * thing is already open, and not while a field has focus — this page carries
+   * the quick-notes box, and losing what is half-written to a look-back would
+   * be a worse bug than the one being fixed. It cannot nag: both are keyed on
+   * having been SHOWN, so each arrives once.
+   */
+  async function checkSummaries() {
+    if (monthly || weekly) return;
+    if (showClose || picking || freeTime || quickNotes) return;
+    const el = document.activeElement as HTMLElement | null;
+    if (el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))) return;
+
     monthly = await pendingMonthlySummary();
     // NEVER BOTH ON ONE OPEN. When a month and a week turn over together, two
     // full-screen look-backs stacked on top of each other is the app talking
     // over you. The month goes first; the week is not asked for, so it is not
     // marked shown either, and simply arrives on the next open that week.
     if (!monthly) weekly = await pendingWeeklySummary();
+  }
+
+  onMount(() => {
+    void checkSummaries();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void checkSummaries();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   });
 
   $effect(() => {

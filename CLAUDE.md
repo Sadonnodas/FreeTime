@@ -227,6 +227,21 @@ Do not "fix" these without talking to Toon first.
 - **The monthly summary is keyed on being *shown*, not acknowledged**
   ([monthly.ts](src/lib/monthly.ts)). One that waits to be properly received comes back,
   and anything returning uninvited is a nag.
+  **And both look-backs are asked for again when the app COMES BACK, not only
+  at a cold launch** (`checkSummaries` in [+page.svelte](src/routes/+page.svelte)).
+  Reported as the weekly review arriving on the laptop and never on the phone
+  — and the giveaway was WHEN it arrived on the laptop: *"after signing into my
+  Google account"*, which is a full-page redirect, which reloads the page,
+  which is the only thing that runs `onMount`. An installed app on a phone is
+  SUSPENDED rather than closed, so Monday morning it resumes with the same
+  JavaScript in memory and nobody ever asks again.
+  **Fourth time this shape**, after the calendar cache, the theme, the update
+  check and the Google token: a device that has been asleep has to be told to
+  look again. **Anything keyed on "a new day, week or month has begun" must be
+  re-checked on the way back to the foreground.** Guarded so it cannot land on
+  top of anything — not while another full-screen thing is open, not while a
+  field has focus (this page carries the quick-notes box) — and it cannot nag,
+  because both are keyed on having been shown.
 - **The assistant never writes directly** ([gemini/tools.ts](src/lib/gemini/tools.ts)).
   Reads run immediately; writes are proposals until tapped. A test asserts every tool is
   deliberately classified — a write misfiled as a read would execute unnoticed.
@@ -883,6 +898,20 @@ one came close to a hard rule, the reasoning is recorded here.
   **Brain → To-dos does the same** once an era is picked (`byProjectThenNewest`):
   project by project in the era's order, era-level after, newest first within
   each. A day list keeps its own dragged order.
+  **And Brain can be narrowed to ONE PROJECT** (`fTag`, the "Era or project"
+  select). Asked for with the export in mind: *"I would like to filter by
+  project from within the Brain to-dos so I can also export those specifically
+  from there. Right now I have to go into that project and export there."* The
+  export already takes the list exactly as narrowed, so the filter IS the
+  feature — nothing about Export changed.
+  **One control for both levels, not a fourth select.** Each era with projects
+  becomes an optgroup holding "All of <era>" and then its projects, so the
+  panel stays one row — a filter panel taller than the list it filters is the
+  clutter the fold was meant to remove. Option values carry the era id with the
+  name, since a project name is only unique inside its era.
+  Narrowed to one project the sort drops back to `byRank`: every row would
+  carry the same heading, so grouping by project says nothing and the order
+  that matters is the one you dragged them into.
   **The four kind-tabs carry the same palette** (`SECTION_TABS`), muted when
   unselected and filled when on, so Brain reads as coloured without four
   full-strength labels shouting over the list underneath.
@@ -2336,6 +2365,14 @@ device; there is nothing to build. Memos are the exception, below.
   exactly what it was before, so the fetch is swallowed whole. Devices that
   predate this learn the id at app start while a working token is still in
   hand, rather than waiting for the very failure it prevents.
+  **The reason now SURVIVES the reconnect that fixes it** (`lastSilentErrorAt`,
+  shown in Settings as "Google last refused a quiet renewal 6h ago —
+  interaction_required"). It used to be cleared on a successful sign-in, which
+  destroyed the evidence with the very action taken to fix the problem: reading
+  it meant noticing the notice, resisting the tap, and going to Settings first.
+  A failure that happens overnight cannot be diagnosed by catching it in the
+  act. `lastSilentAuthAt` is still cleared, since that one means "an attempt is
+  in flight"; the reason and its time are history and are kept.
   **The second half was not code at all: the consent screen was in TESTING
   mode, and Google expires a testing app's grant after SEVEN DAYS whatever the
   flow.** So a re-sign-in roughly weekly was the documented behaviour of that

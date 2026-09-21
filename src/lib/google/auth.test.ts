@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { db } from '../db';
 import {
-  startRenewalWatch, needsSilentRenewal, beginSignIn, rememberAccount, renewIfSafe
+  startRenewalWatch, needsSilentRenewal, beginSignIn, rememberAccount, renewIfSafe,
+  handleRedirect
 } from './auth';
 
 /**
@@ -228,5 +229,53 @@ describe('naming the account on a silent renewal', () => {
     // Unchanged rather than cleared: a lookup that could not run says nothing
     // about which account this is.
     expect((await db.settings.get('settings'))?.googleAccountId).toBe('11822838');
+  });
+});
+
+/**
+ * A renewal fails overnight. The reason used to be wiped by the reconnect
+ * that fixes it, so reading it meant noticing the notice and deliberately NOT
+ * tapping it — asking someone to debug instead of getting on with their
+ * morning. It is kept now, with the time it happened.
+ */
+describe('remembering why Google refused', () => {
+  function stubReturn(hash: string, silent: boolean) {
+    stubBrowser();
+    sessionStorage.setItem('freetime.oauth.state', 'st');
+    sessionStorage.setItem('freetime.oauth.silent', silent ? '1' : '');
+    vi.stubGlobal('location', {
+      origin: 'https://sadonnodas.github.io',
+      pathname: '/FreeTime/',
+      search: '',
+      hash,
+      assign: (url: string) => assigned.push(url)
+    });
+    vi.stubGlobal('history', { replaceState: () => {} });
+  }
+
+  it('records the refusal and when it happened', async () => {
+    stubReturn('#error=interaction_required&state=st', true);
+    await handleRedirect();
+
+    const s = await db.settings.get('settings');
+    expect(s?.lastSilentError).toBe('interaction_required');
+    expect(s?.lastSilentErrorAt).toBeTruthy();
+  });
+
+  it('keeps it through the sign-in that fixes it', async () => {
+    stubReturn('#error=interaction_required&state=st', true);
+    await handleRedirect();
+
+    // The tap on Reconnect: a normal, non-silent sign-in that works.
+    stubReturn('#access_token=fresh&expires_in=3600&state=st', false);
+    vi.stubGlobal('fetch', async () => ({ ok: true, json: async () => ({ sub: '1' }) }));
+    await handleRedirect();
+
+    const s = await db.settings.get('settings');
+    expect(s?.googleAccessToken).toBe('fresh');
+    // Still there the next morning, which is the entire point.
+    expect(s?.lastSilentError).toBe('interaction_required');
+    // And nothing claims a renewal is in flight any more.
+    expect(s?.lastSilentAuthAt).toBeUndefined();
   });
 });

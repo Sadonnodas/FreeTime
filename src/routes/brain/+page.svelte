@@ -105,6 +105,20 @@
   // Filters for All to-dos (spec 4.3): project, energy, has-date. No priority
   // filter, because there is no priority field.
   let fProject = $state('');
+  /**
+   * The project inside that era, so Brain can be narrowed to one project.
+   *
+   * Asked for with the export in mind: *"I would like to filter by project
+   * from within the Brain to-dos so I can also export those specifically from
+   * there. Right now I have to go into that project and export there."* The
+   * export already takes the list exactly as narrowed, so this is the whole
+   * feature — one filter, and Export follows it.
+   *
+   * It shares ONE control with the era rather than adding a fourth select:
+   * the panel is deliberately one row, and a filter panel taller than the list
+   * it filters is the clutter the fold was meant to remove.
+   */
+  let fTag = $state('');
   let fEnergy = $state<'' | Energy>('');
   let fDated = $state<'' | 'yes' | 'no'>('');
   let showClosed = $state(false);
@@ -179,6 +193,7 @@
       .filter((t) => (showClosed ? true : !t.completedAt))
       .filter((t) => (day ? t.date === day : true))
       .filter((t) => (fProject ? t.projectId === fProject : true))
+      .filter((t) => (fTag ? t.tag === fTag : true))
       .filter((t) => (fEnergy ? t.energy === fEnergy : true))
       .filter((t) => (day || !fDated ? true : fDated === 'yes' ? !!t.date : !t.date))
       // A day list reads top to bottom — in the order it was dragged into on
@@ -187,11 +202,28 @@
       .sort(
         day
           ? byDayList(($daysQ as Day[] | undefined)?.find((d) => d.date === day)?.listOrder)
-          : fProject
+          : // Narrowed to ONE project, every row would carry the same heading,
+            // so grouping by project says nothing and the order that matters is
+            // the one you dragged them into.
+            fProject && !fTag
             ? byProjectThenNewest
             : byRank
       )
   );
+
+  /**
+   * "<era id><PLACE_SEP><project name>" for one project, the bare era id for a
+   * whole era. NUL, and written as an escape: a project name can contain any
+   * character a person can type, and a literal control byte in a source file
+   * makes it binary to grep (see ProjectSelect, which learned that).
+   */
+  const PLACE_SEP = '\u0000';
+  const placeValue = $derived(fProject ? (fTag ? `${fProject}${PLACE_SEP}${fTag}` : fProject) : '');
+  function pickPlace(v: string) {
+    const cut = v.indexOf(PLACE_SEP);
+    fProject = cut === -1 ? v : v.slice(0, cut);
+    fTag = cut === -1 ? '' : v.slice(cut + 1);
+  }
 
   const allTodos = $derived(($todosQ as Todo[] | undefined) ?? []);
   const byId = $derived(indexById(allTodos));
@@ -234,7 +266,9 @@
    */
   const filterSummary = $derived(
     [
-      fProject ? projectName(fProject) : null,
+      // Era, then project: the summary is what stops a narrowed list reading
+      // as a list that has lost things.
+      fProject ? [projectName(fProject), fTag || null].filter(Boolean).join(' · ') : null,
       fEnergy ? fEnergy : null,
       fDated === 'yes' ? 'has a date' : fDated === 'no' ? 'no date' : null,
       showClosed ? 'closed shown' : null
@@ -642,10 +676,31 @@
            "Dated or not" were written for a full-width row that no longer
            exists. -->
       <div class="flex gap-2 text-sm">
-        <select bind:value={fProject} class="field press min-w-0 flex-1">
+        <!--
+          ONE control for both levels, not two. Each era with projects becomes
+          a group holding "All of <era>" plus its projects, so era and project
+          are picked in the same tap and the row stays three selects wide.
+          Values carry the era id with the name, since a project name is only
+          unique inside its era.
+        -->
+        <select
+          value={placeValue}
+          onchange={(e) => pickPlace(e.currentTarget.value)}
+          class="field press min-w-0 flex-1"
+          aria-label="Era or project"
+        >
           <option value="">All eras</option>
           {#each ($projectsQ as Project[] | undefined) ?? [] as p (p.id)}
-            <option value={p.id}>{p.name}</option>
+            {#if (p.tags ?? []).length}
+              <optgroup label={p.name}>
+                <option value={p.id}>All of {p.name}</option>
+                {#each p.tags ?? [] as t (t)}
+                  <option value="{p.id}{PLACE_SEP}{t}">{t}</option>
+                {/each}
+              </optgroup>
+            {:else}
+              <option value={p.id}>{p.name}</option>
+            {/if}
           {/each}
         </select>
         <select bind:value={fEnergy} class="field press min-w-0 flex-1">

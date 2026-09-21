@@ -175,7 +175,7 @@ export async function handleRedirect(): Promise<RedirectOutcome> {
     // prompt=none failing is entirely normal — it just means Google wants the
     // user to look at something, so it is not worth reporting. An error from a
     // sign-in the user actually tapped is worth showing verbatim.
-    if (wasSilent) await patch({ lastSilentAuthAt: now(), lastSilentError: error });
+    if (wasSilent) await patch({ lastSilentAuthAt: now(), lastSilentError: error, lastSilentErrorAt: now() });
     else await patch({ lastAuthError: error });
     return { handled: true, ok: false, error };
   }
@@ -195,8 +195,11 @@ export async function handleRedirect(): Promise<RedirectOutcome> {
     googleGrantedScopes: params.get('scope') ?? undefined,
     googleConnected: true,
     lastSilentAuthAt: undefined,
-    lastSilentError: undefined,
     lastAuthError: undefined
+    // lastSilentError and lastSilentErrorAt are deliberately NOT cleared here.
+    // Signing in is the fix, and wiping the reason on the way through leaves
+    // nothing to diagnose a refusal that happened while nobody was watching.
+    // `lastSilentAuthAt` above is what says whether one is happening NOW.
   });
 
   // Not awaited: the app is already usable and this only matters an hour from
