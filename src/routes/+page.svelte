@@ -207,6 +207,37 @@
     return [...items].sort((a, b) => rank(a) - rank(b));
   }
 
+  /**
+   * FINISHING A WHOLE SECTION OFF, which had no moment at all.
+   *
+   * Asked for as *"can I get some kind of celebration when I did all my
+   * to-dos, and/or all my extra to-dos, and/or all my habits for the day?"*
+   * The three slots already had one — closing the day is the spec's own
+   * mechanic — and the other two lists just went quiet.
+   *
+   * **The transition is celebrated, never the state.** It fires from the tap
+   * that empties the list, not from the list being empty: opening the app in
+   * the evening with everything already done must not throw confetti at you
+   * for work you finished hours ago. So the check is made BEFORE the write,
+   * against the row being ticked — "this is the last one open" — which is also
+   * synchronous, where waiting for the liveQuery to come back would not be.
+   *
+   * Once per section per day, so a mis-tap and a re-tick do not replay it.
+   * In memory only: after a reload the list is already complete, and the only
+   * way back to the transition is to untick something first.
+   */
+  let cleared = $state<'list' | 'habits' | null>(null);
+  const cheered = new Set<string>();
+  function cheerSection(kind: 'list' | 'habits') {
+    const key = `${kind}-${today()}`;
+    if (cheered.has(key)) return;
+    cheered.add(key);
+    cleared = kind;
+    setTimeout(() => {
+      if (cleared === kind) cleared = null;
+    }, 4200);
+  }
+
   function celebrate(id: string) {
     settling = [...settling, id];
     setTimeout(() => (settling = settling.filter((s) => s !== id)), 950);
@@ -964,6 +995,7 @@
                not a to-do: it is a list, and it opens as one. -->
           <div class="mb-1"><ShoppingListButton look="row" /></div>
         {/if}
+        {#if cleared === 'list'}{@render clearedLine("That's the list clear.")}{/if}
         <ul class="space-y-1">
           {#each listDrag.arrange(sinkDone(dayList, (t) => !!t.completedAt)) as t (t.id)}
             {@const tint = t.completedAt ? undefined : tintFor(eraOf(t.projectId), t.tag)}
@@ -984,6 +1016,9 @@
                     if (t.completedAt) void uncompleteTodo(t.id);
                     else {
                       celebrate(t.id);
+                      // The last one still open, and nothing left to go and
+                      // buy: this tap clears the section.
+                      if (dayListOpen === 1 && !shoppingToday) cheerSection('list');
                       void completeTodo(t.id);
                     }
                   }}
@@ -1031,6 +1066,8 @@
           there is says nothing and takes a line of the calmest screen in the
           app to say it.
         -->
+        {#if cleared === 'habits'}{@render clearedLine('Every habit, done.')}{/if}
+
         {#if split}
           <p class="footnote mb-1.5">Every day</p>
           <div class="mb-4 flex flex-wrap gap-2">{@render chips(dailyHabits, dailyDrag)}</div>
@@ -1064,6 +1101,25 @@
   <FreeTime room={roomLeft} onDone={() => (freeTime = false)} />
 {/if}
 
+
+
+{#snippet clearedLine(text: string)}
+  <!--
+    The moment a whole list is finished off. A burst over a line of plain
+    words, gone again in four seconds — this is a reward, not a badge, and a
+    permanent "all done" label would be furniture on the screen that has to
+    stay calm. The chips and the ticks already say the state; this says the
+    moment.
+
+    The words are a statement about the work, never about you: the house rule
+    for every bit of personality in this app is that it is never at your
+    expense, and "well done!" is exactly that with a smile on it.
+  -->
+  <div class="relative flex items-center justify-center py-2" role="status" aria-live="polite">
+    <Burst size={180} />
+    <p class="text-[15px] font-medium text-good">{text}</p>
+  </div>
+{/snippet}
 
 {#snippet chips(list: Habit[], drag: Reorder)}
   {#each drag.arrange(sinkDone(list, habitSettled)) as habit (habit.id)}
@@ -1122,6 +1178,11 @@
                 // confetti for a correction is the app being pleased about the
                 // wrong thing.
                 if (!done) celebrate(habit.id);
+                // Settled covers both kinds: done today for an every-day
+                // habit, and the week's rhythm kept for one that has a rhythm.
+                if (!done && habits.filter((h) => !habitSettled(h)).length === 1) {
+                  cheerSection('habits');
+                }
                 void toggleHabitLog(habit.id).then((logged) => {
                   // After the write, so the hundredth is counted as the
                   // hundredth. The burst above has already played; this lands

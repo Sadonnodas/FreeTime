@@ -1841,6 +1841,32 @@ device; there is nothing to build. Memos are the exception, below.
   and habits in ONE rotation, because two things waving at once is a busy screen
   rather than a live one. It stops on a closed day, on a finished list, and in a
   tab nobody is looking at.
+  **FINISHING A WHOLE SECTION OFF gets its own moment** (`cheerSection`,
+  `clearedLine`). Asked for as *"can I get some kind of celebration when I did
+  all my to-dos, and/or all my extra to-dos, and/or all my habits for the
+  day?"* The three slots always had one — closing the day IS the spec's
+  mechanic — and the other two lists simply went quiet. Now "Also on today's
+  list" says *"That's the list clear."* and the habits say *"Every habit,
+  done."*, each with a burst, each gone again in four seconds.
+  **The TRANSITION is celebrated, never the state**, and that is the whole
+  correctness of it: it fires from the tap that empties the list, not from the
+  list being empty, so opening the app in the evening with everything already
+  done does not throw confetti at you for work finished hours ago. The check is
+  made BEFORE the write, against the row being ticked — "this is the last one
+  still open" — which is also the only synchronous way to ask, since the
+  liveQuery has not come back yet.
+  **Once per section per day**, so a mis-tap and a re-tick do not replay it; in
+  memory only, because after a reload the only route back to the transition is
+  to untick something first.
+  **Transient, not a label.** A permanent "all done" line would be furniture on
+  the one screen that has to stay calm, and the ticks and chips already say the
+  state — this says the moment. The words are about the work and never about
+  you, the same house rule the dinosaur's jokes follow: "well done!" is exactly
+  the thing this app does not say.
+  The list only counts as clear when the shopping row is not also sitting
+  there; for habits, "done" means settled, which is done-today for an every-day
+  habit and the week's rhythm kept for one that has a rhythm.
+
   The celebration is **variable on purpose** — six bursts, never the same one
   twice running, the same reasoning as the rotating Free Time scenes: an
   identical celebration stops being one by about the fourth day, and a repeat
