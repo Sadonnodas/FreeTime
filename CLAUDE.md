@@ -1863,6 +1863,25 @@ device; there is nothing to build. Memos are the exception, below.
   state — this says the moment. The words are about the work and never about
   you, the same house rule the dinosaur's jokes follow: "well done!" is exactly
   the thing this app does not say.
+  **And it shipped as one green line, which came back as *"that's kind of
+  boring. Make it fun!"*** — the same note the finished-project card got, in
+  almost the same words, so it got the same answer: a real dinosaur and a line
+  about what the dinosaur is doing ([clearCheers.ts](src/lib/clearCheers.ts)).
+  **Second time now**, which is worth stating as a rule: *this app's
+  celebrations are made of artwork and a joke, not of typography.* A coloured
+  line of text is not a celebration, however good the colour.
+  **Scaled for a Tuesday.** The finish card is a whole screen, a 240px sticker
+  and four seconds of confetti, because finishing a project is rare. Clearing
+  today's list happens daily, so this one lives inside its own section, the
+  animal is 56px on a tinted ground (the artwork loses its outlines on a bare
+  page — see stickers.ts), and it leaves after six seconds. A full-screen
+  interruption every evening would be the app talking over you, which is what
+  the no-nag rule is actually about.
+  **Its own pool and its own storage key**, never the same animal twice
+  running, so the two sections cleared on one evening bring two different ones.
+  The pool is tested for the house rule and for one more: **no line may mention
+  tomorrow** — congratulating you and then pointing at the next day is a streak
+  with a smile on it.
   The list only counts as clear when the shopping row is not also sitting
   there; for habits, "done" means settled, which is done-today for an every-day
   habit and the week's rhythm kept for one that has a rhythm.

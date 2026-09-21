@@ -17,6 +17,7 @@
   } from '$lib/day';
   import { byHabitOrder, habitColor, habitWeek, ON_COLOR } from '$lib/habits';
   import { milestoneToday, type Milestone } from '$lib/milestones';
+  import { pickClearCheer } from '$lib/clearCheers';
   import MilestoneCard from '$lib/components/MilestoneCard.svelte';
   import { Reorder } from '$lib/reorder.svelte';
   import { flip } from 'svelte/animate';
@@ -227,15 +228,23 @@
    * way back to the transition is to untick something first.
    */
   let cleared = $state<'list' | 'habits' | null>(null);
+  /** Which dinosaur turned up, and what it said. See clearCheers.ts. */
+  let clearCheer = $state<ReturnType<typeof pickClearCheer> | null>(null);
   const cheered = new Set<string>();
   function cheerSection(kind: 'list' | 'habits') {
     const key = `${kind}-${today()}`;
     if (cheered.has(key)) return;
     cheered.add(key);
+    // Picked at the moment it happens, so the two sections on one evening get
+    // different animals — never the same one twice running.
+    clearCheer = pickClearCheer();
     cleared = kind;
     setTimeout(() => {
-      if (cleared === kind) cleared = null;
-    }, 4200);
+      if (cleared === kind) {
+        cleared = null;
+        clearCheer = null;
+      }
+    }, 6000);
   }
 
   function celebrate(id: string) {
@@ -1105,19 +1114,48 @@
 
 {#snippet clearedLine(text: string)}
   <!--
-    The moment a whole list is finished off. A burst over a line of plain
-    words, gone again in four seconds — this is a reward, not a badge, and a
-    permanent "all done" label would be furniture on the screen that has to
-    stay calm. The chips and the ticks already say the state; this says the
-    moment.
+    The moment a whole list is finished off.
 
-    The words are a statement about the work, never about you: the house rule
-    for every bit of personality in this app is that it is never at your
-    expense, and "well done!" is exactly that with a smile on it.
+    The first version was one green line of words and came back as *"that's
+    kind of boring. Make it fun!"* — the same note the finished-project card
+    got, so it gets the same answer: a real dinosaur and a line about what the
+    dinosaur is doing (clearCheers.ts).
+
+    SCALED FOR A TUESDAY, though. The finish card is a whole screen and four
+    seconds of confetti because finishing a project is rare; clearing today's
+    list is not, and a full-screen interruption every evening would be the app
+    talking over you. So it sits inside its own section, the animal is small,
+    and the whole thing leaves again after six seconds.
+
+    The sticker keeps its tinted ground for the reason stickers.ts gives: the
+    artwork has near-black outlines and loses them against a near-black page.
   -->
-  <div class="relative flex items-center justify-center py-2" role="status" aria-live="polite">
-    <Burst size={180} />
-    <p class="text-[15px] font-medium text-good">{text}</p>
+  <div
+    class="relative mb-2 flex items-center gap-3 rounded-2xl bg-surface-1 p-3"
+    role="status"
+    aria-live="polite"
+  >
+    <div class="pointer-events-none absolute top-1/2 left-8 -translate-x-1/2 -translate-y-1/2">
+      <Burst size={150} />
+    </div>
+    {#if clearCheer}
+      <div
+        class="relative h-14 w-14 shrink-0 rounded-2xl p-1.5"
+        style="background: linear-gradient(150deg, color-mix(in srgb, var(--color-brand-1) 30%, white), color-mix(in srgb, var(--color-brand-1) 58%, white))"
+      >
+        <img
+          src={stickerUrl(clearCheer.sticker)}
+          alt={clearCheer.sticker.label}
+          class="h-full w-full object-contain"
+        />
+      </div>
+    {/if}
+    <div class="min-w-0 flex-1">
+      <p class="text-[15px] font-medium text-good">{text}</p>
+      {#if clearCheer}
+        <p class="footnote mt-0.5 italic">{clearCheer.cheer.line}</p>
+      {/if}
+    </div>
   </div>
 {/snippet}
 
