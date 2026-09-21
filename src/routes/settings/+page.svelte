@@ -24,6 +24,8 @@
   /** When Google last refused to renew quietly. Kept after a reconnect, so a
    *  failure that happened overnight can still be read the next morning. */
   let silentErrorAt = $state<string | undefined>(undefined);
+  let silentHinted = $state<boolean | undefined>(undefined);
+  let accountEmail = $state<string | undefined>(undefined);
   let silentFailed = $state(false);
   /** Whether this device is holding a token that has not run out. */
   let hasToken = $state(true);
@@ -78,6 +80,8 @@
     silentFailed = !!st?.lastSilentAuthAt;
     silentError = st?.lastSilentError;
     silentErrorAt = st?.lastSilentErrorAt;
+    silentHinted = st?.lastSilentHinted;
+    accountEmail = st?.googleAccountEmail;
     hasToken = !!(await getAccessToken());
     apiKey = (await getApiKey()) ?? '';
     queued = await pendingAudioCount();
@@ -229,6 +233,24 @@
         {#if silentError && silentErrorAt}
           <p class="footnote mt-2">
             Google last refused a quiet renewal {ago(silentErrorAt)} — {silentError}.
+            {#if silentHinted === false}
+              That attempt did not name your account.
+            {:else if silentHinted}
+              That attempt named your account.
+            {/if}
+          </p>
+        {/if}
+        <!--
+          WHO THIS IS, in words. `interaction_required` from a browser that is
+          demonstrably signed in to Google has one remaining explanation that
+          nothing else on screen can show: FreeTime is signed in as one account
+          while the browser's live session belongs to another. Two names, and
+          you can see it in a second.
+        -->
+        {#if connected && accountEmail}
+          <p class="footnote mt-1">
+            Signed in as {accountEmail}. Quiet renewals only work while that same
+            account is signed in in this browser.
           </p>
         {/if}
         {#if connected}

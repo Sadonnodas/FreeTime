@@ -28,6 +28,8 @@ const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 /** Says which account a token belongs to, without asking for a single extra
  *  scope — see `rememberAccount`. */
 const TOKENINFO_ENDPOINT = 'https://oauth2.googleapis.com/tokeninfo';
+/** Says which account a token belongs to IN WORDS, inside the scope we hold. */
+const DRIVE_ABOUT = 'https://www.googleapis.com/drive/v3/about';
 
 /**
  * Guards against a redirect loop if silent renewal keeps failing. Five
@@ -130,6 +132,11 @@ export async function beginSignIn(silent = false): Promise<void> {
      */
     const hint = (await settings())?.googleAccountId;
     if (hint) params.set('login_hint', hint);
+    // Recorded so a refusal can be read properly afterwards. "Google said no"
+    // means different things depending on whether we named the account, and
+    // guessing which happened is how an afternoon gets spent on the wrong
+    // half of the problem.
+    await patch({ lastSilentHinted: !!hint });
   }
 
   location.assign(`${AUTH_ENDPOINT}?${params}`);
@@ -235,6 +242,23 @@ export async function rememberAccount(token: string): Promise<void> {
   } catch {
     // Offline, blocked, or a shape we did not expect. The hint is an
     // optimisation and the flow has to work without it.
+  }
+
+  // WHICH ACCOUNT, IN WORDS. `sub` is a number nobody can check against
+  // anything. The failure this is here to expose is signing FreeTime in as one
+  // Google account while the browser's live session belongs to another — in
+  // which case prompt=none can never succeed, however good the hint is, and
+  // the only way to see it is to read both names. Drive's own `about` answers
+  // it within the scope we already hold.
+  try {
+    const res = await fetch(`${DRIVE_ABOUT}?fields=user(emailAddress)`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) return;
+    const who = (await res.json()) as { user?: { emailAddress?: string } };
+    if (who.user?.emailAddress) await patch({ googleAccountEmail: who.user.emailAddress });
+  } catch {
+    // Same rule: knowing the name is a convenience, never a requirement.
   }
 }
 

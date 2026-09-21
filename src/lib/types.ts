@@ -583,6 +583,18 @@ export interface Settings {
    * cannot depend on catching it in the act.
    */
   lastSilentErrorAt?: string;
+  /** Whether that attempt named the account (`login_hint`). A refusal means
+   *  different things with and without it. */
+  lastSilentHinted?: boolean;
+  /**
+   * The signed-in account's email address, read from Drive's own `about`.
+   *
+   * Diagnostic, and device-local like the rest of Settings. It exists to make
+   * ONE failure visible: FreeTime signed in as one Google account while the
+   * browser's live session belongs to another, which no hint can fix and
+   * nothing else on screen would reveal.
+   */
+  googleAccountEmail?: string;
   /**
    * Which Google account this device is signed in as (the `sub` identifier).
    *
