@@ -9,9 +9,11 @@
   import { goto } from '$app/navigation';
   import { startRecording, toGeminiWav, beep, canRecord, type Recorder } from '$lib/audio';
   import { transcribe } from '$lib/gemini/extract';
+  import { canDictateLive, dictateLive, type LiveDictation } from '$lib/speech';
+  import { db } from '$lib/db';
   import VoiceCapture from './VoiceCapture.svelte';
   import { autogrow } from '$lib/autogrow';
-  import { onDestroy, tick as nextTick } from 'svelte';
+  import { onDestroy, onMount, tick as nextTick } from 'svelte';
 
   /**
    * Chat with the store (spec 7.1).
@@ -58,7 +60,9 @@
    * if a misheard sentence could go straight to the model and come back as a
    * batch of proposals about something you never said. You see the words first.
    */
-  const micAvailable = canRecord();
+  // Either way of listening counts: a browser with a recogniser but no
+  // MediaRecorder would otherwise hide the microphone it can actually use.
+  const micAvailable = canRecord() || canDictateLive();
 
   /**
    * The long brain-dump (spec 7.2), moved in here from the capture row.
@@ -77,6 +81,41 @@
   let listening = $state(false);
   let transcribing = $state(false);
   let recorder: Recorder | null = null;
+
+  /**
+   * DICTATION YOU CAN WATCH, when the browser can do it.
+   *
+   * *"Can we not have the audio write down what you are saying almost in real
+   * time, like when you have a chat with an AI, instead of recording a whole
+   * thing and having it analysed after?"* Where `SpeechRecognition` exists the
+   * words stream into the box as they are spoken and there is no round trip at
+   * all — which also removes the 5-to-20-second wait reported earlier.
+   *
+   * Where it does not exist, the recorder path below runs exactly as before.
+   * Two paths, and the fallback is not a degraded mode: it is the one that
+   * works on the devices the browser makers have not got to yet.
+   */
+  /**
+   * NOT A CONSTANT, and that is the important part. A browser can HAVE
+   * `SpeechRecognition` and still not work with it — an installed web app on
+   * iOS is the case to worry about, being both the most-used device here and
+   * the one most likely to answer a recogniser with a flat refusal. If the
+   * live path fails before a single word arrives, this drops to false and the
+   * recorder path takes over from the same tap, so the failure costs a moment
+   * rather than the feature.
+   */
+  let liveDictation = $state(canDictateLive());
+  let live: LiveDictation | null = null;
+  /** Whether anything was heard this time round, which decides whether a
+   *  failure means "broken here" or just "that did not go well". */
+  let heardAnything = false;
+  /** What was in the box before this dictation started, so streaming words
+   *  extend it instead of replacing it. */
+  let dictationBase = '';
+  let dictationLang = $state('');
+  onMount(async () => {
+    dictationLang = (await db.settings.get('settings'))?.dictationLang ?? '';
+  });
 
   /*
    * SAYING THAT SOMETHING IS HAPPENING. Reported from the to-do list itself:
@@ -106,9 +145,66 @@
   onDestroy(() => {
     stopTicking();
     recorder?.cancel();
+    // A recogniser left running holds the microphone open for as long as the
+    // page lives, which is the same leak class as the memo recorder's.
+    live?.cancel();
   });
 
   async function toggleMic() {
+    // The live path, where the browser has a recogniser of its own.
+    if (liveDictation) {
+      if (listening) {
+        listening = false;
+        const l = live;
+        live = null;
+        const heard = await l?.stop();
+        beep('stop');
+        // The streamed text is already in the box; this only settles the tail,
+        // so a guess left on screen is replaced by what was finally heard.
+        input = [dictationBase, heard].filter(Boolean).join(' ').trim();
+        if (!heard) error = 'Nothing came through. Try again a little closer.';
+        return;
+      }
+      error = '';
+      dictationBase = input.trim();
+      heardAnything = false;
+      try {
+        live = dictateLive({
+          lang: dictationLang || undefined,
+          onText: (text) => {
+            heardAnything ||= !!text;
+            input = [dictationBase, text].filter(Boolean).join(' ').trim();
+          },
+          onError: (code) => {
+            live?.cancel();
+            live = null;
+            listening = false;
+            // Nothing heard at all: treat this browser as unable to dictate
+            // and spend the same tap on the path that does work here, rather
+            // than handing back an error and a dead button.
+            if (!heardAnything && code !== 'not-allowed') {
+              liveDictation = false;
+              void toggleMic();
+              return;
+            }
+            error =
+              code === 'not-allowed'
+                ? 'The microphone was blocked. On an iPhone home-screen app this can be a system restriction — try opening the app in Safari instead.'
+                : code === 'network'
+                  ? 'Dictation needs the network — the browser sends the audio to its own service.'
+                  : `Dictation stopped: ${code}.`;
+          }
+        });
+        listening = true;
+        beep('start');
+      } catch {
+        // It said it could and then could not even start. Same answer.
+        liveDictation = false;
+        void toggleMic();
+      }
+      return;
+    }
+
     if (listening) {
       listening = false;
       stopTicking();
@@ -437,6 +533,12 @@
               ></span>
             {/each}
           </span>
+        {:else if liveDictation}
+          <!-- No meter, and none is wanted: the words arriving in the box
+               below ARE the sign of life, and they say more than a bar can.
+               The meter exists for the path where nothing appears until you
+               stop. -->
+          <span class="footnote min-w-0 flex-1 truncate">the words appear as you speak</span>
         {:else}
           <span class="flex-1"></span>
         {/if}
@@ -459,10 +561,14 @@
     <textarea
       bind:value={input}
       use:autogrow={{ value: input, onenter: () => form?.requestSubmit(), max: 180 }}
-      placeholder={listening ? 'Listening…' : transcribing ? 'Writing it down…' : 'Say anything…'}
+      placeholder={listening && !liveDictation
+        ? 'Listening…'
+        : transcribing
+          ? 'Writing it down…'
+          : 'Say anything…'}
       enterkeyhint="send"
       autocomplete="off"
-      disabled={listening || transcribing}
+      disabled={(listening && !liveDictation) || transcribing}
       class="field field-grow min-w-0 flex-1"
     ></textarea>
     {#if micAvailable}

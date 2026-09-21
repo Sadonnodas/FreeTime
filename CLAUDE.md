@@ -1284,6 +1284,44 @@ one came close to a hard rule, the reasoning is recorded here.
   parameter only so the height re-fits when text changes from outside (cleared
   after Add, a transcription appended), which fires no input event.
 
+  **Dictation you can WATCH** ([speech.ts](src/lib/speech.ts),
+  [speech.test.ts](src/lib/speech.test.ts)). *"Can we not have the audio write
+  down what you are saying almost in real time, like when you have a chat with
+  an AI, instead of recording a whole thing and having it analysed after?"*
+  Where the browser has `SpeechRecognition`, the words now stream into the box
+  as they are spoken — which also deletes the wait described in the entry
+  below, because there is no round trip left to make faster.
+  **The Gemini path stays and is not a legacy branch.** It is what runs where
+  the recogniser is absent, and the hard rule requires it anyway: every AI
+  feature keeps a working path that is not this one.
+  **A recogniser that EXISTS is not a recogniser that WORKS**, and the device
+  to worry about is an installed web app on iOS — the most-used one here and
+  the most likely to answer with a flat refusal. So `liveDictation` is state,
+  not a constant: if the live path fails before a single word arrives, it drops
+  to false and the recorder path takes over ON THE SAME TAP, so the failure
+  costs a moment instead of the feature. A refused microphone is excluded from
+  that, since falling back would only ask for it again.
+  **Interim results are reported as interim.** A caller that treated a guess as
+  final would leave half-heard words in the box when the recogniser corrected
+  itself; settled text and the guess in flight are separate, and the box is
+  rebuilt from both.
+  **It restarts itself.** Every implementation ends the session after a pause
+  and `continuous` only lengthens the fuse, so a pause to think would otherwise
+  end dictation silently. Restarted only while the caller still wants to
+  listen, or it would be an unkillable microphone; a refused restart is treated
+  as the end rather than looped on.
+  **It is not offline**, unlike the rest of the app — Chrome and Safari both
+  send the audio to their own service — and it listens in ONE LANGUAGE, which
+  is why Settings has a Dictation picker. A Dutch phone asked to hear English
+  produces confident nonsense and nothing on screen would say why. It follows
+  the device by default.
+  It announces the microphone through `announceMic`, the same signal the memo
+  recorder sends, because the car that sent a stray PLAY does not care which
+  API opened the mic.
+  **Not verifiable from here**: the preview pane refuses the microphone, so the
+  streaming has only been exercised against a stubbed recogniser. Whether it
+  works in the installed iOS app is knowable only on the phone.
+
   **Dictation: faster, and visibly busy.** *"It takes anything between 5 and 20
   seconds for your vocal prompt to show up so sometimes it feels like it didn't
   work."* Two causes, two fixes. The wait was mostly Gemini 3 THINKING about a
@@ -2301,6 +2339,25 @@ device; there is nothing to build. Memos are the exception, below.
   Not done and worth considering: naming milestones reached in the weekly
   look-back, which is already a "what happened" surface.
 
+- **GOALS ARE NOT A SECOND CONCEPT — they are a habit with a rhythm.**
+  Proposed as *"maybe we should have goals next to habits. Habits are daily
+  things, goals are weekly things you want to do. A habit would be every day I
+  do my ear training; a goal would be at least three times a week I go to the
+  gym."* That is exactly `Habit.timesPerWeek`, which shipped two days earlier —
+  the gym habit set to 3×, asking on no particular days and settling once the
+  week has had its three.
+  **The reason to refuse a second table is the one written at the top of this
+  file.** Two parallel systems for the same shape of thing, with nothing to
+  tell you which one something belongs in, is precisely what killed the
+  previous app: blocks above the tabs and to-dos inside them, and a photo that
+  belonged to neither. A Goal would need its own logs, its own row on Today,
+  its own history, its own place in the weekly look-back — all of it a copy of
+  what habits already do, and the first question every morning would be "is
+  this a habit or a goal?"
+  **If the two need to LOOK different on Today, that is a rendering change and
+  costs nothing** — a rhythm habit already carries its own line ("2 this
+  week"), and separating them into two groups under one heading is available
+  the day it is wanted. What is not available is a second thing to file into.
 - **A to-do's DAY can be set inside a project, not only from Brain**
   (the project screen's row editor and its add form, `WhenPicker`). Asked for
   directly. Every other field was editable there — name, blocker, both sizes,

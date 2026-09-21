@@ -596,6 +596,12 @@ export interface Settings {
    */
   googleAccountEmail?: string;
   /**
+   * What language dictation listens for (BCP-47), or empty to follow the
+   * device. A Dutch phone asked to hear English produces confident nonsense,
+   * and nothing on screen would say why — so this exists, and it is two taps.
+   */
+  dictationLang?: string;
+  /**
    * Which Google account this device is signed in as (the `sub` identifier).
    *
    * Sent as `login_hint` on a SILENT renewal only. With prompt=none and no

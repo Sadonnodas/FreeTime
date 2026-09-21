@@ -9,6 +9,8 @@
   import { clearCalendarCache } from '$lib/google/calendar';
   import { onSyncState, syncNow, type SyncState } from '$lib/sync';
   import { ago } from '$lib/format';
+  import { canDictateLive, DICTATION_LANGS } from '$lib/speech';
+  import { saveDictationLang } from '$lib/store';
   import { getApiKey, setApiKey } from '$lib/gemini/client';
   import { pendingAudioCount, processQueue } from '$lib/gemini/commit';
   import ThemePicker from '$lib/components/ThemePicker.svelte';
@@ -30,6 +32,7 @@
   /** Whether this device is holding a token that has not run out. */
   let hasToken = $state(true);
   let apiKey = $state('');
+  let dictationLang = $state('');
   let keySaved = $state(false);
   let queued = $state(0);
   let stop: (() => void) | undefined;
@@ -84,6 +87,7 @@
     accountEmail = st?.googleAccountEmail;
     hasToken = !!(await getAccessToken());
     apiKey = (await getApiKey()) ?? '';
+    dictationLang = st?.dictationLang ?? '';
     queued = await pendingAudioCount();
   });
   onDestroy(() => {
@@ -330,6 +334,45 @@
         class="press tap mt-2 rounded-xl px-4 text-sm text-ink-400"
         onclick={() => db.conflicts.clear()}>Clear</button
       >
+    </section>
+  {/if}
+
+  <!--
+    WHAT LANGUAGE DICTATION LISTENS FOR. Only shown where the browser can
+    dictate live at all; on the devices that fall back to recording, Gemini
+    works out the language itself and a control here would be a lie.
+  -->
+  {#if canDictateLive()}
+    <section class="mb-8">
+      <h2 class="section-label mb-2">
+        Dictation
+        <InfoDot title="Dictation">
+          <p>
+            When you tap the microphone in the assistant, the words appear as you
+            speak them. Your browser does the listening, which means it sends the
+            audio to its own service — so dictation needs a connection, unlike the
+            rest of the app.
+          </p>
+          <p>
+            It listens in one language at a time. Following the device is usually
+            right, and exactly wrong if your phone is set to one language and you
+            talk to this in another.
+          </p>
+        </InfoDot>
+      </h2>
+      <select
+        value={dictationLang}
+        class="field press w-full text-sm"
+        aria-label="Dictation language"
+        onchange={async (e) => {
+          dictationLang = e.currentTarget.value;
+          await saveDictationLang(dictationLang);
+        }}
+      >
+        {#each DICTATION_LANGS as l (l.key)}
+          <option value={l.key}>{l.label}</option>
+        {/each}
+      </select>
     </section>
   {/if}
 

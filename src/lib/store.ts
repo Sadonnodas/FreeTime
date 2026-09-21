@@ -698,6 +698,14 @@ export async function setHabitColor(id: string, color: string): Promise<void> {
  * to undefined — see memos.ts), which is what we want: a habit back on "most
  * days" must not carry a stale rhythm that another device would read.
  */
+/** What language dictation listens for. Device-local, like every setting. */
+export async function saveDictationLang(dictationLang: string): Promise<void> {
+  const existing = await db.settings.get('settings');
+  const at = now();
+  if (existing) await db.settings.update('settings', { dictationLang, updatedAt: at });
+  else await db.settings.add({ id: 'settings', dictationLang, updatedAt: at });
+}
+
 export async function setHabitRhythm(id: string, timesPerWeek?: number): Promise<void> {
   await db.habits.update(id, { timesPerWeek, updatedAt: now() });
 }

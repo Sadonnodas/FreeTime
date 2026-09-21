@@ -171,6 +171,18 @@ function guardRemote(on: boolean) {
   }
 }
 
+/**
+ * Announce that the microphone is open, for anything that is NOT this
+ * module's own recorder — live dictation opens the mic through the browser's
+ * speech recogniser, which never touches MediaRecorder.
+ *
+ * It matters for the reason the car found: opening the mic over Bluetooth
+ * switches a head unit to its call profile, and many answer that by sending
+ * PLAY, which lands on whatever this app played last. Every memo player has to
+ * empty itself first, whichever way the mic was opened.
+ */
+export const announceMic = (on: boolean): void => setLive(on);
+
 function setLive(on: boolean) {
   if (live === on) return;
   live = on;
