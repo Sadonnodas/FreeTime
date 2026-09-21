@@ -384,6 +384,39 @@
   const habitSettled = (h: Habit) => habitsDone.has(h.id) || !!weekByHabit.get(h.id)?.met;
 
   /**
+   * Every-day habits and the ones with a rhythm, drawn as two groups.
+   *
+   * They are ONE concept — a rhythm is a field on a habit, not a second kind
+   * of thing — but they read differently in a single row: an every-day habit
+   * sitting un-ticked means today, and a three-times-a-week one sitting
+   * un-ticked on a Tuesday means very little. Split only when both exist,
+   * because a heading over the only group there is costs a line of the calmest
+   * screen in the app and says nothing.
+   */
+  const dailyHabits = $derived(habits.filter((h) => !h.timesPerWeek));
+  const weeklyHabits = $derived(habits.filter((h) => !!h.timesPerWeek));
+  const split = $derived(dailyHabits.length > 0 && weeklyHabits.length > 0);
+
+  /**
+   * ONE DRAG INSTANCE PER GROUP, because a single one would read the two lists
+   * as one continuous column (it orders by document position) and let a habit
+   * be dragged under the other heading — which would move it on screen and
+   * change nothing about it, so it would snap back on the next render.
+   *
+   * Each commits the WHOLE order with its own group rearranged in place, so
+   * `Habit.order` stays a total order across both and the groups cannot
+   * interleave.
+   */
+  const dailyDrag = new Reorder(
+    (ids) => reorderHabits([...ids, ...weeklyHabits.map((h) => h.id)]),
+    'xy'
+  );
+  const weeklyDrag = new Reorder(
+    (ids) => reorderHabits([...dailyHabits.map((h) => h.id), ...ids]),
+    'xy'
+  );
+
+  /**
    * Everything on this screen that is still waiting, to-dos and habits in ONE
    * rotation. Separate rotations would mean two things waving at once, which
    * is a busy screen rather than a live one.
@@ -986,8 +1019,54 @@
           <h2 class="section-label">Habits</h2>
           <a href="{base}/me" class="press tap-h inline-flex items-center px-1 text-[13px] text-ink-400">Edit</a>
         </div>
-        <div class="flex flex-wrap gap-2">
-          {#each habitDrag.arrange(sinkDone(habits, habitSettled)) as habit (habit.id)}
+
+        <!--
+          TWO GROUPS WHEN THERE ARE TWO KINDS, asked for after a habit could be
+          given a rhythm: *"habits are daily things, goals are weekly things
+          you want to do."* That is one concept, not two (see CLAUDE.md), but
+          they do read differently in a single row — an every-day habit
+          un-ticked means today, and a three-times-a-week one un-ticked means
+          almost nothing on a Tuesday.
+          Headed only when BOTH kinds exist. One heading over the only group
+          there is says nothing and takes a line of the calmest screen in the
+          app to say it.
+        -->
+        {#if split}
+          <p class="footnote mb-1.5">Every day</p>
+          <div class="mb-4 flex flex-wrap gap-2">{@render chips(dailyHabits, dailyDrag)}</div>
+          <p class="footnote mb-1.5">This week</p>
+          <div class="flex flex-wrap gap-2">{@render chips(weeklyHabits, weeklyDrag)}</div>
+        {:else}
+          <div class="flex flex-wrap gap-2">{@render chips(habits, habitDrag)}</div>
+        {/if}
+      </section>
+    {/if}
+
+    <!-- Room for the floating assistant button to sit over, so the last habit
+         is never underneath it. -->
+    <div class="h-20"></div>
+  </div>
+</div>
+
+
+{#if showClose}
+  <DayClose onDismiss={() => (showClose = false)} />
+{/if}
+
+{#if quickNotes}
+  <QuickNotes onclose={() => (quickNotes = false)} />
+{/if}
+
+{#if freeTime}
+  <!-- How many slots it may fill. Three on an empty day, which is the plan-the
+       -whole-day case it has always been; fewer once something is on the day,
+       where it tops up instead of replacing. -->
+  <FreeTime room={roomLeft} onDone={() => (freeTime = false)} />
+{/if}
+
+
+{#snippet chips(list: Habit[], drag: Reorder)}
+  {#each drag.arrange(sinkDone(list, habitSettled)) as habit (habit.id)}
             {@const done = habitsDone.has(habit.id)}
             {@const week = weekByHabit.get(habit.id)}
             {@const hc = habitColor(habit)}
@@ -1023,8 +1102,8 @@
               style:background={filled ? hc : `color-mix(in srgb, ${hc} 16%, var(--color-surface-1))`}
               style:border-color={filled ? hc : `color-mix(in srgb, ${hc} 40%, transparent)`}
               style:color={filled ? ON_COLOR : 'var(--color-ink-50)'}
-              use:habitDrag.item={habit.id}
-              animate:flip={{ duration: habitDrag.dragging === habit.id ? 0 : 180 }}
+              use:drag.item={habit.id}
+              animate:flip={{ duration: drag.dragging === habit.id ? 0 : 180 }}
               class:nudge={nudged === habit.id}
               style:--dino-src={nudged === habit.id ? dinoSrc : undefined}
               style:--dino-face={nudged === habit.id ? dinoFace : undefined}
@@ -1080,32 +1159,8 @@
                 {/if}
               </span>
             </button>
-          {/each}
-        </div>
-      </section>
-    {/if}
-
-    <!-- Room for the floating assistant button to sit over, so the last habit
-         is never underneath it. -->
-    <div class="h-20"></div>
-  </div>
-</div>
-
-
-{#if showClose}
-  <DayClose onDismiss={() => (showClose = false)} />
-{/if}
-
-{#if quickNotes}
-  <QuickNotes onclose={() => (quickNotes = false)} />
-{/if}
-
-{#if freeTime}
-  <!-- How many slots it may fill. Three on an empty day, which is the plan-the
-       -whole-day case it has always been; fewer once something is on the day,
-       where it tops up instead of replacing. -->
-  <FreeTime room={roomLeft} onDone={() => (freeTime = false)} />
-{/if}
+  {/each}
+{/snippet}
 
 {#if milestone}
   <MilestoneCard

@@ -2354,10 +2354,24 @@ device; there is nothing to build. Memos are the exception, below.
   its own history, its own place in the weekly look-back — all of it a copy of
   what habits already do, and the first question every morning would be "is
   this a habit or a goal?"
-  **If the two need to LOOK different on Today, that is a rendering change and
-  costs nothing** — a rhythm habit already carries its own line ("2 this
-  week"), and separating them into two groups under one heading is available
-  the day it is wanted. What is not available is a second thing to file into.
+  **The two DO look different on Today now**, asked for straight after —
+  *"can you try the split?"* — and it is a rendering change and nothing else:
+  "Every day" then "This week", under the one Habits heading, still one table
+  and one concept. It earns its keep because the two read differently: an
+  every-day habit sitting un-ticked means today, and a three-times-a-week one
+  sitting un-ticked on a Tuesday means very little.
+  **Headed only when both kinds exist.** One heading over the only group there
+  is costs a line of the calmest screen in the app and says nothing.
+  **One `Reorder` per group, which is not optional**: a single instance orders
+  by document position, so it would read the two lists as one column and let a
+  habit be dragged under the other heading — moving it on screen while
+  changing nothing about it, so it would snap back on the next render. Each
+  commits the WHOLE order with its own group rearranged in place, so
+  `Habit.order` stays a total order and the groups cannot interleave.
+  **The chips live in a snippet taking the list and the drag**, so the two
+  groups cannot drift apart — and the `{#each}` is INSIDE the snippet, because
+  `animate:flip` must be on the only child of a keyed each and a `{@render}`
+  in between breaks that.
 - **A to-do's DAY can be set inside a project, not only from Brain**
   (the project screen's row editor and its add form, `WhenPicker`). Asked for
   directly. Every other field was editable there — name, blocker, both sizes,
