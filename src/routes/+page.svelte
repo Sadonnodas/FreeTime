@@ -4,7 +4,8 @@
   import { db } from '$lib/db';
   import type { Todo, Habit, HabitLog, Day, Project } from '$lib/types';
   import {
-    completeTodo, uncompleteTodo, toggleHabitLog, today, projectTagColor, reorderHabits
+    completeTodo, uncompleteTodo, updateTodo, toggleHabitLog, today, projectTagColor,
+    reorderHabits
   } from '$lib/store';
   import { allTodos, activeProjects } from '$lib/queries';
   import { ENERGIES, DURATIONS, energyLabel, durationLabel } from '$lib/sizes';
@@ -17,6 +18,7 @@
   } from '$lib/day';
   import { byHabitOrder, habitColor, habitWeek, ON_COLOR } from '$lib/habits';
   import { milestoneToday, type Milestone } from '$lib/milestones';
+  import WhenPicker from '$lib/components/WhenPicker.svelte';
   import { pickClearCheer } from '$lib/clearCheers';
   import MilestoneCard from '$lib/components/MilestoneCard.svelte';
   import { Reorder } from '$lib/reorder.svelte';
@@ -227,6 +229,23 @@
    * In memory only: after a reload the list is already complete, and the only
    * way back to the transition is to untick something first.
    */
+  /**
+   * Which row of today's list is open for a change of day.
+   *
+   * *"I need a reminder to check Messenger for everyone's availability, and
+   * when I get everyone's reply, to reply to the email. I won't check that
+   * project every day so that to-do might get lost."* The answer is a date —
+   * a dated to-do comes to Today by itself — but the loop is: look at it,
+   * find that nobody has answered yet, push it a day. That push used to mean
+   * a trip to Brain or to the project, which is far too much friction for
+   * something done four mornings running.
+   *
+   * THE APP STILL NEVER CARRIES IT FORWARD FOR YOU. Yesterday's list does not
+   * follow you here, because that is an overdue pile with a kinder name.
+   * Carrying it is your decision — it is just one tap now instead of four.
+   */
+  let openRow = $state<string | null>(null);
+
   let cleared = $state<'list' | 'habits' | null>(null);
   /** Which dinosaur turned up, and what it said. See clearCheers.ts. */
   let clearCheer = $state<ReturnType<typeof pickClearCheer> | null>(null);
@@ -1009,12 +1028,13 @@
           {#each listDrag.arrange(sinkDone(dayList, (t) => !!t.completedAt)) as t (t.id)}
             {@const tint = t.completedAt ? undefined : tintFor(eraOf(t.projectId), t.tag)}
             <li
-              class="card-flat flex items-center gap-3 px-3 {tint ? 'row-tint' : ''}"
+              class="card-flat px-3 {tint ? 'row-tint' : ''}"
               style:--row={tint?.fill}
               style:--edge={tint?.edge}
-              use:listDrag.item={t.id}
+              use:listDrag.item={{ id: t.id, off: openRow === t.id }}
               animate:flip={{ duration: listDrag.dragging === t.id ? 0 : 180 }}
             >
+             <div class="flex items-center gap-3">
               <span class="relative flex shrink-0">
                 {#if celebrating === t.id}
                   <Burst size={96} />
@@ -1035,16 +1055,54 @@
                   >{t.completedAt ? '✓' : '○'}</button
                 >
               </span>
-              <div class="min-w-0 flex-1 py-3">
+              <button
+                class="min-w-0 flex-1 py-3 text-left"
+                onclick={() => (openRow = openRow === t.id ? null : t.id)}
+                aria-expanded={openRow === t.id}
+              >
                 <p class={t.completedAt ? 'text-ink-400 line-through' : ''}>{t.title}</p>
                 {#if projectName(t.projectId)}
                   <p class="text-xs text-ink-400">
                     {[projectName(t.projectId), t.tag].filter(Boolean).join(' · ')}
                   </p>
                 {/if}
-              </div>
+              </button>
               {#if t.image}
+                <!-- A sibling of the row's button, never inside it: a button
+                     within a button silently stops working. -->
                 <PhotoThumb image={t.image} label={t.title} />
+              {/if}
+             </div>
+
+              <!--
+                MOVING IT TO ANOTHER DAY, from the screen you are already on.
+                The same WhenPicker the add form and both row editors use, so
+                there is one way to say when a thing is for and it cannot
+                drift into three.
+
+                Deliberately NOT worded like the slot card's "Tomorrow
+                instead". That one moves a to-do into tomorrow's THREE and
+                sets no date; this one changes the date the row is filed
+                under. Two controls a centimetre apart saying the same word
+                would be read as one thing — the mistake this file already
+                records about "Today".
+              -->
+              {#if openRow === t.id}
+                <div class="border-t border-line-1 pt-3 pb-3">
+                  <p class="section-label mb-2">When</p>
+                  <WhenPicker
+                    value={t.date}
+                    onpick={(date) => {
+                      openRow = null;
+                      void updateTodo(t.id, { date });
+                    }}
+                  />
+                  <p class="footnote mt-2">
+                    Another day takes it off today's list and brings it back then.
+                    Someday leaves it in {projectName(t.projectId) ?? 'Brain'} with no day
+                    on it.
+                  </p>
+                </div>
               {/if}
             </li>
           {/each}

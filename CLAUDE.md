@@ -2650,6 +2650,28 @@ device; there is nothing to build. Memos are the exception, below.
   closing the day and does not wave. **Only today's date**: yesterday's
   unticked list does not follow you forward, since that is an overdue pile by
   another name. Ticked rows stay, sunk.
+  **A row on Today opens to change its day**, which is what makes a date usable
+  for something that waits on somebody else. Asked from a real situation: an
+  organiser emails about next year, the band is asked in Messenger, *"this can
+  take a few days before everyone replies... I won't check that project every
+  day so that to-do might get lost."* The answer is a date — a dated to-do
+  comes to Today by itself, wherever it lives — but the loop is: look at it,
+  find nobody has answered yet, push it a day. That push used to mean a trip to
+  Brain or into the project, which is far too much friction four mornings
+  running.
+  **The app still never carries it forward.** Yesterday's list does not follow
+  you here, for the reason above; what changed is only that carrying it is one
+  tap instead of four. And a day that IS missed is not lost — Free Time's
+  obligation slot takes dated to-dos oldest first and says "Dated 23 Sep",
+  which is a fact rather than an accusation.
+  **The same WhenPicker as everywhere else**, so there is one way to say when a
+  thing is for. **Worded as a date, never as "Tomorrow instead"**: that control
+  on a slot card moves a to-do into tomorrow's THREE and sets no date, and two
+  controls a centimetre apart saying the same word would be read as one thing —
+  the mistake already recorded about "Today".
+  The drag is turned off while a row is open (`{ id, off }`), since a hold in
+  an open row is for the row, not for moving it.
+
   Two details that are not decoration: a day list sorts OLDEST first, because a
   plan for a day reads top to bottom while every other list is a feed where the
   newest is what you came back for; and the row footnote NAMES the date
