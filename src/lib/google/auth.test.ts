@@ -214,6 +214,42 @@ describe('naming the account on a silent renewal', () => {
     expect(assigned).toHaveLength(0);
   });
 
+  it('uses the email as the hint when Google gives no sub', async () => {
+    // The real case, and the one that cost a day: our scopes carry no identity
+    // claim, so tokeninfo can answer 200 with nothing in it. Drive still says
+    // whose Drive it is, and login_hint takes an email just as happily.
+    stubBrowser();
+    await connected();
+    vi.stubGlobal('fetch', async (url: string) =>
+      String(url).includes('tokeninfo')
+        ? { ok: true, json: async () => ({ scope: 'drive.file' }) }
+        : { ok: true, json: async () => ({ user: { emailAddress: 'toon@example.com' } }) }
+    );
+
+    await rememberAccount('live-token');
+    const saved = await db.settings.get('settings');
+    expect(saved?.googleAccountId).toBeUndefined();
+    expect(saved?.googleAccountEmail).toBe('toon@example.com');
+
+    await beginSignIn(true);
+    expect(lastUrl().searchParams.get('login_hint')).toBe('toon@example.com');
+  });
+
+  it('still asks Drive when tokeninfo says nothing useful', async () => {
+    // The first version returned out of the whole function when tokeninfo was
+    // not ok, so one failure took out the fallback for itself.
+    stubBrowser();
+    await connected();
+    vi.stubGlobal('fetch', async (url: string) =>
+      String(url).includes('tokeninfo')
+        ? { ok: false, json: async () => ({}) }
+        : { ok: true, json: async () => ({ user: { emailAddress: 'toon@example.com' } }) }
+    );
+
+    await rememberAccount('live-token');
+    expect((await db.settings.get('settings'))?.googleAccountEmail).toBe('toon@example.com');
+  });
+
   it('remembers the account from a token, and swallows a lookup that fails', async () => {
     stubBrowser();
     await connected();

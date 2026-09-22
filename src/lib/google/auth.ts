@@ -130,7 +130,11 @@ export async function beginSignIn(silent = false): Promise<void> {
      * sign-in the user actually tapped should still offer the chooser, since
      * that is the only moment they can pick a different account.
      */
-    const hint = (await settings())?.googleAccountId;
+    // Either answers "which account": Google takes a sub OR an email address.
+    // The email is the one that actually arrives, since our scopes carry no
+    // identity claim for tokeninfo to report.
+    const s = await settings();
+    const hint = s?.googleAccountId || s?.googleAccountEmail;
     if (hint) params.set('login_hint', hint);
     // Recorded so a refusal can be read properly afterwards. "Google said no"
     // means different things depending on whether we named the account, and
@@ -230,26 +234,45 @@ export async function handleRedirect(): Promise<RedirectOutcome> {
  * a sign-in completing.
  */
 export async function rememberAccount(token: string): Promise<void> {
+  if (typeof fetch !== 'function') return;
+
+  /*
+   * `sub`, WHEN GOOGLE FEELS LIKE GIVING US ONE — and the comment that used to
+   * sit here said "sub always is", which was wrong and cost a day.
+   *
+   * tokeninfo answers about the token it is given, and this token was issued
+   * for drive.file and calendar.readonly: no openid, no email, no profile. On
+   * a token carrying no identity scope Google can return 200 with no `sub` and
+   * no `email` at all, so the id was never stored, so `login_hint` was never
+   * sent — and Settings said exactly that: *"That attempt did not name your
+   * account."* Believing the lookup could not fail quietly is what hid it.
+   *
+   * Two separate blocks now, neither able to abort the other. The first draft
+   * put a bare `return` in this one, which meant a tokeninfo that said nothing
+   * useful also skipped the email lookup below — one failure taking out the
+   * fallback for itself.
+   */
   try {
-    if (typeof fetch !== 'function') return;
     const res = await fetch(`${TOKENINFO_ENDPOINT}?access_token=${encodeURIComponent(token)}`);
-    if (!res.ok) return;
-    const info = (await res.json()) as { sub?: string; email?: string };
-    // The email reads better in a log and works identically as a hint, but it
-    // is only present when the email scope was granted; sub always is.
-    const id = info.sub || info.email;
-    if (id) await patch({ googleAccountId: id });
+    if (res.ok) {
+      const info = (await res.json()) as { sub?: string; email?: string };
+      const id = info.sub || info.email;
+      if (id) await patch({ googleAccountId: id });
+    }
   } catch {
     // Offline, blocked, or a shape we did not expect. The hint is an
     // optimisation and the flow has to work without it.
   }
 
-  // WHICH ACCOUNT, IN WORDS. `sub` is a number nobody can check against
-  // anything. The failure this is here to expose is signing FreeTime in as one
-  // Google account while the browser's live session belongs to another — in
-  // which case prompt=none can never succeed, however good the hint is, and
-  // the only way to see it is to read both names. Drive's own `about` answers
-  // it within the scope we already hold.
+  /*
+   * THE EMAIL, which is a hint in its own right and not merely a label.
+   * Google's own documentation says login_hint takes "an email address or a
+   * sub identifier", so the address answers the question just as well — and
+   * unlike sub it arrives reliably, because Drive will always say whose Drive
+   * it is. It is shown in Settings too: the one failure nothing else could
+   * reveal is FreeTime signed in as one account while the browser's live
+   * session belongs to another, and that is only visible as two names.
+   */
   try {
     const res = await fetch(`${DRIVE_ABOUT}?fields=user(emailAddress)`, {
       headers: { Authorization: `Bearer ${token}` }

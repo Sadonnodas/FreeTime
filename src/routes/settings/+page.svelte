@@ -253,8 +253,15 @@
         -->
         {#if connected && accountEmail}
           <p class="footnote mt-1">
-            Signed in as {accountEmail}. Quiet renewals only work while that same
-            account is signed in in this browser.
+            Signed in as {accountEmail}. Quiet renewals name that account, and only
+            work while it is signed in in this browser.
+          </p>
+        {:else if connected && hasToken}
+          <!-- Present tense, unlike the line above it: whether the NEXT
+               renewal can name the account, which is the thing worth knowing
+               before it fails rather than after. -->
+          <p class="footnote mt-1">
+            Quiet renewals cannot name your account yet — the next sync works that out.
           </p>
         {/if}
         {#if connected}

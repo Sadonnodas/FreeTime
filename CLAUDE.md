@@ -2527,6 +2527,27 @@ device; there is nothing to build. Memos are the exception, below.
   exactly what it was before, so the fetch is swallowed whole. Devices that
   predate this learn the id at app start while a working token is still in
   hand, rather than waiting for the very failure it prevents.
+  **THE HINT WAS NEVER ACTUALLY SENT, and the app had to be made to say so
+  before anyone could know.** The Settings line came back as *"That attempt did
+  not name your account"* while the same card named the account —
+  develteretoon@gmail.com — three lines lower. Both were true: the email comes
+  from Drive's `about`, and the id came from `tokeninfo`, which never produced
+  one. **tokeninfo answers about the TOKEN, and this token carries no identity
+  scope** (drive.file and calendar.readonly; no openid, no email, no profile),
+  so Google can answer 200 with neither `sub` nor `email` in it. The comment
+  sitting over that code said "sub always is", which was a guess written as a
+  fact, and it cost a day of looking at the wrong half of the problem.
+  **login_hint takes an email address OR a sub** — Google's own wording — so
+  the fix is to use the address, which is the one that reliably arrives,
+  because Drive will always say whose Drive it is. A second bug came out with
+  it: a bare `return` when tokeninfo was not ok also skipped the email lookup
+  below, so one failure took out the fallback for itself. Two blocks now,
+  neither able to abort the other.
+  **The lesson is the diagnostic, not the bug.** Three rounds were spent on
+  session state, publishing status and account ambiguity while the request was
+  quietly going out without the parameter meant to fix it. When a fix depends
+  on something being SENT, make the app report what it sent — a guess about
+  your own code is worth no more than a guess about Google's.
   **The reason now SURVIVES the reconnect that fixes it** (`lastSilentErrorAt`,
   shown in Settings as "Google last refused a quiet renewal 6h ago —
   interaction_required"). It used to be cleared on a successful sign-in, which
