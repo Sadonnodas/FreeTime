@@ -28,6 +28,7 @@ const FILES: { table: keyof typeof db & string; file: string }[] = [
   { table: 'buyItems', file: 'buy.json' },
   { table: 'lists', file: 'lists.json' },
   { table: 'listItems', file: 'list-items.json' },
+  { table: 'todoLogs', file: 'todo-logs.json' },
   { table: 'habits', file: 'habits.json' },
   { table: 'habitLogs', file: 'habit-logs.json' },
   { table: 'days', file: 'days.json' },

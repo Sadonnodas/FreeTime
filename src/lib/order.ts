@@ -91,7 +91,13 @@ export function wouldCycle(id: string, afterId: string, byId: TodoIndex): boolea
  * in — in the order that list is written, so the options read the way the
  * to-dos above them do rather than in whatever order the database returned.
  */
-export function possibleBlockers(todo: Todo, siblings: Todo[]): Todo[] {
+/*
+ * Takes anything with an id, not a whole Todo, because the ADD FORM has to ask
+ * this question before the to-do exists — `{ id: '' }` matches nothing, so
+ * every legal sibling is offered and no cycle can be closed by a row that is
+ * not there yet.
+ */
+export function possibleBlockers(todo: Pick<Todo, 'id'>, siblings: Todo[]): Todo[] {
   const byId = indexById(siblings);
   return siblings
     .filter(

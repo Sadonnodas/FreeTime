@@ -2,10 +2,10 @@
   import { liveQuery } from 'dexie';
   import { base } from '$app/paths';
   import { db } from '$lib/db';
-  import type { Todo, Habit, HabitLog, Day, Project } from '$lib/types';
+  import type { Todo, Habit, HabitLog, TodoLog, Day, Project } from '$lib/types';
   import {
-    completeTodo, uncompleteTodo, updateTodo, toggleHabitLog, today, projectTagColor,
-    reorderHabits
+    completeTodo, uncompleteTodo, updateTodo, toggleHabitLog, toggleTodoLog, setTodoRepeat,
+    today, projectTagColor, reorderHabits
   } from '$lib/store';
   import { allTodos, activeProjects } from '$lib/queries';
   import { ENERGIES, DURATIONS, energyLabel, durationLabel } from '$lib/sizes';
@@ -19,6 +19,8 @@
   import { byHabitOrder, habitColor, habitWeek, ON_COLOR } from '$lib/habits';
   import { milestoneToday, type Milestone } from '$lib/milestones';
   import WhenPicker from '$lib/components/WhenPicker.svelte';
+  import RepeatPicker from '$lib/components/RepeatPicker.svelte';
+  import { repeats, repeatsOn, repeatLabel } from '$lib/recurring';
   import { pickClearCheer } from '$lib/clearCheers';
   import MilestoneCard from '$lib/components/MilestoneCard.svelte';
   import { Reorder } from '$lib/reorder.svelte';
@@ -522,9 +524,29 @@
    * Ticked ones stay, ticked, in order — completed work is never hidden.
    */
   const todayIso = today();
+  /**
+   * The days a RECURRING to-do was ticked. Read for today only: a repeating
+   * row asks one question — was it done today — and last Thursday's answer is
+   * nobody's business this morning.
+   */
+  const repeatLogsQ = liveQuery(async () =>
+    (await db.todoLogs.where('date').equals(today()).toArray()).filter((l) => !l.deletedAt)
+  );
+  const doneToday = $derived(
+    new Set((($repeatLogsQ as TodoLog[] | undefined) ?? []).map((l) => l.todoId))
+  );
+  /** Done for today, whichever kind of row it is. */
+  const listDone = (t: Todo) => (repeats(t) ? doneToday.has(t.id) : !!t.completedAt);
+
   const dayList = $derived(
     (($openQ as { all: Todo[] } | undefined)?.all ?? [])
-      .filter((t) => t.date === todayIso && !day?.slots.includes(t.id))
+      // Dated today, or repeating and today is one of its days. A recurring
+      // to-do carries no date at all — see recurring.ts for why generating one
+      // per week would have quietly rebuilt an overdue pile.
+      .filter(
+        (t) =>
+          (t.date === todayIso || repeatsOn(t, todayIso)) && !day?.slots.includes(t.id)
+      )
       // In the order it was dragged into (Day.listOrder), then oldest first —
       // the same order Brain's day list uses. Ticked ones sink below that at
       // render (`sinkDone`), without touching the stored order.
@@ -541,7 +563,7 @@
    */
   const toGetQ = liveQuery(async () => (await db.buyItems.toArray()).filter(onList).length);
   const shoppingToday = $derived(!!day?.shopping && (($toGetQ as number | undefined) ?? 0) > 0);
-  const dayListOpen = $derived(dayList.filter((t) => !t.completedAt).length);
+  const dayListOpen = $derived(dayList.filter((t) => !listDone(t)).length);
 
   const candidates = $derived(
     (($openQ as { open: Todo[] } | undefined)?.open ?? [])
@@ -1025,8 +1047,9 @@
         {/if}
         {#if cleared === 'list'}{@render clearedLine("That's the list clear.")}{/if}
         <ul class="space-y-1">
-          {#each listDrag.arrange(sinkDone(dayList, (t) => !!t.completedAt)) as t (t.id)}
-            {@const tint = t.completedAt ? undefined : tintFor(eraOf(t.projectId), t.tag)}
+          {#each listDrag.arrange(sinkDone(dayList, listDone)) as t (t.id)}
+            {@const done = listDone(t)}
+            {@const tint = done ? undefined : tintFor(eraOf(t.projectId), t.tag)}
             <li
               class="card-flat px-3 {tint ? 'row-tint' : ''}"
               style:--row={tint?.fill}
@@ -1040,19 +1063,26 @@
                   <Burst size={96} />
                 {/if}
                 <button
-                  class="press tap shrink-0 {t.completedAt ? 'text-good' : 'text-ink-400'}"
+                  class="press tap shrink-0 {done ? 'text-good' : 'text-ink-400'}"
                   onclick={() => {
-                    if (t.completedAt) void uncompleteTodo(t.id);
-                    else {
-                      celebrate(t.id);
-                      // The last one still open, and nothing left to go and
-                      // buy: this tap clears the section.
-                      if (dayListOpen === 1 && !shoppingToday) cheerSection('list');
-                      void completeTodo(t.id);
+                    // A RECURRING row is ticked FOR TODAY — a log, not a
+                    // completion. One row and many Thursdays cannot share a
+                    // single completedAt, and ticking the row itself would
+                    // retire the bins for good.
+                    if (done) {
+                      if (repeats(t)) void toggleTodoLog(t.id);
+                      else void uncompleteTodo(t.id);
+                      return;
                     }
+                    celebrate(t.id);
+                    // The last one still open, and nothing left to go and
+                    // buy: this tap clears the section.
+                    if (dayListOpen === 1 && !shoppingToday) cheerSection('list');
+                    if (repeats(t)) void toggleTodoLog(t.id);
+                    else void completeTodo(t.id);
                   }}
-                  aria-label={t.completedAt ? `Mark ${t.title} not done` : `Complete ${t.title}`}
-                  >{t.completedAt ? '✓' : '○'}</button
+                  aria-label={done ? `Mark ${t.title} not done` : `Complete ${t.title}`}
+                  >{done ? '✓' : '○'}</button
                 >
               </span>
               <button
@@ -1060,10 +1090,12 @@
                 onclick={() => (openRow = openRow === t.id ? null : t.id)}
                 aria-expanded={openRow === t.id}
               >
-                <p class={t.completedAt ? 'text-ink-400 line-through' : ''}>{t.title}</p>
-                {#if projectName(t.projectId)}
+                <p class={done ? 'text-ink-400 line-through' : ''}>{t.title}</p>
+                {#if projectName(t.projectId) || repeats(t)}
                   <p class="text-xs text-ink-400">
-                    {[projectName(t.projectId), t.tag].filter(Boolean).join(' · ')}
+                    {[projectName(t.projectId), t.tag, repeatLabel(t.repeatDays)]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </p>
                 {/if}
               </button>
@@ -1089,19 +1121,31 @@
               -->
               {#if openRow === t.id}
                 <div class="border-t border-line-1 pt-3 pb-3">
-                  <p class="section-label mb-2">When</p>
-                  <WhenPicker
-                    value={t.date}
-                    onpick={(date) => {
-                      openRow = null;
-                      void updateTodo(t.id, { date });
-                    }}
-                  />
-                  <p class="footnote mt-2">
-                    Another day takes it off today's list and brings it back then.
-                    Someday leaves it in {projectName(t.projectId) ?? 'Brain'} with no day
-                    on it.
-                  </p>
+                  {#if repeats(t)}
+                    <!-- A repeating row has no day to move: it has days it
+                         comes round on. Offering "Tomorrow" here would set a
+                         date on something that repeats, and the two cannot
+                         both be true. -->
+                    <p class="section-label mb-2">Repeats</p>
+                    <RepeatPicker
+                      value={t.repeatDays}
+                      onpick={(days) => setTodoRepeat(t.id, days)}
+                    />
+                  {:else}
+                    <p class="section-label mb-2">When</p>
+                    <WhenPicker
+                      value={t.date}
+                      onpick={(date) => {
+                        openRow = null;
+                        void updateTodo(t.id, { date });
+                      }}
+                    />
+                    <p class="footnote mt-2">
+                      Another day takes it off today's list and brings it back then.
+                      Someday leaves it in {projectName(t.projectId) ?? 'Brain'} with no day
+                      on it.
+                    </p>
+                  {/if}
                 </div>
               {/if}
             </li>

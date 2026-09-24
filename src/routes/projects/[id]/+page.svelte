@@ -8,7 +8,8 @@
   import BuyList from '$lib/components/BuyList.svelte';
   import type { Todo, BuyItem, Note, Project, Idea } from '$lib/types';
   import {
-    createTodo, completeTodo, uncompleteTodo, updateTodo, setTodoAfter, createBuyItem, markPurchased, saveNote, getNote,
+    createTodo, completeTodo, uncompleteTodo, updateTodo, setTodoAfter, setTodoRepeat,
+    createBuyItem, markPurchased, saveNote, getNote,
     setProjectImage, setProjectTags, removeProjectTag, renameProjectTag,
     setProjectTagColor, setProjectTagDescription, PROJECT_COLORS,
     archiveProject, projectTagColor, softDelete,
@@ -26,6 +27,7 @@
   import Collapsible from '$lib/components/Collapsible.svelte';
   import EnergyPicker from '$lib/components/EnergyPicker.svelte';
   import WhenPicker from '$lib/components/WhenPicker.svelte';
+  import RepeatPicker from '$lib/components/RepeatPicker.svelte';
   import { dayLabel } from '$lib/days';
   import DurationPicker from '$lib/components/DurationPicker.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
@@ -752,6 +754,14 @@
                 <div>
                   <p class="section-label mb-2">When</p>
                   <WhenPicker value={todo.date} onpick={(date) => updateTodo(todo.id, { date })} />
+                </div>
+
+                <div>
+                  <p class="section-label mb-2">Repeats</p>
+                  <RepeatPicker
+                    value={todo.repeatDays}
+                    onpick={(days) => setTodoRepeat(todo.id, days)}
+                  />
                 </div>
 
                 <div>

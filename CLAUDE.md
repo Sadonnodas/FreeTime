@@ -1699,6 +1699,18 @@ device; there is nothing to build. Memos are the exception, below.
   again for anything written elsewhere, and `chainDepth` carries a visited set
   because half a loop can be legal on each of two devices. Pinned by
   [order.test.ts](src/lib/order.test.ts).
+  **It is asked while the to-do is being WRITTEN, not only afterwards**, in
+  Brain's add form and the project screen's: *"the comes-after feature should
+  be available when you add a to-do. Right now you have to add it, reopen it
+  and set it."* Same complaint as the photo and the day before it, and the same
+  answer — a field the row editor offers should be offerable at the moment the
+  thing is written. `possibleBlockers` takes anything with an id rather than a
+  whole Todo, so the form can ask before the row exists: `{ id: '' }` matches
+  nothing, every legal sibling is offered, and no cycle can be closed by a row
+  that is not there yet. **Cleared after each add**, unlike the era and the
+  sizes: those are shared by a run of to-dos, but what one to-do waits for is
+  about that one to-do, and leaving it set would silently chain the next four
+  onto the same row.
   Resolving a link needs the COMPLETED to-dos too, which is why
   `queries.allTodos()` exists — `openTodos()` filters away exactly the rows
   that answer "is the thing before it done?", and getting the right answer from
@@ -2724,6 +2736,46 @@ device; there is nothing to build. Memos are the exception, below.
   the mistake already recorded about "Today".
   The drag is turned off while a row is open (`{ id, off }`), since a hold in
   an open row is for the row, not for moving it.
+
+  **A TO-DO CAN COME ROUND AGAIN** (`Todo.repeatDays`, `TodoLog`, db v8,
+  [recurring.ts](src/lib/recurring.ts),
+  [RepeatPicker.svelte](src/lib/components/RepeatPicker.svelte),
+  [recurring.test.ts](src/lib/recurring.test.ts)). Asked for plainly: *"we need
+  to put the trashcans outside every Thursday evening, so I would like that it
+  would appear in my Today page every Thursday."*
+  **It is a to-do and not a habit, although the machinery rhymes.** A habit is
+  about you and is deliberately day-less — *"3 times a week, without specific
+  days"* — because fixing Mon/Wed/Fri turns four days into something you can be
+  late for. A bin day is not an ambition: Thursday is a fact about the lorry.
+  So it stays in today's list with the day's other jobs and never joins the
+  habit chips, the heatmap or the milestones. Toon chose this shape over the
+  habit one when both were offered.
+  **AND IT IS NOT A DATED TO-DO PER WEEK, which was the obvious build and is a
+  trap.** Free Time's obligation slot takes dated to-dos with a date of today
+  or earlier, oldest first — so generating one per Thursday means a single
+  missed bin day becomes the first thing Free Time offers for the rest of time.
+  An overdue pile arriving through the back door of the mechanic that exists to
+  prevent one. **One row plus a log per day it was done has nothing to
+  accumulate**: a missed Thursday is a Thursday with no log, counted by
+  nothing.
+  `TodoLog` is habitLogs' twin down to the `[todoId+date]` compound index and
+  the undelete-rather-than-insert in `toggleTodoLog`, which keeps one id per
+  day so two devices ticking the same Thursday merge instead of stacking.
+  **`repeatDays` and `date` are mutually exclusive** and `setTodoRepeat`
+  enforces it: a thing that happens every Thursday is not also promised for the
+  14th, and Today would otherwise have to pick which of the two it was showing.
+  **Free Time never offers one** (`repeats` in the pool filter): with no
+  `completedAt` by design it would sit in that pool for ever and be suggested
+  on a Tuesday, and "free time?" is a question about an hour, not a reminder
+  that Thursday is bin day. It still appears on its own days and still ticks —
+  the app stops suggesting and never forbids, the same asymmetry a blocked
+  to-do has.
+  The row says "Every Thursday" in words next to its project; opening it offers
+  **Repeats** where an ordinary row offers **When**, since a repeating row has
+  no day to move — it has days it comes round on. The picker is in all three
+  row editors and both add forms, which is the rule this file already learned
+  twice: when a capability is added to one list, check every other screen that
+  shows the same rows.
 
   Two details that are not decoration: a day list sorts OLDEST first, because a
   plan for a day reads top to bottom while every other list is a feed where the

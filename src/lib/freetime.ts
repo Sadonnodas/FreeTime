@@ -2,6 +2,7 @@ import type {
   Todo, Energy, TimeBucket, BrainState, FreeTimeAnswers, SlotKind, PlannedSlot
 } from './types';
 import { openTodos, allTodos, allProjects, projectPulses, type ProjectPulse } from './queries';
+import { repeats } from './recurring';
 import { indexById, isBlocked } from './order';
 import { getDay } from './day';
 import { today } from './store';
@@ -119,6 +120,13 @@ export async function createPlanner(answers: FreeTimeAnswers): Promise<Planner> 
   const pool = open.filter(
     (t) =>
       !alreadyToday.has(t.id) &&
+      // A RECURRING to-do is never offered here. It has no completedAt by
+      // design, so it would sit in this pool for ever and could be suggested
+      // on a Tuesday — and "free time?" is a question about what to do with an
+      // hour, not a reminder that Thursday is bin day. It still appears on
+      // Today on its own days, and it can still be ticked; the app stops
+      // suggesting and never forbids, the same asymmetry a blocked to-do has.
+      !repeats(t) &&
       !isAsleep(t) &&
       !isBlocked(t, byId) &&
       fitsEffort(t, ceiling) &&

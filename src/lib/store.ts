@@ -3,7 +3,7 @@ import { indexById, wouldCycle } from './order';
 import type {
   Base, Project, Todo, Idea, BuyItem, List, ListItem,
   Habit, HabitLog, Capture, Note, Energy, TimeBucket, ListItemState, HabitState,
-  HabitStateChange
+  HabitStateChange, TodoLog
 } from './types';
 
 /**
@@ -447,6 +447,8 @@ export async function createTodo(
   opts: {
     projectId?: string; tag?: string; energy?: Energy; takes?: TimeBucket;
     date?: string; notes?: string; after?: string;
+    /** Weekdays it comes round on, for a recurring chore. Never with `date`. */
+    repeatDays?: number[];
     /** A photo taken while writing it, already resized (THUMB_EDGE). */
     image?: string;
     /** The page it came from (clip.ts). */
@@ -470,6 +472,47 @@ export async function updateTodo(id: string, patch: Partial<Todo>): Promise<void
  * another device. It refuses rather than throws: a refused link leaves the
  * to-do exactly as it was, which is the safe end of getting this wrong.
  */
+/**
+ * The weekdays a to-do comes round on, or none to stop it repeating.
+ *
+ * SETTING A REPEAT CLEARS THE DATE, and the two can never both be set: a thing
+ * that happens every Thursday is not also promised for the 14th, and Today
+ * would otherwise have to decide which of the two it was showing. `undefined`
+ * really removes the field (Dexie's update deletes a property set to
+ * undefined), so a to-do that stops repeating carries no stale weekday for
+ * another device to read.
+ */
+export async function setTodoRepeat(id: string, days?: number[]): Promise<void> {
+  const repeatDays = days?.length ? [...days].sort((a, b) => a - b) : undefined;
+  await db.todos.update(id, {
+    repeatDays,
+    ...(repeatDays ? { date: undefined } : {}),
+    updatedAt: now()
+  });
+}
+
+/**
+ * Done, on one day — the recurring to-do's tick.
+ *
+ * Deliberately the same shape as `toggleHabitLog`, including the undelete of
+ * an existing row: a tombstone that gets un-tombstoned keeps the id stable, so
+ * two devices ticking the same Thursday merge into one log rather than two.
+ */
+export async function toggleTodoLog(todoId: string, date = today()): Promise<boolean> {
+  const existing = await db.todoLogs.where('[todoId+date]').equals([todoId, date]).first();
+  if (existing && !existing.deletedAt) {
+    await db.todoLogs.update(existing.id, { deletedAt: now(), updatedAt: now() });
+    return false;
+  }
+  if (existing) {
+    await db.todoLogs.update(existing.id, { deletedAt: undefined, updatedAt: now() });
+    return true;
+  }
+  const log: TodoLog = stamp({ todoId, date });
+  await db.todoLogs.add(log);
+  return true;
+}
+
 export async function setTodoAfter(id: string, afterId?: string): Promise<boolean> {
   if (afterId) {
     const byId = indexById((await db.todos.toArray()).filter(alive));

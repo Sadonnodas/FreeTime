@@ -9,7 +9,8 @@
   import type { Project, Todo, BuyItem, Memo, Widget, Energy, TimeBucket, Idea } from '$lib/types';
   import { widgetsFor } from '$lib/widgets';
   import {
-    createTodo, completeTodo, uncompleteTodo, updateTodo, setTodoAfter, saveNote, getNote,
+    createTodo, completeTodo, uncompleteTodo, updateTodo, setTodoAfter, setTodoRepeat,
+    saveNote, getNote,
     projectTagColor, softDelete, createIdea, setProjectTagFinished
   } from '$lib/store';
   import { activeProjects } from '$lib/queries';
@@ -35,6 +36,7 @@
   import PlanToday from '$lib/components/PlanToday.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import WhenPicker from '$lib/components/WhenPicker.svelte';
+  import RepeatPicker from '$lib/components/RepeatPicker.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
   import ProjectTagEditor from '$lib/components/ProjectTagEditor.svelte';
   import IdeaList from '$lib/components/IdeaList.svelte';
@@ -203,6 +205,10 @@
    * is usually for one day. The photo is the odd one out and still resets.
    */
   let newDate = $state<string | undefined>(undefined);
+  /** What it waits for, chosen while writing it rather than after — see the
+   *  same field in Brain's add form. Cleared after each add: a blocker is
+   *  about ONE to-do, where the sizes and the day are shared by a run. */
+  let newAfter = $state<string | undefined>(undefined);
 
   function choose(kind: AddKind) {
     sheet = false;
@@ -333,10 +339,13 @@
             energy: newEnergy,
             takes: newTakes,
             date: newDate,
+            after: newAfter,
             image: newImage
           });
-          // The photo was for this one to-do; the sizes stay for a run of them.
+          // The photo and the blocker were for this one to-do; the sizes and
+          // the day stay for a run of them.
           newImage = undefined;
+          newAfter = undefined;
         }}
       >
         {#snippet extra(text)}
@@ -363,6 +372,16 @@
                   onpick={(v) => (newEnergy = v)}
                   unset={false}
                   hint={false}
+                />
+              </div>
+              <!-- Against this project's own to-dos, which is the list a link
+                   is meaningful in. -->
+              <div>
+                <p class="section-label mb-2">Comes after</p>
+                <AfterPicker
+                  value={newAfter}
+                  options={possibleBlockers({ id: '' }, todosQ)}
+                  onpick={(after) => (newAfter = after)}
                 />
               </div>
               <!-- The photo, while writing it — not add, reopen, then add. -->
@@ -457,6 +476,14 @@
                 -->
                 <p class="section-label mt-3 mb-2">When</p>
                 <WhenPicker value={todo.date} onpick={(date) => updateTodo(todo.id, { date })} />
+
+                <!-- Days it comes round on, for something recurring like the
+                     bins. Mutually exclusive with the day above. -->
+                <p class="section-label mt-3 mb-2">Repeats</p>
+                <RepeatPicker
+                  value={todo.repeatDays}
+                  onpick={(days) => setTodoRepeat(todo.id, days)}
+                />
 
                 <!--
                   TWO QUESTIONS, because they are two different things. How long

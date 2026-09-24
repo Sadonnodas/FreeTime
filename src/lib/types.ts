@@ -163,6 +163,23 @@ export interface Todo extends Base {
    */
   rank?: number;
   completedAt?: string;
+  /**
+   * The weekdays it comes round on (0 = Sunday), for something that repeats:
+   * the bins go out every Thursday.
+   *
+   * **A RECURRING TO-DO IS NEVER "OVERDUE", and the model is what guarantees
+   * it.** It holds no date; it appears on Today when the weekday matches and
+   * is simply absent otherwise, and being done is recorded per day in
+   * `TodoLog` rather than in `completedAt`. So a missed Thursday leaves
+   * nothing behind to accumulate — which the obvious alternative (generating a
+   * dated to-do per week) would not: Free Time's obligation slot takes dated
+   * to-dos oldest first, so one missed bin day would have become the first
+   * thing it offered, forever.
+   *
+   * Mutually exclusive with `date`: a thing that happens every Thursday is not
+   * also promised for the 14th.
+   */
+  repeatDays?: number[];
 }
 
 /**
@@ -631,6 +648,17 @@ export interface Settings {
 
 /** Always asked, though the wording varies. */
 export type TimeBucket = '20min' | '1-2h' | 'half day' | 'all day';
+
+/**
+ * One day a recurring to-do was done. Append-only, exactly like a habit's log,
+ * and for the same reason: a to-do that comes round every Thursday cannot
+ * record "done" in a single `completedAt` — there is one row and many
+ * Thursdays.
+ */
+export interface TodoLog extends Base {
+  todoId: string;
+  date: string; // YYYY-MM-DD
+}
 export type BrainState = 'fried' | 'normal' | 'sharp';
 
 /**

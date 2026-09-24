@@ -5,7 +5,7 @@
   import type { Todo, Idea, BuyItem, Project, Energy, TimeBucket, Memo, Day } from '$lib/types';
   import {
     completeTodo, createTodo, createIdea,
-    updateTodo, setTodoAfter, softDelete, today,
+    updateTodo, setTodoAfter, setTodoRepeat, softDelete, today,
     uncompleteTodo, PROJECT_COLORS, setRanks
   } from '$lib/store';
   import { tintFor } from '$lib/colors';
@@ -34,6 +34,7 @@
   import AddField from '$lib/components/AddField.svelte';
   import PlanToday from '$lib/components/PlanToday.svelte';
   import WhenPicker from '$lib/components/WhenPicker.svelte';
+  import RepeatPicker from '$lib/components/RepeatPicker.svelte';
   import ProjectSelect from '$lib/components/ProjectSelect.svelte';
   import ShoppingListButton from '$lib/components/ShoppingListButton.svelte';
   import BuyAddForm from '$lib/components/BuyAddForm.svelte';
@@ -384,6 +385,23 @@
   let newEra = $state('');
   let newTag = $state('');
   let newDate = $state('');
+  /**
+   * What it waits for, chosen while writing it.
+   *
+   * *"The comes-after feature should be available when you add a to-do. Right
+   * now you have to add it, reopen it and set it."* Same complaint as the
+   * photo and the day before it, and the same answer: a field the row editor
+   * offers should be offerable at the moment the thing is written.
+   *
+   * It is CLEARED after each add, unlike the era and the sizes. Those are
+   * shared by a run of to-dos; what one to-do waits for is about that one to-do
+   * — and leaving it set would quietly chain the next four onto the same row.
+   */
+  let newAfter = $state<string | undefined>(undefined);
+  /** The weekdays it comes round on, for something recurring. Kept between
+   *  adds like the era and the sizes: writing three weekly chores in a row
+   *  should not mean picking Thursday three times. */
+  let newRepeat = $state<number[] | undefined>(undefined);
 
   /** The projects inside the chosen era, for the second picker. */
   const eraTags = $derived(
@@ -413,12 +431,17 @@
       takes: newTakes,
       // The lit day wins: while looking at tomorrow's list, "add" unambiguously
       // means tomorrow, and nothing else on the form says otherwise.
-      date: day || newDate || undefined,
+      // A repeating to-do holds no date — see recurring.ts. The lit day still
+      // wins for an ordinary one.
+      date: newRepeat?.length ? undefined : day || newDate || undefined,
+      repeatDays: newRepeat?.length ? newRepeat : undefined,
+      after: newAfter,
       image: newImage
     });
-    // The photo belongs to THIS to-do; the next one starts without it, unlike
-    // the era and project, which a run of to-dos usually shares.
+    // The photo and the blocker belong to THIS to-do; the next one starts
+    // without them, unlike the era and project, which a run of to-dos shares.
     newImage = undefined;
+    newAfter = undefined;
     // The title clears (AddField does that); the destination does not. Writing
     // five things for the same project should not mean setting it five times.
   }
@@ -621,6 +644,29 @@
                 }}
               />
             </label>
+          </div>
+
+          <div>
+            <p class="section-label mb-2">Repeats</p>
+            <RepeatPicker value={newRepeat} onpick={(days) => (newRepeat = days)} />
+          </div>
+
+          <!-- Offered against the siblings of whatever era and project are
+               chosen ABOVE, so picking a project first narrows this to that
+               project's to-dos — which is the only list where a link means
+               anything (see order.ts). -->
+          <div>
+            <p class="section-label mb-2">Comes after</p>
+            <AfterPicker
+              value={newAfter}
+              options={possibleBlockers(
+                { id: '' },
+                allTodos.filter(
+                  (t) => t.projectId === (newEra || undefined) && t.tag === (newTag || undefined)
+                )
+              )}
+              onpick={(after) => (newAfter = after)}
+            />
           </div>
 
           <div>
@@ -849,6 +895,13 @@
                 <div>
                   <p class="section-label mb-2">When</p>
                   <WhenPicker value={t.date} onpick={(date) => updateTodo(t.id, { date })} />
+                </div>
+                <!-- A day it is promised for, or days it comes round on. Both
+                     land on Today; setting one clears the other, since a thing
+                     that happens every Thursday is not also due on the 14th. -->
+                <div>
+                  <p class="section-label mb-2">Repeats</p>
+                  <RepeatPicker value={t.repeatDays} onpick={(days) => setTodoRepeat(t.id, days)} />
                 </div>
                 <div>
                   <p class="section-label mb-2">How long will it take?</p>

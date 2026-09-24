@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import type {
   Project, Todo, Idea, BuyItem, List, ListItem,
   Habit, HabitLog, Day, Capture, Note, ConflictLog, Settings, QueuedAudio,
-  HabitStateChange, Widget, Memo, QuickNote
+  HabitStateChange, Widget, Memo, QuickNote, TodoLog
 } from './types';
 
 /**
@@ -35,6 +35,7 @@ export class FreeTimeDB extends Dexie {
   widgets!: Table<Widget, string>;
   memos!: Table<Memo, string>;
   quickNotes!: Table<QuickNote, string>;
+  todoLogs!: Table<TodoLog, string>;
 
   constructor() {
     super('freetime');
@@ -102,6 +103,16 @@ export class FreeTimeDB extends Dexie {
     // Version 7 adds quick notes — a new store, so no data migration.
     this.version(7).stores({
       quickNotes: 'id, updatedAt, deletedAt'
+    });
+
+    /*
+     * Version 8 records the days a RECURRING to-do was done. Same shape and
+     * same compound index as habitLogs — "was this one done today?" has to be
+     * a single indexed lookup, because Today asks it for every repeating row
+     * on every render.
+     */
+    this.version(8).stores({
+      todoLogs: 'id, todoId, date, [todoId+date], updatedAt, deletedAt'
     });
   }
 }
