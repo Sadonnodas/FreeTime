@@ -537,6 +537,61 @@ export async function withEditedText(p: ProposedWrite, text: string): Promise<Pr
   return { ...p, args, label: await describeWrite(p.name, args) };
 }
 
+/**
+ * WHICH FIELDS A PROPOSAL CAN BE OPENED AND CHECKED ON, per tool.
+ *
+ * Asked for from a real session: *"I told the assistant the to-do would only
+ * take 20 min and low headspace. It suggested the to-do, but I couldn't adjust
+ * the other things I would normally be able to adjust when I do it manually."*
+ * Add was the only button, so a proposal could be corrected in words and in
+ * nothing else — and the model gets a size wrong far more easily than it gets
+ * a title wrong.
+ *
+ * Derived from what `applyWrite` actually WRITES, which is the only honest
+ * source: offering a control for an argument the apply step ignores would be a
+ * setting that silently does nothing, which is worse than no setting at all.
+ * If a tool learns a new argument, this is the second place to change.
+ */
+export interface ProposalFields {
+  /** The words it is about — the same one Edit always changed. */
+  text: boolean;
+  /** Which era it is filed under. */
+  era: boolean;
+  /** Which project inside that era. */
+  project: boolean;
+  /** A to-do's own three: how long, how much head, and what day. */
+  todo: boolean;
+}
+
+export function proposalFields(name: WriteTool): ProposalFields {
+  const filed = ['create_todo', 'create_idea', 'create_buy_item', 'append_note'];
+  return {
+    text: !!EDITABLE_ARG[name],
+    // add_project_to_era takes an era but no project inside one: the name
+    // being typed IS the project.
+    era: filed.includes(name) || name === 'add_project_to_era',
+    project: filed.includes(name),
+    todo: name === 'create_todo'
+  };
+}
+
+/**
+ * A proposal with some of its arguments changed, relabelled.
+ *
+ * `undefined` REMOVES an argument rather than storing it, which is what
+ * "Someday" and "Not sure" have to mean — an explicit undefined left in the
+ * args would be read by `s()` as absent anyway, but leaving it there makes the
+ * pending block shown to the model noisier than the truth.
+ */
+export async function withArgs(p: ProposedWrite, patch: Args): Promise<ProposedWrite> {
+  const args = { ...p.args };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) delete args[key];
+    else args[key] = value;
+  }
+  return { ...p, args, label: await describeWrite(p.name, args) };
+}
+
 export async function describeWrite(name: WriteTool, args: Args): Promise<string> {
   // Named from what the model said, not only from what exists: the era or
   // project may be created by an earlier proposal in the same batch.

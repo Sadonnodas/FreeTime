@@ -3,7 +3,7 @@ import { db } from '../db';
 import {
   TOOL_DECLARATIONS, isWrite, isNavigation, WRITE_TOOLS, SAFE_TOOLS, PENDING_TOOLS,
   runQuery, applyWrite, navigationTarget, orderForApply, describeWrite, applyPendingEdits,
-  isPendingEdit, type WriteTool, type ProposedWrite
+  isPendingEdit, proposalFields, withArgs, type WriteTool, type ProposedWrite
 } from './tools';
 import {
   createProject, createTodo, getNote, saveNote, setProjectTags, createIdea
@@ -401,5 +401,65 @@ describe('editing a proposal before it is added', () => {
     const todo = { name: 'create_todo' as const, args: { title: 'x' }, label: 'To-do: x' };
     expect(await withEditedText(todo, '   ')).toBeNull();
     expect(editableText({ name: 'complete_todo', args: { id: 'abc' } })).toBeNull();
+  });
+});
+
+/**
+ * *"I told the assistant the to-do would only take 20 min and low headspace.
+ * It suggested the to-do, but I couldn't adjust the other things I would
+ * normally be able to adjust."* Add was the only button, so a proposal could
+ * be corrected in words and in nothing else.
+ */
+describe('opening a proposal to check it before adding', () => {
+  it('offers exactly the fields the write actually uses', () => {
+    // The honest source is applyWrite. A control for an argument the apply
+    // step ignores is a setting that silently does nothing.
+    expect(proposalFields('create_todo')).toEqual({
+      text: true, era: true, project: true, todo: true
+    });
+    // A buy item is filed, but has no day or sizes of its own.
+    expect(proposalFields('create_buy_item').todo).toBe(false);
+    // The name being typed IS the project, so there is no project inside it.
+    expect(proposalFields('add_project_to_era')).toMatchObject({ era: true, project: false });
+    // Ticking an existing to-do has nothing of its own to check.
+    expect(Object.values(proposalFields('complete_todo')).some(Boolean)).toBe(false);
+  });
+
+  it('writes the sizes that were set on the proposal', async () => {
+    const era = await createProject('Coding');
+    await setProjectTags(era, ['FreeTime']);
+    const p: ProposedWrite = {
+      name: 'create_todo',
+      args: { title: 'Check the deploy', projectId: era, projectInEra: 'FreeTime' },
+      label: await describeWrite('create_todo', { title: 'Check the deploy' })
+    };
+
+    const checked = await withArgs(p, { takes: '20min', energy: 'quick' });
+    await applyWrite(checked.name, checked.args);
+
+    const todo = (await db.todos.toArray())[0]!;
+    expect(todo.takes).toBe('20min');
+    expect(todo.energy).toBe('quick');
+    expect(todo.tag).toBe('FreeTime');
+  });
+
+  it('relabels as it goes, so the card never describes the old version', async () => {
+    const p: ProposedWrite = {
+      name: 'create_todo',
+      args: { title: 'Old words' },
+      label: await describeWrite('create_todo', { title: 'Old words' })
+    };
+    expect((await withArgs(p, { title: 'New words' })).label).toContain('New words');
+  });
+
+  it('removes an argument rather than storing an empty one', async () => {
+    // "Someday" and "Not sure" mean the field is not set, not that it is set
+    // to nothing.
+    const p: ProposedWrite = {
+      name: 'create_todo',
+      args: { title: 'x', date: '2026-09-25' },
+      label: 'To-do: x'
+    };
+    expect('date' in (await withArgs(p, { date: undefined })).args).toBe(false);
   });
 });

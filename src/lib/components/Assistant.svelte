@@ -2,10 +2,11 @@
   import type { Content } from '$lib/gemini/client';
   import type { ProposedWrite } from '$lib/gemini/tools';
   import {
-    applyWrite, orderForApply, applyPendingEdits, editableText, withEditedText
+    applyWrite, orderForApply, applyPendingEdits, proposalFields, editableText
   } from '$lib/gemini/tools';
   import { ask, type Suggestion, type AskContext } from '$lib/gemini/assistant';
   import { base } from '$app/paths';
+  import ProposalEditor from './ProposalEditor.svelte';
   import { goto } from '$app/navigation';
   import { startRecording, toGeminiWav, beep, canRecord, type Recorder } from '$lib/audio';
   import { transcribe } from '$lib/gemini/extract';
@@ -326,19 +327,20 @@
     bubbles = [...bubbles, { role: 'it', text: `Added: ${p.label}` }];
   }
 
-  /** Rewording a proposal in place, before it is added. */
+  /**
+   * A proposal, opened up before it is added.
+   *
+   * This used to be a textarea and nothing else — the WORDS could be changed
+   * and no other field could, so *"I told the assistant 20 min and low
+   * headspace, and I couldn't adjust the other things I'd normally adjust"*.
+   * A model gets a size wrong far more easily than it gets a title wrong, and
+   * the only way out was to add it and then go and fix it wherever it landed.
+   * `ProposalEditor` now holds the words and everything else the write
+   * actually uses, so Open is "check it" rather than "reword it".
+   */
   let editing = $state<number | null>(null);
-  let editDraft = $state('');
-  function startEdit(i: number) {
-    editDraft = editableText(pending[i]) ?? '';
-    editing = i;
-  }
-  async function saveEdit() {
-    const i = editing;
-    if (i === null) return;
-    const next = await withEditedText(pending[i], editDraft);
-    if (next) pending = pending.map((p, n) => (n === i ? next : p));
-    editing = null;
+  function replace(i: number, next: ProposedWrite) {
+    pending = pending.map((p, n) => (n === i ? next : p));
   }
 
   /**
@@ -453,41 +455,40 @@
         <p class="section-label pt-1">Not added yet</p>
         {#each pending as p, i (i)}
           {@const bits = parts(p)}
+          {@const open = editing === i}
+          {@const checkable = Object.values(proposalFields(p.name)).some(Boolean)}
           <div class="card p-3">
             {#if bits.kind}
               <p class="footnote mb-0.5">{bits.kind}{#if bits.where}{' · '}<span class="text-ink-200">{bits.where}</span>{/if}</p>
             {/if}
-            {#if editing === i}
-              <textarea
-                bind:value={editDraft}
-                use:autogrow={{ value: editDraft, onenter: saveEdit, max: 240 }}
-                enterkeyhint="done"
-                class="field field-grow w-full"
-                aria-label="Edit"
-              ></textarea>
-              <div class="mt-2 flex justify-end gap-2">
-                <button class="press tap-h px-3 text-sm text-ink-400" onclick={() => (editing = null)}>
-                  Cancel
-                </button>
-                <button class="btn btn-primary press text-sm" disabled={!editDraft.trim()} onclick={saveEdit}>
-                  Save
-                </button>
-              </div>
-            {:else}
-              <p class="text-[16px] leading-snug break-words whitespace-pre-wrap">{bits.text}</p>
-              <div class="-mb-1 mt-2 flex items-center gap-1">
-                <button class="btn btn-primary press px-4 text-sm" onclick={() => addOne(i)}>Add</button>
-                {#if editableText(p) !== null}
-                  <button class="press tap-h rounded-lg px-3 text-sm text-accent" onclick={() => startEdit(i)}>
-                    Edit
-                  </button>
-                {/if}
-                <span class="flex-1"></span>
-                <button class="press tap-h rounded-lg px-3 text-sm text-ink-400" onclick={() => discard(i)}>
-                  Delete
-                </button>
-              </div>
+            <!-- The words are the tap target as well as the button, the way
+                 every other row in this app opens. The button is what makes it
+                 findable: a card that does something when tapped and says
+                 nothing about it is a control nobody finds. -->
+            <button
+              class="w-full text-left text-[16px] leading-snug break-words whitespace-pre-wrap"
+              onclick={() => (editing = open ? null : i)}
+              aria-expanded={open}
+              disabled={!checkable}>{bits.text}</button
+            >
+
+            {#if open}
+              <ProposalEditor proposal={p} onchange={(next) => replace(i, next)} />
             {/if}
+
+            <div class="-mb-1 mt-2 flex items-center gap-1">
+              <button class="btn btn-primary press px-4 text-sm" onclick={() => addOne(i)}>Add</button>
+              {#if checkable}
+                <button
+                  class="press tap-h rounded-lg px-3 text-sm text-accent"
+                  onclick={() => (editing = open ? null : i)}>{open ? 'Done' : 'Open'}</button
+                >
+              {/if}
+              <span class="flex-1"></span>
+              <button class="press tap-h rounded-lg px-3 text-sm text-ink-400" onclick={() => discard(i)}>
+                Delete
+              </button>
+            </div>
           </div>
         {/each}
         {#if pending.length > 1}

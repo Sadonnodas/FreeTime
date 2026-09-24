@@ -1400,6 +1400,38 @@ one came close to a hard rule, the reasoning is recorded here.
   on the era, so `addOne` applies those first, matched by name, and nothing
   else. A note's label is no longer shortened, since a note is the thing
   whose middle you need to read.
+  **A PROPOSAL OPENS UP, and Edit became Open**
+  ([ProposalEditor.svelte](src/lib/components/ProposalEditor.svelte),
+  `proposalFields` / `withArgs` in [gemini/tools.ts](src/lib/gemini/tools.ts)).
+  Reported from a real session: *"I told the assistant the to-do would only
+  take 20 min and low headspace. It suggested the to-do, but I couldn't adjust
+  the other things I would normally be able to adjust when I do it manually."*
+  Edit changed the WORDS and nothing else — and a model gets a size wrong far
+  more easily than it gets a title wrong, so the only way to correct one was to
+  add it and then go and find it wherever it landed.
+  **The same controls as the manual form**, deliberately: WhenPicker,
+  DurationPicker, EnergyPicker, ProjectSelect. A proposal reviewed with
+  different controls from the ones that write a to-do by hand is a second
+  dialect of the same form, and the two would drift the way every other
+  duplicated control in this file did.
+  **Only the fields `applyWrite` ACTUALLY WRITES** (`proposalFields`, pinned by
+  a test that reads the two together). A control for an argument the apply step
+  ignores is a setting that silently does nothing, which is worse than not
+  offering it — so a buy item gets a place and no sizes, `add_project_to_era`
+  gets an era and no project inside one (the name being typed IS the project),
+  and ticking an existing to-do opens nothing at all.
+  **An era that is still a proposal must not be quietly unfiled.** `projectId`
+  may hold an era's NAME rather than its id — that is what lets one reply make
+  an era and file into it — so the select has no option for it. It is matched
+  by name as well as id, and when it resolves to neither the panel says so in
+  words ("Going to Coding, which another suggestion here creates") rather than
+  showing "Nowhere yet" over something that is going somewhere.
+  Nothing is saved by opening one: the store is untouched until Add, which is
+  spec 7.1 and the entire reason proposals exist. `withArgs` REMOVES an
+  argument set back to nothing, so "Someday" and "Not sure" mean unset rather
+  than set-to-empty, and it relabels as it goes so the card never describes the
+  version before the change.
+
   **A to-do can get its photo while it is written**, in Brain and inside a
   project (`createTodo({ image })`), with a small preview — it used to take
   add, reopen, add photo, for what is usually the reason the to-do exists: a
