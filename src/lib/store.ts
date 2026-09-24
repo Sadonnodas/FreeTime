@@ -455,7 +455,26 @@ export async function createTodo(
     url?: string;
   } = {}
 ): Promise<string> {
-  const t: Todo = stamp({ title: title.trim(), ...opts });
+  const t: Todo = stamp({
+    ...opts,
+    title: title.trim(),
+    /*
+     * COPIED, and the copy is load-bearing.
+     *
+     * A Svelte `$state` array is a PROXY, and a proxy cannot be
+     * structured-cloned — so handing one straight to Dexie throws
+     * `DataCloneError: [object Object] could not be cloned` and the write
+     * silently never happens. The add form clears itself either way, so the
+     * to-do simply does not appear and nothing on screen says why; it was
+     * found by watching the console, not the app.
+     *
+     * `repeatDays` is the first ARRAY field any form writes, which is why this
+     * has not come up before. Any array that arrives here from a component
+     * needs the same treatment — the store is the right place for it, because
+     * every caller would otherwise have to remember.
+     */
+    repeatDays: opts.repeatDays ? [...opts.repeatDays] : undefined
+  });
   await db.todos.add(t);
   return t.id;
 }

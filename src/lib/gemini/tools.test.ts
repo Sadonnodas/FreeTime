@@ -443,6 +443,46 @@ describe('opening a proposal to check it before adding', () => {
     expect(todo.tag).toBe('FreeTime');
   });
 
+  it('sets a repeat and a blocker the way the model can say them', async () => {
+    // *"The assistant should be able to set all the same things I could do
+    // manually."* Weekdays by name, because the model has no reason to know
+    // that 0 is Sunday; the blocker by title, because the digest gives it
+    // titles and no ids.
+    const era = await createProject('Home');
+    const bamboo = await createTodo('Remove the bamboo', { projectId: era });
+
+    await applyWrite('create_todo', {
+      title: 'Sow the grass',
+      projectId: era,
+      afterTitle: 'remove the bamboo',
+      date: '2026-09-25',
+      repeatWeekdays: ['thursday', 'monday']
+    });
+
+    const todo = (await db.todos.toArray()).find((t) => t.title === 'Sow the grass')!;
+    expect(todo.repeatDays).toEqual([1, 4]);
+    expect(todo.after).toBe(bamboo);
+    // A repeating to-do holds no date, however the model wrote the call.
+    expect(todo.date).toBeUndefined();
+  });
+
+  it('drops a blocker title that is not there rather than guessing', async () => {
+    // A to-do blocked on a row that does not exist would sit unstartable with
+    // nothing on screen to explain it — the dangling-link rule in order.ts.
+    const era = await createProject('Nowhere in particular');
+    await applyWrite('create_todo', { title: 'Grass, unblocked', projectId: era, afterTitle: 'nope' });
+    const todo = (await db.todos.toArray()).find((t) => t.title === 'Grass, unblocked')!;
+    expect(todo.after).toBeUndefined();
+  });
+
+  it('ignores a weekday it does not recognise', async () => {
+    await applyWrite('create_todo', { title: 'Bins', repeatWeekdays: ['thurs', 'thursday'] });
+    // Found by title: this file does not reset the store between tests, so an
+    // index would be reading whatever an earlier test happened to write.
+    const todo = (await db.todos.toArray()).find((t) => t.title === 'Bins')!;
+    expect(todo.repeatDays).toEqual([4]);
+  });
+
   it('relabels as it goes, so the card never describes the old version', async () => {
     const p: ProposedWrite = {
       name: 'create_todo',

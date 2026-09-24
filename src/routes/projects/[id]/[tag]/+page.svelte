@@ -209,6 +209,9 @@
    *  same field in Brain's add form. Cleared after each add: a blocker is
    *  about ONE to-do, where the sizes and the day are shared by a run. */
   let newAfter = $state<string | undefined>(undefined);
+  /** The weekdays it comes round on. Kept between adds like the sizes: three
+   *  weekly chores in a row should not mean picking Thursday three times. */
+  let newRepeat = $state<number[] | undefined>(undefined);
 
   function choose(kind: AddKind) {
     sheet = false;
@@ -338,7 +341,9 @@
             tag,
             energy: newEnergy,
             takes: newTakes,
-            date: newDate,
+            // A repeating to-do holds no date — the two cannot both be true.
+            date: newRepeat?.length ? undefined : newDate,
+            repeatDays: newRepeat?.length ? newRepeat : undefined,
             after: newAfter,
             image: newImage
           });
@@ -360,6 +365,14 @@
               <div>
                 <p class="section-label mb-2">When</p>
                 <WhenPicker value={newDate} onpick={(d) => (newDate = d)} />
+              </div>
+              <!-- Days it comes round on, for a chore like the bins. It was
+                   missed here when recurring to-dos shipped: the row editor
+                   below got it and this form did not, which is the third time
+                   this exact gap has been found. -->
+              <div>
+                <p class="section-label mb-2">Repeats</p>
+                <RepeatPicker value={newRepeat} onpick={(days) => (newRepeat = days)} />
               </div>
               <div>
                 <p class="section-label mb-2">How long will it take?</p>

@@ -1,11 +1,14 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
-  import { activeProjects } from '$lib/queries';
+  import { activeProjects, allTodos } from '$lib/queries';
+  import { possibleBlockers } from '$lib/order';
   import type { Project, Energy, TimeBucket } from '$lib/types';
   import { proposalFields, withArgs, editableText, type ProposedWrite } from '$lib/gemini/tools';
   import { autogrow } from '$lib/autogrow';
   import ProjectSelect from './ProjectSelect.svelte';
   import WhenPicker from './WhenPicker.svelte';
+  import RepeatPicker from './RepeatPicker.svelte';
+  import AfterPicker from './AfterPicker.svelte';
   import DurationPicker from './DurationPicker.svelte';
   import EnergyPicker from './EnergyPicker.svelte';
 
@@ -40,6 +43,8 @@
 
   const erasQ = liveQuery(() => activeProjects());
   const eras = $derived(($erasQ as Project[] | undefined) ?? []);
+  /** Every to-do, so "comes after" can offer this proposal's siblings. */
+  const todosQ = liveQuery(() => allTodos());
 
   const fields = $derived(proposalFields(proposal.name));
   const args = $derived(proposal.args);
@@ -67,6 +72,29 @@
   // same reason RenameField takes a value rather than binding one.
   // svelte-ignore state_referenced_locally
   let text = $state(editableText(proposal) ?? '');
+
+  /**
+   * The model says weekdays by NAME (it has no reason to know 0 is Sunday);
+   * the picker speaks numbers. Translated here rather than in the tool, so the
+   * schema stays the thing a model reads well and the control stays the thing
+   * a person taps.
+   */
+  const WEEKDAY_KEYS = [
+    'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'
+  ];
+  const repeatDays = $derived(
+    Array.isArray(args.repeatWeekdays)
+      ? (args.repeatWeekdays as unknown[])
+          .map((d) => WEEKDAY_KEYS.indexOf(String(d).toLowerCase()))
+          .filter((n) => n >= 0)
+      : undefined
+  );
+  /** The to-dos this one could wait for: the ones it shares a list with. */
+  const siblings = $derived(
+    (($todosQ as import('$lib/types').Todo[] | undefined) ?? []).filter(
+      (t) => t.projectId === era?.id && t.tag === str(args.projectInEra)
+    )
+  );
 
   const patch = async (p: Record<string, unknown>) => onchange(await withArgs(proposal, p));
 
@@ -138,9 +166,31 @@
   {/if}
 
   {#if fields.todo}
+    <!-- A day it is promised for, or days it comes round on. Setting one
+         clears the other here exactly as it does in the form, since a to-do
+         that happens every Thursday is not also due on the 14th. -->
     <div>
       <p class="section-label mb-2">When</p>
       <WhenPicker value={str(args.date)} onpick={(date) => patch({ date })} />
+    </div>
+    <div>
+      <p class="section-label mb-2">Repeats</p>
+      <RepeatPicker
+        value={repeatDays}
+        onpick={(days) =>
+          patch({
+            repeatWeekdays: days?.length ? days.map((d) => WEEKDAY_KEYS[d]) : undefined,
+            date: days?.length ? undefined : str(args.date)
+          })}
+      />
+    </div>
+    <div>
+      <p class="section-label mb-2">Comes after</p>
+      <AfterPicker
+        value={str(args.after)}
+        options={possibleBlockers({ id: '' }, siblings)}
+        onpick={(after) => patch({ after, afterTitle: undefined })}
+      />
     </div>
     <div>
       <p class="section-label mb-2">How long will it take?</p>

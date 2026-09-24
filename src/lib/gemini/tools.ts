@@ -127,6 +127,29 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
           enum: ['20min', '1-2h', 'half day', 'all day'],
           description: 'How long it takes on the clock. "20 minutes" is this, not energy.'
         },
+        /*
+         * EVERYTHING THE FORM CAN SET, THE ASSISTANT CAN SET. Asked for as
+         * exactly that: *"the assistant should be able to set all the same
+         * things I could do manually."* A tool that offers half the form makes
+         * the model look stupid about the half it cannot reach — and the
+         * twenty-minute miss proved a field absent from the schema is a field
+         * the model will silently drop.
+         */
+        repeatWeekdays: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+          },
+          description:
+            'For something that comes round again — "every Thursday", "Mondays and Fridays". ' +
+            'Never together with date: a repeating to-do holds no single day.'
+        },
+        afterTitle: str(
+          'The TITLE of a to-do this one has to wait for, if they said so ("after ' +
+            'the bamboo is out"). Matched inside the same era and project when they ' +
+            'tap Add; a title that is not there is dropped rather than guessed at.'
+        ),
         date: str(
           'YYYY-MM-DD. ONLY for a day they actually said — including a relative ' +
             'one like "tomorrow" or "Friday", which you resolve against today\'s ' +
@@ -642,6 +665,47 @@ export async function describeWrite(name: WriteTool, args: Args): Promise<string
 }
 
 /** Runs a write the user has confirmed. Same store as every manual edit. */
+const WEEKDAY_NAMES = [
+  'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'
+];
+
+/** ["thursday"] → [4]. Anything unrecognised is dropped rather than guessed. */
+function weekdayNumbers(value: unknown): number[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const days = value
+    .map((v) => WEEKDAY_NAMES.indexOf(String(v).trim().toLowerCase()))
+    .filter((n) => n >= 0);
+  return days.length ? [...new Set(days)].sort((a, b) => a - b) : undefined;
+}
+
+/**
+ * The to-do a proposed one should wait for, found by TITLE.
+ *
+ * Scoped to the same era and project, which is the only list where a link
+ * means anything (order.ts), and matched case-insensitively because both
+ * speech-to-text and models lowercase. **A title that is not there is
+ * dropped**, exactly as a project name the era does not have is dropped: a
+ * to-do blocked on a row that does not exist would sit there unstartable with
+ * nothing on screen to explain it.
+ */
+async function resolveAfter(
+  projectId: string | undefined,
+  tag: string | undefined,
+  title: string | undefined
+): Promise<string | undefined> {
+  if (!title) return undefined;
+  const wanted = title.trim().toLowerCase();
+  const hit = (await db.todos.toArray()).find(
+    (t) =>
+      !t.deletedAt &&
+      !t.completedAt &&
+      t.projectId === projectId &&
+      t.tag === tag &&
+      t.title.trim().toLowerCase() === wanted
+  );
+  return hit?.id;
+}
+
 export async function applyWrite(name: WriteTool, args: Args): Promise<void> {
   // Resolved now, at apply time — see resolveEra.
   const era = await resolveEra(s(args.projectId));
@@ -649,13 +713,23 @@ export async function applyWrite(name: WriteTool, args: Args): Promise<void> {
 
   switch (name) {
     case 'create_todo':
-      await createTodo(s(args.title) ?? '', {
-        projectId: era?.id,
-        tag,
-        energy: s(args.energy) as Energy | undefined,
-        takes: s(args.takes) as TimeBucket | undefined,
-        date: s(args.date)
-      });
+      {
+        const repeatDays = weekdayNumbers(args.repeatWeekdays);
+        await createTodo(s(args.title) ?? '', {
+          projectId: era?.id,
+          tag,
+          energy: s(args.energy) as Energy | undefined,
+          takes: s(args.takes) as TimeBucket | undefined,
+          // A repeating to-do holds no date; recurring.ts says why.
+          date: repeatDays ? undefined : s(args.date),
+          repeatDays,
+          // `after` is an id and comes from the review panel, which has the
+          // to-dos in front of it. `afterTitle` is what the MODEL can say,
+          // since the digest gives it titles and no ids. The id wins.
+          after: s(args.after) ?? (await resolveAfter(era?.id, tag, s(args.afterTitle))),
+          image: undefined
+        });
+      }
       break;
     case 'create_idea':
       await createIdea(s(args.text) ?? '', { projectId: era?.id, tag });

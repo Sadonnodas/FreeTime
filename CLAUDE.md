@@ -700,6 +700,17 @@ Do not "fix" these without talking to Toon first.
   frame at each end showing whatever the base rules happen to say. The gap only
   has to be one frame to be seen.
 
+- **A Svelte `$state` ARRAY cannot be written to IndexedDB.** It is a Proxy,
+  and a proxy cannot be structured-cloned, so `db.todos.add()` throws
+  `DataCloneError: [object Object] could not be cloned` — and the add form
+  clears itself either way, so the to-do simply never appears and nothing on
+  screen says why. Found by watching the console, not the app. `repeatDays` is
+  the first ARRAY a form writes, which is why this never came up before;
+  `createTodo` copies it, and the store is the right place for that because
+  every caller would otherwise have to remember. **Unit tests cannot catch
+  this** — they pass plain arrays — so any new array field needs a run through
+  the real form.
+
 - **Careful with `\b` in Python-driven edits.** A `\b` in a non-raw Python string
   becomes a literal backspace byte and silently corrupts a regex. Caught once by a test;
   scan with a control-character check if edits go through Python.
@@ -2772,10 +2783,29 @@ device; there is nothing to build. Memos are the exception, below.
   to-do has.
   The row says "Every Thursday" in words next to its project; opening it offers
   **Repeats** where an ordinary row offers **When**, since a repeating row has
-  no day to move — it has days it comes round on. The picker is in all three
-  row editors and both add forms, which is the rule this file already learned
-  twice: when a capability is added to one list, check every other screen that
-  shows the same rows.
+  no day to move — it has days it comes round on.
+  **AND IT SHIPPED MISSING FROM THE PROJECT'S ADD FORM — the same gap, for the
+  THIRD time, in the very commit whose message cited the rule.** Reported
+  within the hour: *"I went into my Family era, to House project, wanted to add
+  the trash cans recurring to-do there but I don't see the option."* Prose in
+  this file did not stop it, so [screens.test.ts](src/lib/screens.test.ts) now
+  does: it reads the route SOURCES and asserts that every screen a to-do can be
+  written or edited on offers all five controls. Unusual, and deliberate — the
+  failure is never in the logic, it is a control absent from one file, and
+  nothing rendered can notice something that was never there. When a fifth
+  place to write a to-do appears, add it to that list; that is the whole
+  maintenance cost and it is cheaper than the bug.
+  **The assistant can set all of it too** (`repeatWeekdays`, `afterTitle` on
+  `create_todo`), asked for in the same breath: *"the assistant should be able
+  to set all the same things I could do manually."* Weekdays go by NAME,
+  because a model has no reason to know 0 is Sunday; the blocker goes by TITLE,
+  because the digest hands it titles and no ids, and it is resolved inside the
+  same era and project when Add is tapped — **a title that is not there is
+  dropped**, exactly as a project name the era does not have is dropped, since
+  a to-do blocked on a row that does not exist would sit unstartable with
+  nothing to explain it. The review panel offers both as controls, so the id
+  path (what the panel knows) and the title path (what the model can say) meet
+  in one place: `after` wins over `afterTitle` when both are set.
 
   Two details that are not decoration: a day list sorts OLDEST first, because a
   plan for a day reads top to bottom while every other list is a feed where the
