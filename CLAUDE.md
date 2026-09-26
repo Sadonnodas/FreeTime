@@ -2747,6 +2747,25 @@ device; there is nothing to build. Memos are the exception, below.
   the mistake already recorded about "Today".
   The drag is turned off while a row is open (`{ id, off }`), since a hold in
   an open row is for the row, not for moving it.
+  **A day list reads DOWN ITS CHAINS** (`byDayList` takes a `TodoIndex`).
+  Reported as *"the also-on-this-day to-dos don't respect the order of to-dos
+  if you had given them a comes-after setting."* It sorted by the dragged
+  order alone and never looked at `after`, so "sow the grass" could sit above
+  "remove the bamboo" — on the one list whose entire point is reading top to
+  bottom, and while every other list that shows a chain already read down it.
+  **Depth beats the drag**, exactly as `readyFirst` does on a project screen:
+  dragging a blocked row above its blocker snaps back, because the link is a
+  fact about the work while the drag is a preference about the rest. Within
+  one depth the dragged order is untouched, and a blocker that gets ticked
+  stops holding anything down, since `blockerOf` ignores a completed one.
+  **The index must be EVERY to-do, not the day's.** A blocker filed in a
+  project you are not looking at is still a blocker; an index of the visible
+  rows alone would fail to resolve it, read the link as dangling and quietly
+  sort the row as ready. Pinned by a test that puts the blocker on another day.
+  **And the row now says what it waits for**, leading the footnote: the list
+  is sorted by something invisible otherwise, and an order you cannot explain
+  reads as an order that is wrong. Both day lists — Today's and Brain's — pass
+  the index, because the same list on two screens must not be in two orders.
 
   **A TO-DO CAN COME ROUND AGAIN** (`Todo.repeatDays`, `TodoLog`, db v8,
   [recurring.ts](src/lib/recurring.ts),

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from './db';
-import { createTodo, createHabit, reorderHabits } from './store';
+import { createTodo, createHabit, reorderHabits, setTodoAfter, completeTodo } from './store';
+import { indexById } from './order';
 import { addToDay, ensureDay, reorderDay, reorderDayList, byDayList } from './day';
 import { today } from './store';
 import { byHabitOrder } from './habits';
@@ -48,6 +49,89 @@ describe("dragging today's day list", () => {
     const order = (await ensureDay()).listOrder;
     const rows = (await db.todos.toArray()).sort(byDayList(order)).map((t) => t.id);
     expect(rows).toEqual([c, a, b, d]);
+  });
+});
+
+describe("a day list reads down its chains", () => {
+  /**
+   * *"The also-on-this-day to-dos don't respect the order of to-dos if you had
+   * given them a comes-after setting."* Every other list that shows a chain
+   * already reads down it; a day list is the one place where reading top to
+   * bottom is the whole point.
+   */
+  const index = async () => indexById(await db.todos.toArray());
+
+  it('puts what something waits for above it, whatever order they were written in', async () => {
+    const grass = await createTodo('Sow the grass', { date: today() });
+    const bamboo = await createTodo('Remove the bamboo', { date: today() });
+    await setTodoAfter(grass, bamboo);
+
+    const rows = (await db.todos.toArray()).sort(byDayList([], await index()));
+    expect(rows.map((t) => t.title)).toEqual(['Remove the bamboo', 'Sow the grass']);
+  });
+
+  it('keeps the dragged order WITHIN one depth', async () => {
+    const [a, b, c] = await Promise.all(
+      ['a', 'b', 'c'].map((t) => createTodo(t, { date: today() }))
+    );
+    await reorderDayList([c, a, b]);
+    const order = (await ensureDay()).listOrder;
+
+    const rows = (await db.todos.toArray()).sort(byDayList(order, await index()));
+    expect(rows.map((t) => t.id)).toEqual([c, a, b]);
+  });
+
+  it('lets the chain beat the drag, rather than the other way round', async () => {
+    const grass = await createTodo('Sow the grass', { date: today() });
+    const bamboo = await createTodo('Remove the bamboo', { date: today() });
+    await setTodoAfter(grass, bamboo);
+    // Dragged the wrong way up: the link is a fact about the work, the drag is
+    // a preference about the rest, so the link wins and the row snaps back.
+    await reorderDayList([grass, bamboo]);
+    const order = (await ensureDay()).listOrder;
+
+    const rows = (await db.todos.toArray()).sort(byDayList(order, await index()));
+    expect(rows.map((t) => t.title)).toEqual(['Remove the bamboo', 'Sow the grass']);
+  });
+
+  it('stops holding a to-do down once its blocker is done', async () => {
+    const grass = await createTodo('Sow the grass', { date: today() });
+    const bamboo = await createTodo('Remove the bamboo', { date: today() });
+    await setTodoAfter(grass, bamboo);
+    await completeTodo(bamboo);
+    await reorderDayList([grass, bamboo]);
+    const order = (await ensureDay()).listOrder;
+
+    // A finished blocker blocks nothing, so the dragged order is honoured again.
+    const rows = (await db.todos.toArray()).sort(byDayList(order, await index()));
+    expect(rows.map((t) => t.title)).toEqual(['Sow the grass', 'Remove the bamboo']);
+  });
+
+  it('resolves a blocker that is not on the day list at all', async () => {
+    // The index must be every to-do: a blocker filed in a project you are not
+    // looking at is still a blocker, and an index of the visible rows alone
+    // would read the link as dangling and sort it as ready.
+    const elsewhere = await createTodo('Remove the bamboo');
+    const grass = await createTodo('Sow the grass', { date: today() });
+    const other = await createTodo('Water the pots', { date: today() });
+    await setTodoAfter(grass, elsewhere);
+    await reorderDayList([grass, other]);
+    const order = (await ensureDay()).listOrder;
+
+    const onTheDay = (await db.todos.toArray()).filter((t) => t.date === today());
+    const rows = onTheDay.sort(byDayList(order, await index()));
+    expect(rows.map((t) => t.title)).toEqual(['Water the pots', 'Sow the grass']);
+  });
+
+  it('is unchanged when no index is handed over', async () => {
+    const grass = await createTodo('Sow the grass', { date: today() });
+    const bamboo = await createTodo('Remove the bamboo', { date: today() });
+    await setTodoAfter(grass, bamboo);
+    await reorderDayList([grass, bamboo]);
+    const order = (await ensureDay()).listOrder;
+    // The old comparator, still used by callers that have no index.
+    const rows = (await db.todos.toArray()).sort(byDayList(order));
+    expect(rows.map((t) => t.title)).toEqual(['Sow the grass', 'Remove the bamboo']);
   });
 });
 

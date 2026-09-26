@@ -550,7 +550,9 @@
       // In the order it was dragged into (Day.listOrder), then oldest first —
       // the same order Brain's day list uses. Ticked ones sink below that at
       // render (`sinkDone`), without touching the stored order.
-      .sort(byDayList(day?.listOrder))
+      // The index is every to-do, not the day's: a blocker filed in a project
+      // you are not looking at is still a blocker.
+      .sort(byDayList(day?.listOrder, todoIndex))
   );
   const listDrag = new Reorder((ids) => reorderDayList(ids));
 
@@ -1091,9 +1093,18 @@
                 aria-expanded={openRow === t.id}
               >
                 <p class={done ? 'text-ink-400 line-through' : ''}>{t.title}</p>
-                {#if projectName(t.projectId) || repeats(t)}
+                {#if projectName(t.projectId) || repeats(t) || blockerOf(t, todoIndex)}
+                  <!-- What it waits for leads the footnote, because it is the
+                       reason the row is where it is — the list is sorted by
+                       the chain before anything else, and an order you cannot
+                       explain reads as an order that is wrong. -->
                   <p class="text-xs text-ink-400">
-                    {[projectName(t.projectId), t.tag, repeatLabel(t.repeatDays)]
+                    {[
+                      blockerOf(t, todoIndex) ? `after ${blockerOf(t, todoIndex)!.title}` : null,
+                      projectName(t.projectId),
+                      t.tag,
+                      repeatLabel(t.repeatDays)
+                    ]
                       .filter(Boolean)
                       .join(' · ')}
                   </p>

@@ -179,6 +179,9 @@
    * with a filter on, dragging moves a to-do among the ones you can see and
    * leaves the hidden ones where they were.
    */
+  const allTodos = $derived(($todosQ as Todo[] | undefined) ?? []);
+  const byId = $derived(indexById(allTodos));
+
   // ONE helper that decides at the drop: an action bound to a row is not
   // re-bound when the day filter changes, so two helpers swapped by `day`
   // would leave rows already on screen talking to the wrong one.
@@ -202,7 +205,12 @@
       // feed. Everywhere else the newest is what you came back for.
       .sort(
         day
-          ? byDayList(($daysQ as Day[] | undefined)?.find((d) => d.date === day)?.listOrder)
+          ? byDayList(
+              ($daysQ as Day[] | undefined)?.find((d) => d.date === day)?.listOrder,
+              // Chains read down here too — the same list on two screens must
+              // not be in two orders.
+              byId
+            )
           : // Narrowed to ONE project, every row would carry the same heading,
             // so grouping by project says nothing and the order that matters is
             // the one you dragged them into.
@@ -225,9 +233,6 @@
     fProject = cut === -1 ? v : v.slice(0, cut);
     fTag = cut === -1 ? '' : v.slice(cut + 1);
   }
-
-  const allTodos = $derived(($todosQ as Todo[] | undefined) ?? []);
-  const byId = $derived(indexById(allTodos));
 
   /**
    * What a to-do could be told to wait for: the ones it shares a list with.

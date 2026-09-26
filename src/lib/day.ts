@@ -1,6 +1,7 @@
 import { db } from './db';
 import type { Day, Todo } from './types';
 import { uid, now, today } from './store';
+import { chainDepth, type TodoIndex } from './order';
 
 /**
  * The unlock rule (spec 5.3) — the single most important behavioural mechanic.
@@ -86,13 +87,36 @@ export async function reorderDayList(ids: string[], date = today()): Promise<voi
 }
 
 /**
- * Day-list order: where it was dragged to, then oldest first — a plan for a
- * day reads top to bottom in the order it was written.
+ * Day-list order: WHAT IT WAITS FOR first, then where it was dragged to, then
+ * oldest first — a plan for a day reads top to bottom in the order it has to
+ * happen.
+ *
+ * The chain half was missing and was reported: *"the also-on-this-day to-dos
+ * don't respect the order of to-dos if you had given them a comes-after
+ * setting."* Every other list that shows a chain already reads down it
+ * (`readyFirst` on a project screen: depth, then your order), and a day list
+ * is the one place where reading top to bottom is the entire point — so a
+ * to-do sitting above the thing it waits for is worse here than anywhere else.
+ *
+ * DEPTH BEATS THE DRAG, exactly as it does on a project screen. Dragging a
+ * blocked row above its blocker therefore snaps back, which is the intended
+ * answer: the link is a fact about the work and the drag is a preference about
+ * the rest. Within one depth the dragged order is untouched.
+ *
+ * `byId` is OPTIONAL and must be an index of EVERY to-do, not just the day's.
+ * A blocker filed in some project you are not looking at is still a blocker,
+ * and an index of the visible rows alone would fail to resolve it, read as a
+ * dangling link and quietly sort as ready. Without an index this is exactly
+ * the old comparator, which is what the reorder tests still use.
  */
-export function byDayList(order: string[] = []) {
+export function byDayList(order: string[] = [], byId?: TodoIndex) {
   const at = new Map(order.map((id, i) => [id, i]));
+  const depth = (t: { id: string; createdAt: string }) =>
+    byId ? chainDepth(t as Todo, byId) : 0;
   return (a: { id: string; createdAt: string }, b: { id: string; createdAt: string }) =>
-    (at.get(a.id) ?? Infinity) - (at.get(b.id) ?? Infinity) || a.createdAt.localeCompare(b.createdAt);
+    depth(a) - depth(b) ||
+    (at.get(a.id) ?? Infinity) - (at.get(b.id) ?? Infinity) ||
+    a.createdAt.localeCompare(b.createdAt);
 }
 
 /** Skippable without ceremony — no confirmation, no guilt copy (spec 5.2). */
