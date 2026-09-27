@@ -39,6 +39,12 @@ export interface Project extends Base {
    * in three weeks what it was for.
    */
   tagDescriptions?: Record<string, string>;
+  /**
+   * The order this era's projects draw their sections in, keyed by project
+   * name like `tagColors`. Absent means the default order; see sections.ts,
+   * including why a saved order is a preference rather than a whitelist.
+   */
+  tagSections?: Record<string, string[]>;
   /** Cover photo, as a hard-resized data URL. See images.ts for the cap.
    *  Recognising a logo or a photo of the actual campervan is faster than
    *  reading a word, which is the whole point of the picture grid. */

@@ -1639,6 +1639,42 @@ device; there is nothing to build. Memos are the exception, below.
   **Opening a section from outside is a prop, not a localStorage write** — the
   first attempt reached in and set the key directly and did nothing at all, since
   the component only re-reads storage when the section changes.
+- **A project draws its sections in ITS OWN ORDER** (`Project.tagSections`,
+  [sections.ts](src/lib/sections.ts), [sections.test.ts](src/lib/sections.test.ts),
+  the list in [ProjectTagEditor.svelte](src/lib/components/ProjectTagEditor.svelte)).
+  Asked for with a reading list in mind: *"I would like to change the order of
+  the sections, so that I can put my ideas list on top, as that one will be
+  more important than to-dos for the book project."* First time one project
+  wanted a different shape from another — a Books project is mostly a list of
+  books and its to-dos are the footnote, which is a fact about that project
+  and not about the app.
+  **Keyed by the project's NAME on the era record**, like `tagColors` and
+  `tagDescriptions`, which means it must be carried by `renameProjectTag` and
+  `moveProjectTag` and pruned by `setProjectTags` — the fourth name-keyed map
+  to need all three, and a test pins each, because missing one is the
+  not-deleted-just-silently-gone failure this file already records three times.
+  **It SYNCS, unlike the fold state.** Which sections you left folded is a
+  fact about the phone in your hand; which order they belong in is a fact
+  about the project, and rearranging Books again on the laptop would be the
+  app forgetting something you told it.
+  **A saved order is a preference, not a whitelist.** Anything it does not
+  mention is appended in the default order, so a section added to the app next
+  year appears for everyone who has ever dragged these rather than vanishing
+  from exactly the projects whose owner cared enough to arrange them; an
+  unknown id is dropped, since it cannot be rendered anyway.
+  **The control is a compact list in the project's Edit sheet, not the
+  sections themselves.** A section is a whole folded block, often hundreds of
+  pixels tall with a list inside it, and hold-dragging one of those around the
+  page is a different and far worse gesture than dragging six equal lines. It
+  only appears where sections are actually drawn — the era's list passes no
+  `sections`, since there it would be a control for something not on screen.
+  **An if-chain renders them, not a lookup of snippets keyed by id**: six
+  branches read plainly and every one is checked at build time, where a map
+  keyed by a string could render nothing at all if an id ever drifted.
+  Not done: the ERA OVERVIEW has sections of its own and still draws them in
+  the fixed order. It is a different question — an overview across projects,
+  not one project's shape — and nobody has asked.
+
 - **A project inside an era has a name, a description and a colour**
   (`Project.tagColors` and `Project.tagDescriptions`, both keyed by name
   because that is what every `tag` field already points at — ids here would mean

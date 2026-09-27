@@ -14,6 +14,7 @@
     projectTagColor, softDelete, createIdea, setProjectTagFinished
   } from '$lib/store';
   import { activeProjects } from '$lib/queries';
+  import { sectionsFor } from '$lib/sections';
   import { memosForProject } from '$lib/memos';
   import { indexById, readyFirst, blockerOf, possibleBlockers } from '$lib/order';
   import { dayLabel } from '$lib/days';
@@ -239,6 +240,8 @@
   );
 
   const sectionId = (name: string) => `${eraId}/${tag}/${name}`;
+  /** This project's own order for its sections — see sections.ts. */
+  const sections = $derived(sectionsFor(era, tag));
 </script>
 
 <div class="px-4 pt-safe pb-8">
@@ -299,6 +302,7 @@
           {tag}
           {color}
           description={era?.tagDescriptions?.[tag] ?? ''}
+          {sections}
           onrenamed={(next) => {
             // The name is in this page's own URL, so staying put would show
             // "this project is gone" the instant it is renamed.
@@ -327,7 +331,97 @@
       + Add to {tag}
     </button>
 
-    <!-- ---------------------------------------------------------------- to-dos -->
+    <!--
+      THE SECTIONS ARE DRAWN IN THIS PROJECT'S OWN ORDER (sections.ts).
+      *"I would like to put my ideas list on top, as that one will be more
+      important than to-dos for the book project"* — the first time one
+      project wanted a different shape from another, and it is a per-project
+      fact rather than a per-device one, so it syncs.
+
+      An if-chain rather than a lookup of snippets: six branches read plainly,
+      and every one is checked at build time, where a map keyed by a string
+      could render nothing at all if an id ever drifted.
+    -->
+    {#each sections as id (id)}
+      {#if id === 'todo'}{@render section_todo()}
+      {:else if id === 'ideas'}{@render section_ideas()}
+      {:else if id === 'buy'}{@render section_buy()}
+      {:else if id === 'note'}{@render section_note()}
+      {:else if id === 'blocks'}{@render section_blocks()}
+      {:else if id === 'memos'}{@render section_memos()}
+      {/if}
+    {/each}
+
+    <!--
+      At the foot, below everything the project holds, because that is where
+      you arrive having looked over it. Solid and in the project's colour, not a
+      grey text link: finishing a closet is the best thing that can happen on
+      this screen, and it should look like something you would want to press.
+    -->
+    <div class="mt-6">
+      {#if finishedAt}
+        <p class="footnote mb-2 text-center">Finished {finishedLabel}. Everything in it stays right here.</p>
+        <button
+          class="press tap w-full rounded-xl text-sm text-ink-400"
+          onclick={() => setProjectTagFinished(eraId, tag, false)}
+        >
+          Not finished after all
+        </button>
+      {:else}
+        <button
+          class="press tap w-full rounded-xl text-[15px] font-semibold"
+          style="background: color-mix(in srgb, {color} 18%, transparent); color: {color}"
+          onclick={() => (finishing = true)}
+        >
+          ✓ Finish this project
+        </button>
+      {/if}
+    </div>
+  {/if}
+</div>
+
+{#if finishing}
+  <FinishProject {eraId} {tag} {color} onclose={() => (finishing = false)} />
+{/if}
+
+{#if sheet}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="glass-strong rise fixed inset-0 z-50 flex flex-col justify-end p-4 pb-safe"
+    onclick={() => (sheet = false)}
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="card mx-auto w-full max-w-[520px] p-2" onclick={(e) => e.stopPropagation()}>
+      {#each [['todo', 'To-do', 'Something to do'], ['idea', 'Idea', 'Something to think about'], ['buy', 'To buy', 'Something to get'], ['note', 'Note', 'Anything written down'], ['photo', 'Photo or block', 'A picture, a countdown, links'], ['recording', 'Recording', 'A voice memo']] as const as [kind, label, hint]}
+        {#if kind !== 'recording' || recordable}
+          <button class="press list-row w-full text-left" onclick={() => choose(kind)}>
+            <span class="flex-1">
+              <span class="block">{label}</span>
+              <span class="footnote">{hint}</span>
+            </span>
+            <span class="text-ink-400">+</span>
+          </button>
+        {/if}
+      {/each}
+      <button class="press tap mt-1 w-full text-sm text-ink-400" onclick={() => (sheet = false)}>
+        Cancel
+      </button>
+    </div>
+  </div>
+{/if}
+
+{#if recording}
+  <MemoRecorder onDone={() => (recording = false)} projectId={eraId} section={tag} />
+{/if}
+
+{#if exporting}
+  <ExportSheet {eraId} {tag} onclose={() => (exporting = false)} />
+{/if}
+
+{#snippet section_todo()}
+<!-- ---------------------------------------------------------------- to-dos -->
     <Collapsible id={sectionId('todo')} title="To-dos" count={open.length} {color} open={adding === 'todo'}>
       <!-- A button, not a bar. What sits over the list when you are not adding
            is one quiet line, and the to-dos start where the eye does. -->
@@ -577,8 +671,10 @@
         </ul>
       {/if}
     </Collapsible>
+{/snippet}
 
-    <!-- ----------------------------------------------------------------- ideas -->
+{#snippet section_ideas()}
+<!-- ----------------------------------------------------------------- ideas -->
     <!--
       Straight after the to-dos, because that is the comparison being drawn: an
       idea is the thing that is NOT a to-do yet, and might never be. Folded when
@@ -602,14 +698,18 @@
         {/snippet}
       </IdeaList>
     </Collapsible>
+{/snippet}
 
-    <!-- ------------------------------------------------------------------- buy -->
+{#snippet section_buy()}
+<!-- ------------------------------------------------------------------- buy -->
     <Collapsible id={sectionId('buy')} title="To buy" count={buyItems.length} {color} defaultFolded={buyItems.length === 0} open={adding === 'buy'}>
       <BuyAddForm projectId={eraId} {tag} placeholder="Something for {tag}" focus={adding === 'buy'} />
       <BuyList items={buyItems} showProject={false} groupBy="none" />
     </Collapsible>
+{/snippet}
 
-    <!-- ------------------------------------------------------------------ note -->
+{#snippet section_note()}
+<!-- ------------------------------------------------------------------ note -->
     <Collapsible id={sectionId('note')} title="Notes" count={noteText.trim() ? 1 : 0} {color} defaultFolded open={adding === 'note'}>
       <NoteEditor
         value={noteText}
@@ -617,13 +717,17 @@
         onchange={onNote}
       />
     </Collapsible>
+{/snippet}
 
-    <!-- ---------------------------------------------------------------- blocks -->
+{#snippet section_blocks()}
+<!-- ---------------------------------------------------------------- blocks -->
     <Collapsible id={sectionId('blocks')} title="Blocks" count={blocks.length} {color} defaultFolded={blocks.length === 0} open={adding === 'photo'}>
       <WidgetBoard projectId={eraId} section={tag} sections={era?.tags ?? []} />
     </Collapsible>
+{/snippet}
 
-    <!-- ------------------------------------------------------------ recordings -->
+{#snippet section_memos()}
+<!-- ------------------------------------------------------------ recordings -->
     <Collapsible id={sectionId('memos')} title="Recordings" count={memos.length} {color} defaultFolded={memos.length === 0}>
       {#if memos.length}
         <MemoList {memos} grouped={false} showProject={false} />
@@ -640,71 +744,4 @@
         </button>
       {/if}
     </Collapsible>
-
-    <!--
-      At the foot, below everything the project holds, because that is where
-      you arrive having looked over it. Solid and in the project's colour, not a
-      grey text link: finishing a closet is the best thing that can happen on
-      this screen, and it should look like something you would want to press.
-    -->
-    <div class="mt-6">
-      {#if finishedAt}
-        <p class="footnote mb-2 text-center">Finished {finishedLabel}. Everything in it stays right here.</p>
-        <button
-          class="press tap w-full rounded-xl text-sm text-ink-400"
-          onclick={() => setProjectTagFinished(eraId, tag, false)}
-        >
-          Not finished after all
-        </button>
-      {:else}
-        <button
-          class="press tap w-full rounded-xl text-[15px] font-semibold"
-          style="background: color-mix(in srgb, {color} 18%, transparent); color: {color}"
-          onclick={() => (finishing = true)}
-        >
-          ✓ Finish this project
-        </button>
-      {/if}
-    </div>
-  {/if}
-</div>
-
-{#if finishing}
-  <FinishProject {eraId} {tag} {color} onclose={() => (finishing = false)} />
-{/if}
-
-{#if sheet}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="glass-strong rise fixed inset-0 z-50 flex flex-col justify-end p-4 pb-safe"
-    onclick={() => (sheet = false)}
-  >
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="card mx-auto w-full max-w-[520px] p-2" onclick={(e) => e.stopPropagation()}>
-      {#each [['todo', 'To-do', 'Something to do'], ['idea', 'Idea', 'Something to think about'], ['buy', 'To buy', 'Something to get'], ['note', 'Note', 'Anything written down'], ['photo', 'Photo or block', 'A picture, a countdown, links'], ['recording', 'Recording', 'A voice memo']] as const as [kind, label, hint]}
-        {#if kind !== 'recording' || recordable}
-          <button class="press list-row w-full text-left" onclick={() => choose(kind)}>
-            <span class="flex-1">
-              <span class="block">{label}</span>
-              <span class="footnote">{hint}</span>
-            </span>
-            <span class="text-ink-400">+</span>
-          </button>
-        {/if}
-      {/each}
-      <button class="press tap mt-1 w-full text-sm text-ink-400" onclick={() => (sheet = false)}>
-        Cancel
-      </button>
-    </div>
-  </div>
-{/if}
-
-{#if recording}
-  <MemoRecorder onDone={() => (recording = false)} projectId={eraId} section={tag} />
-{/if}
-
-{#if exporting}
-  <ExportSheet {eraId} {tag} onclose={() => (exporting = false)} />
-{/if}
+{/snippet}

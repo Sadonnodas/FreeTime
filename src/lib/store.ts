@@ -156,12 +156,18 @@ export async function setProjectTags(id: string, tags: string[]): Promise<void> 
     Object.entries(project?.finishedTags ?? {}).filter(([t]) => tags.includes(t))
   );
 
+  // And the section order. Fourth name-keyed map, same rule.
+  const sections = Object.fromEntries(
+    Object.entries(project?.tagSections ?? {}).filter(([t]) => tags.includes(t))
+  );
+
   await db.projects.update(id, {
     tags,
     tagColors: colors,
     tagDescriptions: descriptions,
     sleepingTags: sleeping,
     finishedTags: finished,
+    tagSections: sections,
     updatedAt: now()
   });
 }
@@ -180,6 +186,26 @@ export async function setProjectTags(id: string, tags: string[]): Promise<void> 
  * to-dos is still there to be ticked. The app stops SUGGESTING; it never
  * forbids — the same asymmetry a blocked to-do already follows.
  */
+/**
+ * The order one project draws its sections in.
+ *
+ * Copied out of whatever array arrives, because a Svelte `$state` array is a
+ * Proxy and IndexedDB refuses to clone one — the trap `createTodo` already
+ * carries a note about.
+ */
+export async function setProjectSections(
+  projectId: string,
+  tag: string,
+  order: string[]
+): Promise<void> {
+  const project = await db.projects.get(projectId);
+  if (!project) return;
+  await db.projects.update(projectId, {
+    tagSections: { ...(project.tagSections ?? {}), [tag]: [...order] },
+    updatedAt: now()
+  });
+}
+
 export async function setProjectTagSleeping(
   projectId: string,
   tag: string,
@@ -264,6 +290,7 @@ export async function moveProjectTag(
   const description = from.tagDescriptions?.[tag];
   const asleep = (from.sleepingTags ?? []).includes(tag);
   const finishedAt = from.finishedTags?.[tag];
+  const sections = from.tagSections?.[tag];
 
   await db.projects.update(toEraId, {
     finishedTags: {
@@ -276,6 +303,7 @@ export async function moveProjectTag(
       ...(description ? { [tag]: description } : {})
     },
     sleepingTags: asleep ? [...(to.sleepingTags ?? []), tag] : (to.sleepingTags ?? []),
+    tagSections: { ...(to.tagSections ?? {}), ...(sections ? { [tag]: sections } : {}) },
     updatedAt: now()
   });
 
@@ -381,6 +409,7 @@ export async function renameProjectTag(
   const colors = { ...(project.tagColors ?? {}) };
   const notes = { ...(project.tagDescriptions ?? {}) };
   const finished = { ...(project.finishedTags ?? {}) };
+  const sections = { ...(project.tagSections ?? {}) };
   // Sleep and finished carry too. Sleep USED to be lost here: setProjectTags
   // prunes the sleeping list for names it cannot see, so renaming a sleeping
   // project quietly woke it up.
@@ -397,11 +426,16 @@ export async function renameProjectTag(
     finished[next] = finished[from];
     delete finished[from];
   }
+  if (sections[from]) {
+    sections[next] = sections[from];
+    delete sections[from];
+  }
   await db.projects.update(projectId, {
     tagColors: colors,
     tagDescriptions: notes,
     sleepingTags: sleeping,
     finishedTags: finished,
+    tagSections: sections,
     updatedAt: now()
   });
   await setProjectTags(projectId, (project.tags ?? []).map((t) => (t === from ? next : t)));
