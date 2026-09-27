@@ -87,8 +87,13 @@
 
 <section class="mb-3">
   <div class="flex items-center gap-2">
+    <!-- `data-section-handle` marks the part a section is GRABBED by, when the
+         screen drawing it lets its sections be reordered. Always present and
+         inert otherwise: a data attribute costs nothing, and the alternative
+         is a prop every caller has to remember to pass. -->
     <button
       class="press tap-h flex min-w-0 flex-1 items-center gap-2 text-left"
+      data-section-handle
       onclick={toggle}
       aria-expanded={!folded}
     >

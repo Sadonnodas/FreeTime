@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { byRank } from '$lib/rank';
-  import { rankedReorder } from '$lib/reorder.svelte';
+  import { rankedReorder, Reorder } from '$lib/reorder.svelte';
   import { flip } from 'svelte/animate';
   import { base } from '$app/paths';
   import { liveQuery } from 'dexie';
@@ -10,7 +10,7 @@
   import { widgetsFor } from '$lib/widgets';
   import {
     createTodo, completeTodo, uncompleteTodo, updateTodo, setTodoAfter, setTodoRepeat,
-    saveNote, getNote,
+    setProjectSections, saveNote, getNote,
     projectTagColor, softDelete, createIdea, setProjectTagFinished
   } from '$lib/store';
   import { activeProjects } from '$lib/queries';
@@ -242,6 +242,12 @@
   const sectionId = (name: string) => `${eraId}/${tag}/${name}`;
   /** This project's own order for its sections — see sections.ts. */
   const sections = $derived(sectionsFor(era, tag));
+  /**
+   * Press, hold and drag a section by its header, right here on the page.
+   * The same order the Edit sheet's compact list writes, so the two are two
+   * ways into one setting rather than two settings.
+   */
+  const sectionDrag = new Reorder((ids) => setProjectSections(eraId, tag, ids));
 </script>
 
 <div class="px-4 pt-safe pb-8">
@@ -342,14 +348,26 @@
       and every one is checked at build time, where a map keyed by a string
       could render nothing at all if an id ever drifted.
     -->
-    {#each sections as id (id)}
-      {#if id === 'todo'}{@render section_todo()}
-      {:else if id === 'ideas'}{@render section_ideas()}
-      {:else if id === 'buy'}{@render section_buy()}
-      {:else if id === 'note'}{@render section_note()}
-      {:else if id === 'blocks'}{@render section_blocks()}
-      {:else if id === 'memos'}{@render section_memos()}
-      {/if}
+    {#each sectionDrag.arrange(sections.map((id) => ({ id }))) as s (s.id)}
+      <!--
+        Held by its HEADER and moved whole. A hold anywhere inside would mean
+        a press on a to-do started dragging the section it sits in, and those
+        rows have a drag of their own — hence the handle (reorder.svelte.ts).
+        The wrapper exists so `animate:flip` has a single element to be the
+        only child of this keyed each.
+      -->
+      <div
+        use:sectionDrag.item={{ id: s.id, handle: '[data-section-handle]' }}
+        animate:flip={{ duration: sectionDrag.dragging === s.id ? 0 : 180 }}
+      >
+        {#if s.id === 'todo'}{@render section_todo()}
+        {:else if s.id === 'ideas'}{@render section_ideas()}
+        {:else if s.id === 'buy'}{@render section_buy()}
+        {:else if s.id === 'note'}{@render section_note()}
+        {:else if s.id === 'blocks'}{@render section_blocks()}
+        {:else if s.id === 'memos'}{@render section_memos()}
+        {/if}
+      </div>
     {/each}
 
     <!--

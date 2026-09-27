@@ -1662,12 +1662,26 @@ device; there is nothing to build. Memos are the exception, below.
   year appears for everyone who has ever dragged these rather than vanishing
   from exactly the projects whose owner cared enough to arrange them; an
   unknown id is dropped, since it cannot be rendered anyway.
-  **The control is a compact list in the project's Edit sheet, not the
-  sections themselves.** A section is a whole folded block, often hundreds of
-  pixels tall with a list inside it, and hold-dragging one of those around the
-  page is a different and far worse gesture than dragging six equal lines. It
-  only appears where sections are actually drawn — the era's list passes no
-  `sections`, since there it would be a control for something not on screen.
+  **Two ways in, one setting.** A compact list of six equal rows in the Edit
+  sheet, AND the sections themselves on the page — *"can't we also make it
+  click hold and drag?"* Both write the same field; the list stays because six
+  short rows are far easier to arrange than six blocks of wildly different
+  heights, and the in-place drag stays because that is where you are when you
+  notice the order is wrong. The list only appears where sections are actually
+  drawn — the era's list passes no `sections`, since there it would be a
+  control for something not on screen.
+  **A DRAG HANDLE, which the Reorder class grew for this** (`handle`, a
+  selector; `data-section-handle` on Collapsible's header). The block that
+  travels is a whole section, but the part you grab must be only its header:
+  a hold anywhere inside would mean pressing a to-do started dragging the
+  section it sits in, and those rows have a drag of their own. Selection is
+  suppressed on the HANDLE rather than the whole node when one is given —
+  making a section full of text and fields unselectable to allow a drag on its
+  header would cost more than it buys.
+  Verified in the preview browser rather than by a unit test: instantiating
+  `Reorder` outside a component throws, because `$state` needs a runes context,
+  so the whole class is exercised through the real page the way the rest of it
+  always has been.
   **An if-chain renders them, not a lookup of snippets keyed by id**: six
   branches read plainly and every one is checked at build time, where a map
   keyed by a string could render nothing at all if an id ever drifted.

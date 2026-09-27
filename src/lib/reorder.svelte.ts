@@ -90,22 +90,48 @@ export class Reorder {
    * Off restores selection and ignores presses; the row still counts in the
    * list, so the others can be dragged past it.
    */
-  item: Action<HTMLElement, string | { id: string; off?: boolean }> = (node, initial) => {
-    const read = (p: string | { id: string; off?: boolean } | undefined) =>
-      typeof p === 'string' ? { id: p, off: false } : { id: p!.id, off: !!p!.off };
-    let { id, off } = read(initial);
+  /**
+   * `handle` is a selector for the part you grab, when the thing that MOVES is
+   * bigger than the thing you take hold of.
+   *
+   * A project's sections are the case it was added for: the block that has to
+   * travel is a whole folded section — header, list and all — but a hold
+   * anywhere inside it would mean a press on a to-do inside that section
+   * started dragging the section, and those rows have a drag of their own.
+   * So the pointer must go down on the header, and the section is what lifts.
+   *
+   * Selection is suppressed on the HANDLE rather than the whole node when one
+   * is given: a section holds text and fields, and making all of it
+   * unselectable to allow a drag on its header would cost more than it buys.
+   */
+  item: Action<HTMLElement, string | { id: string; off?: boolean; handle?: string }> = (
+    node,
+    initial
+  ) => {
+    type Param = { id: string; off?: boolean; handle?: string };
+    const read = (p: string | Param | undefined) =>
+      typeof p === 'string'
+        ? { id: p, off: false, handle: undefined as string | undefined }
+        : { id: p!.id, off: !!p!.off, handle: p!.handle };
+    let { id, off, handle } = read(initial);
     this.nodes.set(id, node);
-    const style = node.style as CSSStyleDeclaration & { webkitUserSelect?: string };
+    const grip = () => (handle ? (node.querySelector(handle) as HTMLElement | null) : null) ?? node;
     const applySelect = () => {
+      const el = grip();
+      const style = el.style as CSSStyleDeclaration & { webkitUserSelect?: string };
       const v = off ? '' : 'none';
-      node.style.setProperty('-webkit-touch-callout', v);
-      node.style.setProperty('-webkit-user-select', v);
-      node.style.userSelect = v;
+      el.style.setProperty('-webkit-touch-callout', v);
+      el.style.setProperty('-webkit-user-select', v);
+      el.style.userSelect = v;
       // Safari reads the prefixed property; setProperty with the prefix is not
       // reliably honoured there, and a long press would select the text instead.
       style.webkitUserSelect = v;
     };
     applySelect();
+
+    /** Did this press land on the part you are allowed to grab? */
+    const onGrip = (target: EventTarget | null) =>
+      !handle || !!(target as Element | null)?.closest?.(handle);
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     let startX = 0;
@@ -221,7 +247,7 @@ export class Reorder {
 
     // --- touch
     const onTouchStart = (e: TouchEvent) => {
-      if (off) return;
+      if (off || !onGrip(e.target)) return;
       if (e.touches.length !== 1) return end(false);
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
@@ -251,6 +277,7 @@ export class Reorder {
     // --- mouse
     const onPointerDown = (e: PointerEvent) => {
       if (off || e.pointerType !== 'mouse' || e.button !== 0) return;
+      if (!onGrip(e.target)) return;
       startX = e.clientX;
       startY = e.clientY;
       clearTimer();
@@ -293,9 +320,9 @@ export class Reorder {
     node.addEventListener('pointerdown', onPointerDown);
 
     return {
-      update: (next: string | { id: string; off?: boolean }) => {
+      update: (next: string | Param) => {
         this.nodes.delete(id);
-        ({ id, off } = read(next));
+        ({ id, off, handle } = read(next));
         this.nodes.set(id, node);
         applySelect();
       },
