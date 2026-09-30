@@ -1,5 +1,6 @@
 <script lang="ts">
   import { liveQuery } from 'dexie';
+  import { continueListIn } from '$lib/textLists';
   import type { Widget, WidgetKind, Memo } from '$lib/types';
   import {
     widgetsFor, addWidget, updateWidget, removeWidget, moveWidget, setWidgetTag,
@@ -276,9 +277,16 @@
                   class="field w-full text-sm"
                 />
               {:else if widget.kind === 'note'}
+                <!-- A list carries itself on here too: this is prose, and a
+                     note widget is where a packing list gets written. Same
+                     helper as the notes and quick notes. -->
                 <textarea
                   value={widget.text ?? ''}
-                  oninput={(e) => updateWidget(widget.id, { text: e.currentTarget.value })}
+                  oninput={(e) =>
+                    updateWidget(widget.id, {
+                      text: continueListIn(e.currentTarget, (e as unknown as InputEvent).inputType)
+                        ?? e.currentTarget.value
+                    })}
                   placeholder="Anything worth keeping in view"
                   class="field w-full py-2 text-sm"
                   rows="4"

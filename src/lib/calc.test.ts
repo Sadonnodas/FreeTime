@@ -44,6 +44,22 @@ describe('a line ending in "="', () => {
   });
 });
 
+describe('a sum on a list line', () => {
+  it('does NOT read the bullet as a minus sign', () => {
+    // "- 2 + 3 =" used to answer 1: the whole line parses, the longest tail
+    // wins, and "- 2" is a perfectly good negative two. A bulleted line is
+    // exactly where a sum gets written down, so the marker comes off first.
+    expect(answerFor('- 2 + 3 =', 9)).toBe('5');
+    expect(answerFor('1. 2 + 3 =', 10)).toBe('5');
+    expect(answerFor('- [ ] 2 + 3 =', 13)).toBe('5');
+  });
+
+  it('still reads a real negative number as one', () => {
+    // No space after the "-", so it is a sign and not a marker.
+    expect(answerFor('-2 + 3 =', 8)).toBe('1');
+  });
+});
+
 describe('totalling a note', () => {
   it('adds the last number on each line and says which', () => {
     const t = totalOf('Milk 1.19\nEggs 3,29\nshop notes\nwood 2 x 3 = 6')!;

@@ -10,7 +10,7 @@
   import RemoveButton from './RemoveButton.svelte';
   import ProjectSelect from './ProjectSelect.svelte';
   import { answerFor, totalOf, formatNumber } from '$lib/calc';
-  import { continueList, toggleList, stripMarker } from '$lib/textLists';
+  import { continueListIn, toggleList, stripMarker } from '$lib/textLists';
 
   /**
    * Quick notes — the phone's Notes app, inside this one.
@@ -176,13 +176,11 @@
     const el = e.currentTarget;
     const ie = e as unknown as InputEvent;
     // A new line in a list carries the list on (or ends it) — see textLists.ts.
-    if (ie.inputType === 'insertLineBreak' || ie.inputType === 'insertParagraph') {
-      const r = continueList(el.value, el.selectionStart ?? el.value.length);
-      if (!r) return el.value;
-      el.value = r.text;
-      el.setSelectionRange(r.caret, r.caret);
-      return r.text;
-    }
+    // The same call the project notes and the note widget make, so the three
+    // cannot end up behaving differently.
+    const list = continueListIn(el, ie.inputType);
+    if (list !== null) return list;
+    if (ie.inputType === 'insertLineBreak' || ie.inputType === 'insertParagraph') return el.value;
     if (ie.inputType !== 'insertText' || ie.data !== '=') return el.value;
     const caret = el.selectionStart ?? el.value.length;
     const answer = answerFor(el.value, caret);

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { renderMarkdown } from '$lib/markdown';
+  import { continueListIn } from '$lib/textLists';
 
   /**
    * A note, written as Markdown and read as formatted text.
@@ -66,6 +67,23 @@
     });
   }
 
+  /**
+   * A LIST CARRIES ITSELF ON. Reported plainly: *"when adding a bullet point,
+   * pressing enter should add another one automatically. Right now you have to
+   * add every bullet point manually."*
+   *
+   * The • and 1. buttons above made the first item and then stood there while
+   * every following one was typed by hand — and quick notes have done this
+   * properly since the day lists were built, which is what makes it a gap
+   * rather than a missing feature. Same helper, so the two cannot drift.
+   *
+   * Enter on an empty item ends the list, the way the phone's Notes app does.
+   */
+  function typed(e: Event & { currentTarget: HTMLTextAreaElement }) {
+    const ie = e as unknown as InputEvent;
+    onchange(continueListIn(e.currentTarget, ie.inputType) ?? e.currentTarget.value);
+  }
+
   const TOOLS: { label: string; title: string; run: () => void }[] = [
     { label: 'H', title: 'Heading', run: () => apply('## ', '', true) },
     { label: 'B', title: 'Bold', run: () => apply('**', '**') },
@@ -109,7 +127,7 @@
   <textarea
     bind:this={box}
     {value}
-    oninput={(e) => onchange(e.currentTarget.value)}
+    oninput={typed}
     {placeholder}
     class="field min-h-[40vh] w-full py-4 font-mono leading-relaxed"
   ></textarea>

@@ -122,11 +122,18 @@ export function formatNumber(value: number, comma = false): string {
  * If the text before `caret` ends a line with "expression =", the answer to
  * write after it. The expression is the stretch of the line before "=" that
  * parses — so "Hall 2.43 + 1.10 =" works, the words in front ignored.
+ *
+ * THE LIST MARKER COMES OFF FIRST, and leaving it on was a real wrong answer
+ * rather than a missed one: "- 2 + 3 =" read the bullet as a MINUS and wrote
+ * 1, because the whole line parses and the longest tail wins. A sum on a
+ * bulleted line is exactly where sums get written, and a calculator that is
+ * confidently wrong is worse than one that declines. The totals row already
+ * stripped markers; this half did not.
  */
 export function answerFor(text: string, caret: number): string | null {
   const before = text.slice(0, caret);
   if (!before.endsWith('=')) return null;
-  const line = before.slice(before.lastIndexOf('\n') + 1, -1);
+  const line = stripMarker(before.slice(before.lastIndexOf('\n') + 1, -1));
   // Try the longest tail of the line that is a valid expression.
   for (let start = 0; start < line.length; start++) {
     if (start > 0 && !/[\s(]/.test(line[start - 1])) continue;

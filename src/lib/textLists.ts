@@ -87,6 +87,35 @@ export function continueList(text: string, caret: number): Edit | null {
 }
 
 /**
+ * THE TEXTAREA WIRING, in one place because it was in two and then wanted to
+ * be in four.
+ *
+ * Quick notes had this from the day lists were built and the project and era
+ * NOTES did not, which is the gap that was reported: *"when adding a bullet
+ * point, pressing enter should add another one automatically. Right now you
+ * have to add every bullet point manually."* Exactly the shape this file
+ * already records three times over — a capability landing on one screen and
+ * missing from the others that do the same thing — so the wiring moved here
+ * rather than being copied a third time.
+ *
+ * Call it from `oninput` and use what it returns, or the element's own value
+ * when it returns null. It is done AFTER the fact, on the input event, rather
+ * than by intercepting keydown: phone keyboards do not reliably send a key
+ * event for Enter, and `insertLineBreak` / `insertParagraph` always arrive.
+ */
+export function continueListIn(el: HTMLTextAreaElement, inputType: string): string | null {
+  if (inputType !== 'insertLineBreak' && inputType !== 'insertParagraph') return null;
+  const r = continueList(el.value, el.selectionStart ?? el.value.length);
+  if (!r) return null;
+  // Written straight to the element as well as returned: the caret has to be
+  // placed after the marker now, and waiting for the value to come back round
+  // through the component would put it at the end of the line instead.
+  el.value = r.text;
+  el.setSelectionRange(r.caret, r.caret);
+  return r.text;
+}
+
+/**
  * The toolbar: make the selected lines a bulleted or numbered list, or, when
  * they already all are one of that kind, plain lines again. Numbering starts
  * at 1 and follows the lines.

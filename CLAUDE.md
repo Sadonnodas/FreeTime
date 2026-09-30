@@ -2415,6 +2415,29 @@ device; there is nothing to build. Memos are the exception, below.
   **The preview browser's Enter key inserts nothing, even in a bare
   textarea** — test line breaks with `document.execCommand('insertLineBreak')`,
   which fires the same InputEvent a keyboard does.
+  **AND IT WAS ONLY IN THE QUICK NOTES, which is why it came back as a bug
+  rather than a request**: *"when adding a bullet point, pressing enter should
+  add another one automatically. Right now you have to add every bullet point
+  manually."* That was the project and era NOTES — which have • and 1. buttons
+  in their toolbar, so they make the first item and then stand there while you
+  type every following marker by hand. Fifth time this exact shape (a
+  capability on one screen and missing from the others that do the same
+  thing), so the textarea wiring moved into `continueListIn` and the three
+  prose boxes — NoteEditor, QuickNotes, and the pinned-note block — all call
+  it. **A source test in textLists.test.ts names those three**, the same
+  unusual check screens.test.ts makes, because nothing rendered can notice a
+  handler that was never wired.
+  Deliberately NOT every textarea: a title, a rename and the assistant's input
+  are one line by design and Enter SUBMITS them (autogrow.ts), so continuing a
+  list in one would be nonsense.
+  **Found while testing it: a bullet was being read as a MINUS SIGN.**
+  `answerFor` tries the longest tail of the line that parses, so "- 2 + 3 ="
+  answered 1 — "- 2" is a perfectly good negative two. Harmless until lists
+  continued themselves everywhere, and then a sum on a bulleted line is
+  exactly where sums get written. `stripMarker` now comes off the line first,
+  the way the totals row always did; "-2 + 3 =" still answers 1, since a
+  marker needs the space after it. A calculator that is confidently wrong is
+  worse than one that declines.
 
 - **Habits have colours** (`Habit.color`, `habitColor`, `setHabitColor`).
   *"They look bland while they should look inviting."* The project palette,
