@@ -138,13 +138,23 @@ export function blockHasContent(w: Widget): boolean {
   }
 }
 
-/** What a to-do's line says after its title: size, length, what it waits for, its date. */
+/**
+ * What a to-do's line says after its title: size, length, what it waits for,
+ * its day and its deadline.
+ *
+ * The day used to read "by 2026-09-24", which was fine while a date was the
+ * only day a to-do had and became a lie the moment `Todo.by` existed: the
+ * printout would have said "by" about the day you picked and "before" about
+ * the day the world set, and nobody reading a sheet of paper in a garage can
+ * tell those apart. So the day is "on" and the deadline is "before".
+ */
 export function todoDetails(t: Todo, after?: Todo): string[] {
   return [
     t.energy ? energyLabel(t.energy) : null,
     t.takes ? durationLabel(t.takes) : null,
     after ? `after “${after.title}”` : null,
-    t.date ? `by ${t.date}` : null
+    t.date ? `on ${t.date}` : null,
+    t.by ? `before ${t.by}` : null
   ].filter((x): x is string => !!x);
 }
 

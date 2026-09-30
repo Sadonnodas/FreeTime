@@ -154,6 +154,13 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
           'YYYY-MM-DD. ONLY for a day they actually said — including a relative ' +
             'one like "tomorrow" or "Friday", which you resolve against today\'s ' +
             'date given above. Never inferred from urgency.'
+        ),
+        by: str(
+          'YYYY-MM-DD. A DEADLINE — the day it has to be done BEFORE, when they ' +
+            'said there is one ("before the 15th", "the inspection expires end of ' +
+            'the month", "or I get a fine"). Different from date, which is the day ' +
+            'they plan to do it on, and both can be set. Never invent one because ' +
+            'something sounds urgent.'
         )
       },
       required: ['title']
@@ -722,6 +729,7 @@ export async function applyWrite(name: WriteTool, args: Args): Promise<void> {
           takes: s(args.takes) as TimeBucket | undefined,
           // A repeating to-do holds no date; recurring.ts says why.
           date: repeatDays ? undefined : s(args.date),
+          by: repeatDays ? undefined : s(args.by),
           repeatDays,
           // `after` is an id and comes from the review panel, which has the
           // to-dos in front of it. `afterTitle` is what the MODEL can say,

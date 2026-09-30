@@ -3,6 +3,7 @@ import type {
 } from './types';
 import { openTodos, allTodos, allProjects, projectPulses, type ProjectPulse } from './queries';
 import { repeats } from './recurring';
+import { byDue, byLabel } from './deadlines';
 import { indexById, isBlocked } from './order';
 import { getDay } from './day';
 import { today } from './store';
@@ -203,10 +204,31 @@ export async function createPlanner(answers: FreeTimeAnswers): Promise<Planner> 
    * The obligation — only if one genuinely exists. Note there is no "overdue"
    * framing anywhere: a date in the past is just a date, and the copy says when
    * it was set, not how late it is.
+   *
+   * TWO KINDS QUALIFY, and a DEADLINE beats a date. A dated to-do is a day you
+   * chose and may move; `Todo.by` is a day somebody else set and you cannot
+   * (deadlines.ts) — so when both are waiting, the one with a consequence
+   * attached goes first. Within each kind it is the earliest.
+   *
+   * A deadline counts from `BY_WINDOW` days out rather than only once its day
+   * has arrived, because the whole value of "before the 15th" is the days
+   * before it, and it keeps counting afterwards until the thing is done. That
+   * is safe here in a way the same rule would not be for a repeating chore:
+   * there is exactly one of these rows, so it occupies the slot until it is
+   * ticked and then it is gone — see `Todo.repeatDays` for the pile that
+   * generating one row per week would have built instead.
    */
   function pickObligation(exclude: Set<string>): PlannedSlot | null {
     const t = today();
-    const dated = available(exclude)
+    const free = available(exclude);
+    const due = free
+      .filter((todo) => byDue(todo, t))
+      .sort((a, b) => a.by!.localeCompare(b.by!));
+    if (due.length) {
+      const hit = due[0]!;
+      return { kind: 'obligation', todo: hit, reason: `${byLabel(hit.by!, t)}.` };
+    }
+    const dated = free
       .filter((todo) => !!todo.date && todo.date <= t)
       .sort((a, b) => a.date!.localeCompare(b.date!));
     if (!dated.length) return null;

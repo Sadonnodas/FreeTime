@@ -143,6 +143,29 @@ export interface Todo extends Base {
   after?: string;
   date?: string; // YYYY-MM-DD
   /**
+   * A DEADLINE: the day it has to be done before. The car's inspection is the
+   * case it was built for — *"if I don't go there before a certain date I'll
+   * get a fine."*
+   *
+   * NOT the same thing as `date`, and the two can both be set. `date` is a day
+   * YOU chose to do it on and may move as often as you like; `by` is a fact
+   * about the world that nobody in this app gets to move. So a to-do can be
+   * planned for Thursday and needed before the 15th, and changing the plan
+   * leaves the deadline where it was.
+   *
+   * **It still never becomes an overdue state.** A deadline inside
+   * `BY_WINDOW` days — or already past — brings the to-do onto Today under
+   * "Coming up" and offers it to Free Time's obligation slot, and that is the
+   * whole of what it does. The row reads "Before Fri 15 Nov" on the fifth of
+   * the month and on the twentieth: same words, no colour, no count of days
+   * late, no escalation. The day passing changes nothing the app does, because
+   * the app is not the one handing out the fine.
+   *
+   * Never with `repeatDays`: a chore that comes round every Thursday has no
+   * one day to be done before. `setTodoRepeat` clears it.
+   */
+  by?: string; // YYYY-MM-DD
+  /**
    * A photo of the thing, resized hard (THUMB_EDGE) — the screenshot of the
    * error you are going to fix, the wall you are going to drill.
    *

@@ -205,16 +205,31 @@
 /*
  * On a laptop the phone layout leaves most of the screen empty, and a bottom
  * tab bar is a phone gesture sitting where no thumb will ever be. So from
- * 1024px the shell widens and the tabs become a rail down the left, which is
- * what every desktop app does and what the space is actually for.
+ * 1024px the tabs become a rail down the left, which is what every desktop app
+ * does and what the space is actually for.
  *
- * It widens to 1040 and no further. Letting it fill a 27-inch display would
- * undo the reason the constraint exists — the app should read as one designed
- * object, not a page that gave up.
+ * AND THE SHELL FILLS THE WINDOW HERE, which reverses an earlier call. It used
+ * to stop at 1040px, on the grounds that letting the app stretch across a
+ * 27-inch display would undo the reason the constraint exists. That reasoning
+ * was right about the CONTENT and wrong about the BOX, and the difference only
+ * showed up on a real laptop: *"on computer we also have a scroll bar on the
+ * right, and because there is a big white space to the right of it it kind of
+ * breaks the nice white background."*
+ *
+ * Exactly so, and the scroll bar is the tell. `main` is the thing that
+ * scrolls, not the window — so a shell that stops at 1040 puts the scroll bar
+ * at x=1240 on a 1440px screen, with 200px of empty page beyond it. A scroll
+ * bar down the middle of a white expanse reads as a seam in the background,
+ * because a scroll bar is a window edge and there was no window there.
+ *
+ * What keeps the app from "looking like a page that gave up" is `.page` below:
+ * the reading column is still capped at 720, the rail is still 216, and the
+ * line length does not change by a character. All that moved is where the
+ * scroll bar and the margins are — which is how every desktop app is built.
  */
 @media (min-width: 1024px) {
   .shell {
-    max-width: 1040px;
+    max-width: none;
   }
 }
 
@@ -227,6 +242,50 @@
   width: 100%;
   max-width: 720px;
   margin-inline: auto;
+}
+
+/*
+ * WHERE THE ASSISTANT'S ✦ LIVES, and why it is not simply `fixed`.
+ *
+ * It was fixed to the VIEWPORT, which is the same thing as the app on a phone
+ * and is not on a laptop: with the shell centred, the button parked itself
+ * against the window's edge, a couple of hundred pixels out in the empty
+ * margin with nothing around it. Reported as *"the assistant is not accessible
+ * on computer, unless I'm overlooking it somewhere but I can't find it"* — and
+ * a small circle alone in a blank band does read as part of the browser rather
+ * than part of the app.
+ *
+ * So it is absolute inside the app's own content column (the layout gives that
+ * column `relative`), which is the whole window on a phone and the part beside
+ * the rail on a laptop. The button's own left/right/bottom maths is unchanged;
+ * what changed is the box those numbers are measured from.
+ *
+ * `inset: 0` makes this box the full height of the column, so the clamp that
+ * keeps the button above the tab bar still works in viewport terms. It must
+ * not swallow taps meant for the page underneath, hence pointer-events off
+ * here and on again for its children — the button, and the assistant's own
+ * overlay, which is `hidden` when closed and so costs nothing.
+ */
+.ask-wrap {
+  position: absolute;
+  inset: 0;
+  /*
+   * The same box as `.page`, so the button rests against the READING COLUMN
+   * rather than the far corner of the screen. On a phone the two are the same
+   * thing and nothing moves; on a laptop this is the difference between a
+   * circle beside what you are reading and a circle stranded two hundred
+   * pixels away from it. `inset: 0` with a max-width and auto margins centres
+   * an absolute box the same way it centres a static one.
+   */
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.ask-wrap > * {
+  pointer-events: auto;
 }
 
 html,

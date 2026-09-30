@@ -42,17 +42,17 @@ const SCREENS: { path: string; what: string; needs: string[] }[] = [
   {
     path: 'routes/brain/+page.svelte',
     what: 'Brain — the add form and the row editor',
-    needs: ['WhenPicker', 'RepeatPicker', 'AfterPicker', 'DurationPicker', 'EnergyPicker']
+    needs: ['WhenPicker', 'ByPicker', 'RepeatPicker', 'AfterPicker', 'DurationPicker', 'EnergyPicker']
   },
   {
     path: 'routes/projects/[id]/[tag]/+page.svelte',
     what: 'inside a project — the add form and the row editor',
-    needs: ['WhenPicker', 'RepeatPicker', 'AfterPicker', 'DurationPicker', 'EnergyPicker']
+    needs: ['WhenPicker', 'ByPicker', 'RepeatPicker', 'AfterPicker', 'DurationPicker', 'EnergyPicker']
   },
   {
     path: 'routes/projects/[id]/+page.svelte',
     what: "the era overview — where an era-level to-do lives",
-    needs: ['WhenPicker', 'RepeatPicker', 'AfterPicker', 'DurationPicker', 'EnergyPicker']
+    needs: ['WhenPicker', 'ByPicker', 'RepeatPicker', 'AfterPicker', 'DurationPicker', 'EnergyPicker']
   }
 ];
 
@@ -64,6 +64,18 @@ describe('every screen that writes a to-do offers the same fields', () => {
       expect(missing).toEqual([]);
     });
   }
+
+  it('the add forms offer the deadline, not only the row editors', () => {
+    // A deadline is set while writing the thing down far more often than
+    // afterwards — you learn about the fine and then write the to-do — so
+    // having it only in the row editor would miss the usual case.
+    for (const path of [
+      'routes/brain/+page.svelte',
+      'routes/projects/[id]/[tag]/+page.svelte'
+    ]) {
+      expect(read(path)).toContain('newBy');
+    }
+  });
 
   it('the add forms offer the repeat, not only the row editors', () => {
     // The precise shape of the miss: RepeatPicker was in the file, bound to an

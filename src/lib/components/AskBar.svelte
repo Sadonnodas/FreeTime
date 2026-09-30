@@ -30,6 +30,15 @@
    * top, and re-clamped when the window changes size, so a spot chosen in
    * portrait cannot strand it off-screen in landscape.
    *
+   * IT SITS IN THE APP, NOT IN THE WINDOW. It used to be `position: fixed`,
+   * which is the same thing on a phone and is not on a laptop: with the shell
+   * narrower than the screen it parked against the window's edge, out in the
+   * empty margin — *"the assistant is not accessible on computer... I can't
+   * find it."* It is absolute inside `.ask-wrap` now, which is the app's own
+   * content column (app.css). The numbers below did not change; the box they
+   * are measured from did, which is why the drag has to convert the pointer's
+   * viewport coordinates into that box.
+   *
    * Hidden entirely without a Gemini key, like every other AI surface.
    */
   const KEY = 'freetime.ask.position';
@@ -70,6 +79,15 @@
 
   /** Live position while a finger is on it; null when resting. */
   let drag = $state<{ x: number; y: number } | null>(null);
+  /**
+   * The box the button is positioned inside — the app's content column, not
+   * the window. Everything a pointer event reports is in viewport coordinates,
+   * so a drag has to subtract this; on a phone it is the whole window and the
+   * subtraction is zero.
+   */
+  let btn = $state<HTMLElement | null>(null);
+  const box = () =>
+    btn?.parentElement?.getBoundingClientRect() ?? new DOMRect(0, 0, innerWidth, innerHeight);
   let start: { x: number; y: number; pointerId: number } | null = null;
   let moved = false;
 
@@ -106,6 +124,7 @@
 
   function down(e: PointerEvent) {
     start = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+    dragBox = box();
     // Capture keeps the moves coming when a fast finger outruns the button.
     // It can throw for a pointer that is already gone; the drag still works
     // without it, just less smoothly, so that is no reason to lose the press.
@@ -131,8 +150,9 @@
       openAssistant();
       return;
     }
-    // Settle against the nearer side, at the height it was let go.
-    side = e.clientX < innerWidth / 2 ? 'left' : 'right';
+    // Settle against the nearer side of the APP, at the height it was let go.
+    const r = box();
+    side = e.clientX < r.left + r.width / 2 ? 'left' : 'right';
     bottom = clamp(innerHeight - e.clientY - SIZE / 2);
     drag = null;
     save();
@@ -159,9 +179,13 @@
     if (typeof window !== 'undefined') removeEventListener('resize', onResize);
   });
 
+  /** Measured once when the drag starts, so the button does not re-measure the
+   *  page on every pointer move. */
+  let dragBox = $state(new DOMRect(0, 0, 0, 0));
+
   const style = $derived(
     drag
-      ? `left: ${drag.x - SIZE / 2}px; top: ${drag.y - SIZE / 2}px;`
+      ? `left: ${drag.x - dragBox.left - SIZE / 2}px; top: ${drag.y - dragBox.top - SIZE / 2}px;`
       : `${side}: ${MARGIN}px; bottom: ${bottom}px;`
   );
 </script>
@@ -173,7 +197,8 @@
     slides around behind it.
   -->
   <button
-    class="fixed z-30 flex h-14 w-14 touch-none select-none items-center justify-center
+    bind:this={btn}
+    class="absolute z-30 flex h-14 w-14 touch-none select-none items-center justify-center
            rounded-full text-[22px] text-accent
            {drag ? 'scale-110' : 'transition-[left,right,bottom,transform] duration-200'}"
     style="{style}

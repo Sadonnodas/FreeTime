@@ -481,6 +481,8 @@ export async function createTodo(
   opts: {
     projectId?: string; tag?: string; energy?: Energy; takes?: TimeBucket;
     date?: string; notes?: string; after?: string;
+    /** The day it has to be done before — a deadline, not a plan. deadlines.ts. */
+    by?: string;
     /** Weekdays it comes round on, for a recurring chore. Never with `date`. */
     repeatDays?: number[];
     /** A photo taken while writing it, already resized (THUMB_EDGE). */
@@ -507,7 +509,15 @@ export async function createTodo(
      * needs the same treatment — the store is the right place for it, because
      * every caller would otherwise have to remember.
      */
-    repeatDays: opts.repeatDays ? [...opts.repeatDays] : undefined
+    repeatDays: opts.repeatDays?.length ? [...opts.repeatDays] : undefined,
+    /*
+     * A repeat wins over both day fields, the same way `setTodoRepeat` decides
+     * it. Nothing in the app can offer all three at once — the editors show
+     * Repeats INSTEAD of When and By — but the assistant fills a whole to-do
+     * from one sentence, and "every Thursday, before the 15th" is a sentence
+     * somebody can say.
+     */
+    ...(opts.repeatDays?.length ? { date: undefined, by: undefined } : {})
   });
   await db.todos.add(t);
   return t.id;
@@ -528,9 +538,10 @@ export async function updateTodo(id: string, patch: Partial<Todo>): Promise<void
 /**
  * The weekdays a to-do comes round on, or none to stop it repeating.
  *
- * SETTING A REPEAT CLEARS THE DATE, and the two can never both be set: a thing
- * that happens every Thursday is not also promised for the 14th, and Today
- * would otherwise have to decide which of the two it was showing. `undefined`
+ * SETTING A REPEAT CLEARS THE DATE AND THE DEADLINE, and none of the three can
+ * be set together: a thing that happens every Thursday is not also promised
+ * for the 14th, and has no one day it must happen before. Today would
+ * otherwise have to decide which of them it was showing. `undefined`
  * really removes the field (Dexie's update deletes a property set to
  * undefined), so a to-do that stops repeating carries no stale weekday for
  * another device to read.
@@ -539,7 +550,7 @@ export async function setTodoRepeat(id: string, days?: number[]): Promise<void> 
   const repeatDays = days?.length ? [...days].sort((a, b) => a - b) : undefined;
   await db.todos.update(id, {
     repeatDays,
-    ...(repeatDays ? { date: undefined } : {}),
+    ...(repeatDays ? { date: undefined, by: undefined } : {}),
     updatedAt: now()
   });
 }

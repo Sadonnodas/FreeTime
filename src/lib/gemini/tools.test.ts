@@ -466,6 +466,19 @@ describe('opening a proposal to check it before adding', () => {
     expect(todo.date).toBeUndefined();
   });
 
+  it('writes a DEADLINE beside the day, not instead of it', async () => {
+    // The two are different questions and a sentence can answer both: "I'll
+    // ring them tomorrow, it has to be done before the 15th."
+    await applyWrite('create_todo', {
+      title: 'Ring the garage',
+      date: '2026-11-11',
+      by: '2026-11-15'
+    });
+    const todo = (await db.todos.toArray()).find((t) => t.title === 'Ring the garage')!;
+    expect(todo.date).toBe('2026-11-11');
+    expect(todo.by).toBe('2026-11-15');
+  });
+
   it('drops a blocker title that is not there rather than guessing', async () => {
     // A to-do blocked on a row that does not exist would sit unstartable with
     // nothing on screen to explain it — the dangling-link rule in order.ts.

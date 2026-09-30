@@ -14,6 +14,8 @@
   import ListExport from '$lib/components/ListExport.svelte';
   import { indexById, blockerOf, possibleBlockers } from '$lib/order';
   import { tomorrow, dayLabel, dayPhrase } from '$lib/days';
+  import { byLabel } from '$lib/deadlines';
+  import { repeats, repeatLabel } from '$lib/recurring';
   import { byDayList, reorderDayList } from '$lib/day';
   import { Reorder } from '$lib/reorder.svelte';
   import { placement } from '$lib/rank';
@@ -34,6 +36,7 @@
   import AddField from '$lib/components/AddField.svelte';
   import PlanToday from '$lib/components/PlanToday.svelte';
   import WhenPicker from '$lib/components/WhenPicker.svelte';
+  import ByPicker from '$lib/components/ByPicker.svelte';
   import RepeatPicker from '$lib/components/RepeatPicker.svelte';
   import ProjectSelect from '$lib/components/ProjectSelect.svelte';
   import ShoppingListButton from '$lib/components/ShoppingListButton.svelte';
@@ -327,7 +330,11 @@
       t.tag,
       t.takes,
       t.energy,
-      t.date && t.date !== day ? dayLabel(t.date, todayIso) : null
+      t.date && t.date !== day ? dayLabel(t.date, todayIso) : null,
+      // A deadline reads as a deadline wherever the row is shown, and unlike
+      // the day above it is never dropped: it is not the heading of any list.
+      t.by ? byLabel(t.by, todayIso) : null,
+      repeatLabel(t.repeatDays)
     ]
       .filter(Boolean)
       .join(' · ');
@@ -403,6 +410,12 @@
    * — and leaving it set would quietly chain the next four onto the same row.
    */
   let newAfter = $state<string | undefined>(undefined);
+  /**
+   * A deadline for this one to-do. CLEARED after each add, for `newAfter`'s
+   * reason: a day somebody else set is a fact about one job, and leaving it
+   * lit would quietly give the next four the same deadline.
+   */
+  let newBy = $state<string | undefined>(undefined);
   /** The weekdays it comes round on, for something recurring. Kept between
    *  adds like the era and the sizes: writing three weekly chores in a row
    *  should not mean picking Thursday three times. */
@@ -440,6 +453,7 @@
       // wins for an ordinary one.
       date: newRepeat?.length ? undefined : day || newDate || undefined,
       repeatDays: newRepeat?.length ? newRepeat : undefined,
+      by: newBy,
       after: newAfter,
       image: newImage
     });
@@ -447,6 +461,7 @@
     // without them, unlike the era and project, which a run of to-dos shares.
     newImage = undefined;
     newAfter = undefined;
+    newBy = undefined;
     // The title clears (AddField does that); the destination does not. Writing
     // five things for the same project should not mean setting it five times.
   }
@@ -695,6 +710,15 @@
               <WhenPicker value={newDate || undefined} onpick={(d) => (newDate = d ?? '')} />
             </div>
           {/if}
+
+          <!-- A deadline, which is a different question from the day above and
+               can be set alongside it: the day is your plan, this is somebody
+               else's. Offered even on a day list, where "When" is already
+               answered. -->
+          <div>
+            <p class="section-label mb-2">Needs doing before</p>
+            <ByPicker value={newBy} onpick={(by) => (newBy = by)} />
+          </div>
         </div>
         {/if}
       {/snippet}
@@ -901,6 +925,15 @@
                   <p class="section-label mb-2">When</p>
                   <WhenPicker value={t.date} onpick={(date) => updateTodo(t.id, { date })} />
                 </div>
+                {#if !repeats(t)}
+                  <!-- The day somebody ELSE set. Alongside the day above, not
+                       instead of it; not offered on a repeating row, which has
+                       no one day to be done before. -->
+                  <div>
+                    <p class="section-label mb-2">Needs doing before</p>
+                    <ByPicker value={t.by} onpick={(by) => updateTodo(t.id, { by })} />
+                  </div>
+                {/if}
                 <!-- A day it is promised for, or days it comes round on. Both
                      land on Today; setting one clears the other, since a thing
                      that happens every Thursday is not also due on the 14th. -->

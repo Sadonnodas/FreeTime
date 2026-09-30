@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from './db';
-import { createProject, createTodo, completeTodo, softDelete, today, setProjectTags, setProjectTagSleeping } from './store';
+import { createProject, createTodo, completeTodo, updateTodo, softDelete, today, setProjectTags, setProjectTagSleeping } from './store';
+import { shiftDay } from './days';
 import { effortCeiling, fitsTime, createPlanner, planDay } from './freetime';
 import type { FreeTimeAnswers } from './types';
 
@@ -201,6 +202,36 @@ describe('slot rules', () => {
     const slots = await planDay(ask());
     const reason = slots.find((s) => s.kind === 'obligation')?.reason ?? '';
     expect(reason.toLowerCase()).not.toMatch(/overdue|late|missed|behind/);
+  });
+
+  it('takes a DEADLINE for the obligation slot, ahead of a chosen day', async () => {
+    // Both are "an obligation", and they are not equal: a date is a day you
+    // picked and may move, a deadline is one somebody else set. When both are
+    // waiting, the one with a consequence attached goes first.
+    await createTodo('dated', { date: today() });
+    await createTodo('inspection', { by: shiftDay(today(), 3) });
+
+    const slots = await planDay(ask());
+    expect(slots.find((s) => s.kind === 'obligation')?.todo.title).toBe('inspection');
+  });
+
+  it('offers a deadline before its day and keeps offering it after', async () => {
+    const id = await createTodo('inspection', { by: shiftDay(today(), 6) });
+    let slots = await planDay(ask());
+    expect(slots.find((s) => s.kind === 'obligation')?.todo.id).toBe(id);
+
+    // The day passing changes nothing: the car still needs its inspection.
+    await updateTodo(id, { by: shiftDay(today(), -4) });
+    slots = await planDay(ask());
+    const hit = slots.find((s) => s.kind === 'obligation');
+    expect(hit?.todo.id).toBe(id);
+    expect(hit?.reason.toLowerCase()).not.toMatch(/overdue|late|missed|behind/);
+  });
+
+  it('leaves a deadline further out than the window alone', async () => {
+    await createTodo('mot in december', { by: shiftDay(today(), 30) });
+    const slots = await planDay(ask());
+    expect(slots.some((s) => s.kind === 'obligation')).toBe(false);
   });
 
   it('returns two slots rather than inventing a third', async () => {

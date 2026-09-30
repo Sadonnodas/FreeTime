@@ -7,6 +7,7 @@
   import { autogrow } from '$lib/autogrow';
   import ProjectSelect from './ProjectSelect.svelte';
   import WhenPicker from './WhenPicker.svelte';
+  import ByPicker from './ByPicker.svelte';
   import RepeatPicker from './RepeatPicker.svelte';
   import AfterPicker from './AfterPicker.svelte';
   import DurationPicker from './DurationPicker.svelte';
@@ -173,6 +174,14 @@
       <p class="section-label mb-2">When</p>
       <WhenPicker value={str(args.date)} onpick={(date) => patch({ date })} />
     </div>
+    <!-- The deadline, which is not the day above and can be set with it: one
+         is the plan, the other is somebody else's rule. A model gets a date
+         out of a sentence far more easily than it gets which KIND of date it
+         was, so this is the field most worth checking before Add. -->
+    <div>
+      <p class="section-label mb-2">Needs doing before</p>
+      <ByPicker value={str(args.by)} onpick={(by) => patch({ by })} />
+    </div>
     <div>
       <p class="section-label mb-2">Repeats</p>
       <RepeatPicker
@@ -180,7 +189,8 @@
         onpick={(days) =>
           patch({
             repeatWeekdays: days?.length ? days.map((d) => WEEKDAY_KEYS[d]) : undefined,
-            date: days?.length ? undefined : str(args.date)
+            date: days?.length ? undefined : str(args.date),
+            by: days?.length ? undefined : str(args.by)
           })}
       />
     </div>

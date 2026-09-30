@@ -19,8 +19,10 @@
   import { byHabitOrder, habitColor, habitWeek, ON_COLOR } from '$lib/habits';
   import { milestoneToday, type Milestone } from '$lib/milestones';
   import WhenPicker from '$lib/components/WhenPicker.svelte';
+  import ByPicker from '$lib/components/ByPicker.svelte';
   import RepeatPicker from '$lib/components/RepeatPicker.svelte';
   import { repeats, repeatsOn, repeatLabel } from '$lib/recurring';
+  import { comingUp, byLabel } from '$lib/deadlines';
   import { pickClearCheer } from '$lib/clearCheers';
   import MilestoneCard from '$lib/components/MilestoneCard.svelte';
   import { Reorder } from '$lib/reorder.svelte';
@@ -557,6 +559,36 @@
   const listDrag = new Reorder((ids) => reorderDayList(ids));
 
   /**
+   * COMING UP: to-dos with a DEADLINE inside the week, or already past it.
+   *
+   * Asked for with the case that made it necessary — *"I need to make an
+   * appointment with the garage because my car needs to go to the technical
+   * controle. If I don't go there before a certain date I'll get a fine."* A
+   * date could not carry that: a date is a day you chose, and choosing the
+   * 15th is exactly the thing you then push to the 16th with nothing anywhere
+   * remembering that the 15th was not your idea. See deadlines.ts.
+   *
+   * It is a section of its own rather than more rows under "Also on today's
+   * list", because that heading means "I said I would do this today" and this
+   * one does not. Nothing here takes a slot, counts towards closing the day,
+   * or joins the waving rotation — the three are still the three.
+   *
+   * It is not on the screen at all when nothing is due, like the calendar
+   * strip and the shopping row, and NOTHING about it escalates as the day
+   * approaches or passes: same words, same colour, ordered by the deadline
+   * and by nothing else.
+   */
+  const comingUpList = $derived(
+    comingUp(
+      ($openQ as { all: Todo[] } | undefined)?.all ?? [],
+      // Already on this screen above: the three, and today's list. A to-do
+      // planned for today does not also need telling you it is due this week.
+      new Set([...(day?.slots ?? []), ...dayList.map((t) => t.id)]),
+      todayIso
+    )
+  );
+
+  /**
    * The shopping list shows on Today only on its day AND while something is
    * still to get. An empty list planned for today sat there as "Shopping list
    * — nothing on it yet", which is a line about nothing: *"if there is nothing
@@ -1037,6 +1069,147 @@
       </section>
     {/if}
 
+    <!--
+      ONE ROW SHAPE FOR BOTH LISTS. "Also on today's list" and "Coming up" are
+      the same thing on the screen — a to-do, its tick, and the panel that
+      opens underneath — and the only honest way to keep them that way is for
+      there to be one of them. Drawing the deadline rows separately is how the
+      two would drift into offering different controls, which is the failure
+      this app has recorded three times over.
+
+      `draggable` is the whole difference: the day list has an order you
+      dragged (Day.listOrder), and Coming up has an order the deadlines
+      decide, so there is nothing there to arrange. The `{#each}` is inside
+      the snippet because `animate:flip` has to be on the only child of a
+      keyed each, and a `{@render}` in between breaks that.
+    -->
+    {#snippet todoRows(list: Todo[], draggable: boolean, cheerable: boolean)}
+          <ul class="space-y-1">
+            {#each draggable ? listDrag.arrange(sinkDone(list, listDone)) : sinkDone(list, listDone) as t (t.id)}
+              {@const done = listDone(t)}
+              {@const tint = done ? undefined : tintFor(eraOf(t.projectId), t.tag)}
+              <li
+                class="card-flat px-3 {tint ? 'row-tint' : ''}"
+                style:--row={tint?.fill}
+                style:--edge={tint?.edge}
+                use:listDrag.item={{ id: t.id, off: !draggable || openRow === t.id }}
+                animate:flip={{ duration: !draggable || listDrag.dragging === t.id ? 0 : 180 }}
+              >
+               <div class="flex items-center gap-3">
+                <span class="relative flex shrink-0">
+                  {#if celebrating === t.id}
+                    <Burst size={96} />
+                  {/if}
+                  <button
+                    class="press tap shrink-0 {done ? 'text-good' : 'text-ink-400'}"
+                    onclick={() => {
+                      // A RECURRING row is ticked FOR TODAY — a log, not a
+                      // completion. One row and many Thursdays cannot share a
+                      // single completedAt, and ticking the row itself would
+                      // retire the bins for good.
+                      if (done) {
+                        if (repeats(t)) void toggleTodoLog(t.id);
+                        else void uncompleteTodo(t.id);
+                        return;
+                      }
+                      celebrate(t.id);
+                      // The last one still open, and nothing left to go and
+                      // buy: this tap clears the section.
+                      if (cheerable && dayListOpen === 1 && !shoppingToday) cheerSection('list');
+                      if (repeats(t)) void toggleTodoLog(t.id);
+                      else void completeTodo(t.id);
+                    }}
+                    aria-label={done ? `Mark ${t.title} not done` : `Complete ${t.title}`}
+                    >{done ? '✓' : '○'}</button
+                  >
+                </span>
+                <button
+                  class="min-w-0 flex-1 py-3 text-left"
+                  onclick={() => (openRow = openRow === t.id ? null : t.id)}
+                  aria-expanded={openRow === t.id}
+                >
+                  <p class={done ? 'text-ink-400 line-through' : ''}>{t.title}</p>
+                  {#if projectName(t.projectId) || repeats(t) || t.by || blockerOf(t, todoIndex)}
+                    <!-- What it waits for leads the footnote, because it is the
+                         reason the row is where it is — the list is sorted by
+                         the chain before anything else, and an order you cannot
+                         explain reads as an order that is wrong. -->
+                    <p class="text-xs text-ink-400">
+                      {[
+                        blockerOf(t, todoIndex) ? `after ${blockerOf(t, todoIndex)!.title}` : null,
+                        t.by ? byLabel(t.by, todayIso) : null,
+                        projectName(t.projectId),
+                        t.tag,
+                        repeatLabel(t.repeatDays)
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  {/if}
+                </button>
+                {#if t.image}
+                  <!-- A sibling of the row's button, never inside it: a button
+                       within a button silently stops working. -->
+                  <PhotoThumb image={t.image} label={t.title} />
+                {/if}
+               </div>
+
+                <!--
+                  MOVING IT TO ANOTHER DAY, from the screen you are already on.
+                  The same WhenPicker the add form and both row editors use, so
+                  there is one way to say when a thing is for and it cannot
+                  drift into three.
+
+                  Deliberately NOT worded like the slot card's "Tomorrow
+                  instead". That one moves a to-do into tomorrow's THREE and
+                  sets no date; this one changes the date the row is filed
+                  under. Two controls a centimetre apart saying the same word
+                  would be read as one thing — the mistake this file already
+                  records about "Today".
+                -->
+                {#if openRow === t.id}
+                  <div class="border-t border-line-1 pt-3 pb-3">
+                    {#if repeats(t)}
+                      <!-- A repeating row has no day to move: it has days it
+                           comes round on. Offering "Tomorrow" here would set a
+                           date on something that repeats, and the two cannot
+                           both be true. -->
+                      <p class="section-label mb-2">Repeats</p>
+                      <RepeatPicker
+                        value={t.repeatDays}
+                        onpick={(days) => setTodoRepeat(t.id, days)}
+                      />
+                    {:else}
+                      <p class="section-label mb-2">When</p>
+                      <WhenPicker
+                        value={t.date}
+                        onpick={(date) => {
+                          openRow = null;
+                          void updateTodo(t.id, { date });
+                        }}
+                      />
+                      {#if draggable}
+                        <p class="footnote mt-2">
+                          Another day takes it off today's list and brings it back then.
+                          Someday leaves it in {projectName(t.projectId) ?? 'Brain'} with no
+                          day on it.
+                        </p>
+                      {/if}
+
+                      <!-- The deadline, changeable from the list it put the
+                           row on: a garage that can only see you on the 20th
+                           moves the date, and having to go and find the to-do
+                           to say so is how it gets left wrong. -->
+                      <p class="section-label mt-3 mb-2">Needs doing before</p>
+                      <ByPicker value={t.by} onpick={(by) => void updateTodo(t.id, { by })} />
+                    {/if}
+                  </div>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+    {/snippet}
+
     {#if dayList.length || shoppingToday}
       <!-- Everything else you put on today, from Brain's day list. See
            `dayList` for why it is here and why it is not part of the three. -->
@@ -1048,120 +1221,15 @@
           <div class="mb-1"><ShoppingListButton look="row" /></div>
         {/if}
         {#if cleared === 'list'}{@render clearedLine("That's the list clear.")}{/if}
-        <ul class="space-y-1">
-          {#each listDrag.arrange(sinkDone(dayList, listDone)) as t (t.id)}
-            {@const done = listDone(t)}
-            {@const tint = done ? undefined : tintFor(eraOf(t.projectId), t.tag)}
-            <li
-              class="card-flat px-3 {tint ? 'row-tint' : ''}"
-              style:--row={tint?.fill}
-              style:--edge={tint?.edge}
-              use:listDrag.item={{ id: t.id, off: openRow === t.id }}
-              animate:flip={{ duration: listDrag.dragging === t.id ? 0 : 180 }}
-            >
-             <div class="flex items-center gap-3">
-              <span class="relative flex shrink-0">
-                {#if celebrating === t.id}
-                  <Burst size={96} />
-                {/if}
-                <button
-                  class="press tap shrink-0 {done ? 'text-good' : 'text-ink-400'}"
-                  onclick={() => {
-                    // A RECURRING row is ticked FOR TODAY — a log, not a
-                    // completion. One row and many Thursdays cannot share a
-                    // single completedAt, and ticking the row itself would
-                    // retire the bins for good.
-                    if (done) {
-                      if (repeats(t)) void toggleTodoLog(t.id);
-                      else void uncompleteTodo(t.id);
-                      return;
-                    }
-                    celebrate(t.id);
-                    // The last one still open, and nothing left to go and
-                    // buy: this tap clears the section.
-                    if (dayListOpen === 1 && !shoppingToday) cheerSection('list');
-                    if (repeats(t)) void toggleTodoLog(t.id);
-                    else void completeTodo(t.id);
-                  }}
-                  aria-label={done ? `Mark ${t.title} not done` : `Complete ${t.title}`}
-                  >{done ? '✓' : '○'}</button
-                >
-              </span>
-              <button
-                class="min-w-0 flex-1 py-3 text-left"
-                onclick={() => (openRow = openRow === t.id ? null : t.id)}
-                aria-expanded={openRow === t.id}
-              >
-                <p class={done ? 'text-ink-400 line-through' : ''}>{t.title}</p>
-                {#if projectName(t.projectId) || repeats(t) || blockerOf(t, todoIndex)}
-                  <!-- What it waits for leads the footnote, because it is the
-                       reason the row is where it is — the list is sorted by
-                       the chain before anything else, and an order you cannot
-                       explain reads as an order that is wrong. -->
-                  <p class="text-xs text-ink-400">
-                    {[
-                      blockerOf(t, todoIndex) ? `after ${blockerOf(t, todoIndex)!.title}` : null,
-                      projectName(t.projectId),
-                      t.tag,
-                      repeatLabel(t.repeatDays)
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                {/if}
-              </button>
-              {#if t.image}
-                <!-- A sibling of the row's button, never inside it: a button
-                     within a button silently stops working. -->
-                <PhotoThumb image={t.image} label={t.title} />
-              {/if}
-             </div>
+        {@render todoRows(dayList, true, true)}
+      </section>
+    {/if}
 
-              <!--
-                MOVING IT TO ANOTHER DAY, from the screen you are already on.
-                The same WhenPicker the add form and both row editors use, so
-                there is one way to say when a thing is for and it cannot
-                drift into three.
-
-                Deliberately NOT worded like the slot card's "Tomorrow
-                instead". That one moves a to-do into tomorrow's THREE and
-                sets no date; this one changes the date the row is filed
-                under. Two controls a centimetre apart saying the same word
-                would be read as one thing — the mistake this file already
-                records about "Today".
-              -->
-              {#if openRow === t.id}
-                <div class="border-t border-line-1 pt-3 pb-3">
-                  {#if repeats(t)}
-                    <!-- A repeating row has no day to move: it has days it
-                         comes round on. Offering "Tomorrow" here would set a
-                         date on something that repeats, and the two cannot
-                         both be true. -->
-                    <p class="section-label mb-2">Repeats</p>
-                    <RepeatPicker
-                      value={t.repeatDays}
-                      onpick={(days) => setTodoRepeat(t.id, days)}
-                    />
-                  {:else}
-                    <p class="section-label mb-2">When</p>
-                    <WhenPicker
-                      value={t.date}
-                      onpick={(date) => {
-                        openRow = null;
-                        void updateTodo(t.id, { date });
-                      }}
-                    />
-                    <p class="footnote mt-2">
-                      Another day takes it off today's list and brings it back then.
-                      Someday leaves it in {projectName(t.projectId) ?? 'Brain'} with no day
-                      on it.
-                    </p>
-                  {/if}
-                </div>
-              {/if}
-            </li>
-          {/each}
-        </ul>
+    {#if comingUpList.length}
+      <!-- Deadlines, a week out. See `comingUpList`. -->
+      <section class="mt-8">
+        <h2 class="section-label mb-2">Coming up</h2>
+        {@render todoRows(comingUpList, false, false)}
       </section>
     {/if}
 

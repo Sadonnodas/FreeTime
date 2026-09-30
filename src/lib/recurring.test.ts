@@ -57,6 +57,27 @@ describe('what a repeat does to the rest of the app', () => {
     expect(todo.date).toBeUndefined();
   });
 
+  it('clears a DEADLINE too, for the same reason', async () => {
+    // A chore that comes round every Thursday has no one day it must beat.
+    const id = await createTodo('Bins out', { by: '2026-09-24' });
+    await setTodoRepeat(id, [4]);
+    expect((await db.todos.get(id))!.by).toBeUndefined();
+  });
+
+  it('a to-do written as repeating keeps neither day field', async () => {
+    // Nothing in the app can offer all three at once, but the assistant fills
+    // a whole to-do from one sentence, and someone can say all three.
+    const id = await createTodo('Bins out', {
+      repeatDays: [4],
+      date: '2026-09-24',
+      by: '2026-09-25'
+    });
+    const todo = (await db.todos.get(id))!;
+    expect(todo.repeatDays).toEqual([4]);
+    expect(todo.date).toBeUndefined();
+    expect(todo.by).toBeUndefined();
+  });
+
   it('records being done per DAY, not once and for ever', async () => {
     const id = await createTodo('Bins out', { repeatDays: [4] });
 

@@ -32,6 +32,7 @@ A to-do can also REPEAT ("every Thursday", "Mondays and Fridays" → repeatWeekd
 
 Hard rules, which come from why this app exists:
 - Never set a date unless they said a day. A day they said — "tomorrow", "Friday", "the 3rd" — IS stated, so resolve it against today's date below and set it. What is forbidden is inventing one because something sounds urgent: there is no concept of overdue here, and an invented date creates one.
+- A DEADLINE is a different field. "Before the 15th", "or I get a fine", "it expires this month" goes in \`by\`, not \`date\`: \`date\` is the day they plan to do it, \`by\` is the day the world needs it done before. Set both when they said both ("I'll ring them tomorrow, it has to be done before the 15th"). Same rule as above — only a deadline they actually stated.
 - Never mention streaks, percentages, being behind, or catching up.
 - A quiet project is allowed to be quiet. Do not editorialise about neglect.
 - Do not invent work. If they are thinking out loud, just talk.

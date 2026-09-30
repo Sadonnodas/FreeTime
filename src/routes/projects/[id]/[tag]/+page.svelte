@@ -18,6 +18,8 @@
   import { memosForProject } from '$lib/memos';
   import { indexById, readyFirst, blockerOf, possibleBlockers } from '$lib/order';
   import { dayLabel } from '$lib/days';
+  import { byLabel } from '$lib/deadlines';
+  import { repeats, repeatLabel } from '$lib/recurring';
   import { canRecord } from '$lib/audio';
   import Collapsible from '$lib/components/Collapsible.svelte';
   import WidgetBoard from '$lib/components/WidgetBoard.svelte';
@@ -37,6 +39,7 @@
   import PlanToday from '$lib/components/PlanToday.svelte';
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import WhenPicker from '$lib/components/WhenPicker.svelte';
+  import ByPicker from '$lib/components/ByPicker.svelte';
   import RepeatPicker from '$lib/components/RepeatPicker.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
   import ProjectTagEditor from '$lib/components/ProjectTagEditor.svelte';
@@ -210,6 +213,9 @@
    *  same field in Brain's add form. Cleared after each add: a blocker is
    *  about ONE to-do, where the sizes and the day are shared by a run. */
   let newAfter = $state<string | undefined>(undefined);
+  /** The day it has to be done before. Cleared after each add, for the
+   *  blocker's reason: a deadline belongs to one job, not to a run of them. */
+  let newBy = $state<string | undefined>(undefined);
   /** The weekdays it comes round on. Kept between adds like the sizes: three
    *  weekly chores in a row should not mean picking Thursday three times. */
   let newRepeat = $state<number[] | undefined>(undefined);
@@ -456,6 +462,7 @@
             // A repeating to-do holds no date — the two cannot both be true.
             date: newRepeat?.length ? undefined : newDate,
             repeatDays: newRepeat?.length ? newRepeat : undefined,
+            by: newBy,
             after: newAfter,
             image: newImage
           });
@@ -463,6 +470,7 @@
           // the day stay for a run of them.
           newImage = undefined;
           newAfter = undefined;
+          newBy = undefined;
         }}
       >
         {#snippet extra(text)}
@@ -477,6 +485,13 @@
               <div>
                 <p class="section-label mb-2">When</p>
                 <WhenPicker value={newDate} onpick={(d) => (newDate = d)} />
+              </div>
+              <!-- The day it has to be done BEFORE, which is not the day above
+                   and can be set with it: one is your plan, the other is
+                   somebody else's rule. Cleared after each add. -->
+              <div>
+                <p class="section-label mb-2">Needs doing before</p>
+                <ByPicker value={newBy} onpick={(by) => (newBy = by)} />
               </div>
               <!-- Days it comes round on, for a chore like the bins. It was
                    missed here when recurring to-dos shipped: the row editor
@@ -555,7 +570,7 @@
                 onclick={() => (openTodo = openTodo === todo.id ? null : todo.id)}
               >
                 <p class={waiting ? 'text-ink-400' : ''}>{todo.title}</p>
-                {#if waiting || todo.date || todo.takes || todo.energy}
+                {#if waiting || todo.date || todo.by || repeats(todo) || todo.takes || todo.energy}
                   <!-- The day leads, because it is the one that says when this
                        has to happen; without it on the row, a date set here
                        would be invisible from the screen that set it. -->
@@ -563,6 +578,8 @@
                     {[
                       waiting ? `after ${waiting.title}` : null,
                       todo.date ? dayLabel(todo.date) : null,
+                      todo.by ? byLabel(todo.by) : null,
+                      repeatLabel(todo.repeatDays),
                       todo.takes,
                       todo.energy
                     ]
@@ -601,6 +618,13 @@
                 -->
                 <p class="section-label mt-3 mb-2">When</p>
                 <WhenPicker value={todo.date} onpick={(date) => updateTodo(todo.id, { date })} />
+
+                <!-- The deadline. Not offered on a repeating row: a chore that
+                     comes round every Thursday has no one day to beat. -->
+                {#if !repeats(todo)}
+                  <p class="section-label mt-3 mb-2">Needs doing before</p>
+                  <ByPicker value={todo.by} onpick={(by) => updateTodo(todo.id, { by })} />
+                {/if}
 
                 <!-- Days it comes round on, for something recurring like the
                      bins. Mutually exclusive with the day above. -->

@@ -29,6 +29,9 @@
   import WhenPicker from '$lib/components/WhenPicker.svelte';
   import RepeatPicker from '$lib/components/RepeatPicker.svelte';
   import { dayLabel } from '$lib/days';
+  import { byLabel } from '$lib/deadlines';
+  import { repeats, repeatLabel } from '$lib/recurring';
+  import ByPicker from '$lib/components/ByPicker.svelte';
   import DurationPicker from '$lib/components/DurationPicker.svelte';
   import RemoveButton from '$lib/components/RemoveButton.svelte';
   import RenameField from '$lib/components/RenameField.svelte';
@@ -696,7 +699,7 @@
                 onclick={() => (openTodo = openTodo === todo.id ? null : todo.id)}
               >
                 <p class={blockerOf(todo, byId) ? 'text-ink-400' : ''}>{todo.title}</p>
-                {#if blockerOf(todo, byId) || todo.energy || todo.takes || todo.date}
+                {#if blockerOf(todo, byId) || todo.energy || todo.takes || todo.date || todo.by || repeats(todo)}
                   <p class="footnote">
                     {[
                       blockerOf(todo, byId) ? `after ${blockerOf(todo, byId)!.title}` : null,
@@ -704,6 +707,8 @@
                       // "Tomorrow", and a date you have to decode is one you
                       // misread.
                       todo.date ? dayLabel(todo.date) : null,
+                      todo.by ? byLabel(todo.by) : null,
+                      repeatLabel(todo.repeatDays),
                       todo.takes,
                       todo.energy
                     ]
@@ -755,6 +760,16 @@
                   <p class="section-label mb-2">When</p>
                   <WhenPicker value={todo.date} onpick={(date) => updateTodo(todo.id, { date })} />
                 </div>
+
+                {#if !repeats(todo)}
+                  <!-- The day it has to be done before: a fact about the world
+                       rather than a plan, so it sits beside When rather than
+                       replacing it. Not for a repeating row. -->
+                  <div>
+                    <p class="section-label mb-2">Needs doing before</p>
+                    <ByPicker value={todo.by} onpick={(by) => updateTodo(todo.id, { by })} />
+                  </div>
+                {/if}
 
                 <div>
                   <p class="section-label mb-2">Repeats</p>

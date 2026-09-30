@@ -193,7 +193,9 @@
     {/each}
   </nav>
 
-  <div class="flex min-w-0 flex-1 flex-col">
+  <!-- `relative` is for the assistant's button, which anchors to THIS column
+       rather than to the window: see .ask-wrap in app.css. -->
+  <div class="relative flex min-w-0 flex-1 flex-col">
   <!-- Above the scrolling area, so it is seen without being fixed over the
        content or eating into a page's own safe-area padding. -->
   <!-- Not on paper. See the print block at the end of app.css. -->
@@ -218,10 +220,6 @@
       </div>
     {:else if ready}
       {@render children()}
-      <!-- On every screen, not just Today. Fixed-position, so where it sits in
-           the markup does not matter; it is inside `ready` so it cannot open
-           onto a store that has not been opened yet. -->
-      <div class="ask-wrap print:hidden"><AskBar /></div>
     {/if}
     </div>
   </main>
@@ -243,5 +241,15 @@
       </a>
     {/each}
   </nav>
+
+  <!--
+    The assistant, over everything on every screen. Outside <main> on purpose:
+    it must not scroll with the page, and anchoring it to this column instead
+    of the window is what puts it beside the app on a laptop rather than out in
+    the margin. Inside `ready`, so it cannot open onto a store that is not open.
+  -->
+  {#if ready}
+    <div class="ask-wrap print:hidden"><AskBar /></div>
+  {/if}
   </div>
 </div>

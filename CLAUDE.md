@@ -1254,14 +1254,44 @@ one came close to a hard rule, the reasoning is recorded here.
   and the dark-mode tile inversion stopped, with no error anywhere. Plain descendant
   selectors in a plain stylesheet.
 - **The desktop layout is a rail, not a wider phone** ([+layout.svelte](src/routes/+layout.svelte),
-  `.shell` / `.page` / `.rail-item` in [app.css](src/app.css)). From 1024px the shell
-  widens to 1040, the bottom tab bar is replaced by a labelled rail down the left, and
-  the reading column inside caps at 720 — text stops getting more readable past about 70
-  characters, so the extra width goes to the rail and the margins rather than to longer
-  lines. Grids opt into more columns themselves (`lg:grid-cols-3` on Projects). It stops
-  at 1040 on purpose: filling a 27-inch display would undo the reason the constraint
-  exists, which is that the app should read as one designed object rather than a page
-  that gave up. Below 1024 nothing changes at all — the phone layout is untouched.
+  `.shell` / `.page` / `.rail-item` in [app.css](src/app.css)). From 1024px the bottom
+  tab bar is replaced by a labelled rail down the left, and the reading column caps at
+  720 — text stops getting more readable past about 70 characters, so the extra width
+  goes to the rail and the margins rather than to longer lines. Grids opt into more
+  columns themselves (`lg:grid-cols-3` on Projects). Below 1024 nothing changes at all
+  — the phone layout is untouched.
+  **THE SHELL FILLS THE WINDOW, reversing the 1040px cap this entry used to
+  defend.** The old reasoning — that stretching across a 27-inch display would
+  undo the constraint and make the app "a page that gave up" — was right about
+  the CONTENT and wrong about the BOX, and only a real laptop showed the
+  difference: *"on computer we also have a scroll bar on the right, and because
+  there is a big white space to the right of it it kind of breaks the nice white
+  background."*
+  **The scroll bar is the whole tell.** `main` scrolls, not the window, so a
+  shell stopping at 1040 put the scroll bar at x=1240 on a 1440px screen with
+  200px of empty page beyond it. A scroll bar is a window EDGE; one standing in
+  the middle of a white expanse reads as a seam in the background, which is
+  exactly what was reported. Nothing about the composition changed — the column
+  is still 720, the rail still 216, the line length identical to the character.
+  Only the margins and the scroll bar moved, to where every desktop app puts
+  them. **If a future change wants the app narrower again, cap `.page`, never
+  `.shell`.**
+  **And the assistant's ✦ is positioned inside the app, not the window**
+  (`.ask-wrap`, and the wrapper moved out of `<main>` in the layout). Same bug,
+  found in the same message: *"the assistant is not accessible on computer,
+  unless I'm overlooking it somewhere but I can't find it."* It was
+  `position: fixed`, which means the app on a phone and the WINDOW on a laptop
+  — so it parked in the empty margin, a small circle alone in a blank band,
+  reading as part of the browser. It is absolute inside a box that matches
+  `.page`, so it now rests against the reading column at every width and on a
+  phone nothing moves at all. The drag converts the pointer's viewport
+  coordinates into that box; the clamp against the tab bar is unchanged,
+  because the box is full height.
+  **Worth knowing before blaming the position:** the ✦ is hidden entirely
+  without a Gemini key, and the key lives in IndexedDB per device and never
+  syncs. A laptop that has never had the key typed into *Settings → Gemini* has
+  no assistant at all, and that looks identical to a button that cannot be
+  found.
 - **A map of recordings** ([geo.ts](src/lib/geo.ts),
   [MemoMap.svelte](src/lib/components/MemoMap.svelte)). Brain → Memos toggles List/Map.
   Leaflet is the app's second runtime dependency and is **lazily imported** — opening
@@ -2883,6 +2913,71 @@ device; there is nothing to build. Memos are the exception, below.
   heading. `shiftDay` builds dates from parts and never `new Date('2026-09-06')`,
   which is UTC midnight — the day before, anywhere west of Greenwich, which would
   quietly file things on the wrong day.
+- **A TO-DO CAN HAVE A DEADLINE, AND IT IS NOT THE DATE**
+  (`Todo.by`, [deadlines.ts](src/lib/deadlines.ts),
+  [ByPicker.svelte](src/lib/components/ByPicker.svelte),
+  [deadlines.test.ts](src/lib/deadlines.test.ts), "Coming up" on Today).
+  Asked for with the case that makes it a different thing: *"I have a thing
+  that needs to be done by a certain date. Like I need to make an appointment
+  with the garage because my car needs to go to the technical controle. If I
+  don't go there before a certain date I'll get a fine."*
+  **`date` could not carry it, and the reason is what the two fields MEAN.** A
+  date is a day YOU chose — it lands the row in Brain's day list and under
+  "Also on today's list", and it is exactly the day you then push to tomorrow
+  when Tuesday turns out wrong, with nothing anywhere remembering that the
+  15th was not your idea. A deadline is the opposite kind of fact: somebody
+  else set it, and it does not move because your week did. So both can be set
+  at once — ring them Thursday, done before the 15th — and changing the plan
+  leaves the deadline alone.
+  **THIS IS THE FEATURE MOST LIKELY TO GROW AN OVERDUE STATE BY ACCIDENT**, so
+  the rules are written as rules. The row says "Before Fri 15 Nov" on the fifth
+  of the month and goes on saying exactly that on the twentieth: no red, no
+  bold, no "3 days late", no badge, no sort that promotes it further the longer
+  it sits. Nothing counts a missed one and nothing records that one passed;
+  ticking it late is just ticking it, and it reaches the wins feed like any
+  other closed to-do. **The day passing changes nothing the app does, because
+  the app is not the one handing out the fine.**
+  **What it earns is EARLY ATTENTION and nothing else**: from `BY_WINDOW` (7)
+  days out it appears on Today under "Coming up" and becomes eligible for Free
+  Time's obligation slot, and it stays there until it is ticked. Both halves
+  matter. It does not arrive the day it is written, or the calmest screen in
+  the app would carry December's business all November; and it does not leave
+  when the day passes, because a reminder that stops reminding you at the
+  deadline has quit at precisely the wrong moment — the car still needs its
+  inspection on the 16th.
+  **A deadline BEATS a date for the obligation slot.** Both are "an
+  obligation" and they are not equal: one is a day you picked, the other has a
+  consequence attached.
+  **Safe to let it sit in that slot, where a recurring to-do would not be.**
+  The trap recorded under `Todo.repeatDays` — one dated row per Thursday, a
+  missed bin day occupying Free Time for ever — does not apply, because there
+  is exactly ONE of these rows however many days pass, and ticking it ends it.
+  **"Coming up" reuses the day list's row, not a copy of it** (`todoRows` in
+  [+page.svelte](src/routes/+page.svelte)). Two lists of to-dos drawn by two
+  bits of markup is precisely how this app's screens drift into offering
+  different controls, so there is one snippet and one difference: the day list
+  has an order you dragged and this one has an order the deadlines decide.
+  A row ticked TODAY stays on the list, ticked, so the tap does not pull it out
+  from under the thumb that made it — the shopping list's rule — and it is gone
+  tomorrow.
+  **On all five screens from the start, and pinned** — Brain's add form and row
+  editor, the project's, the era overview's, plus the assistant's review panel
+  — with `ByPicker` added to [screens.test.ts](src/lib/screens.test.ts). That
+  test exists because this exact gap has been shipped three times.
+  `ByPicker` is WhenPicker with different words rather than a second date
+  control, and it is its own file only so that test can see it.
+  **The assistant sets it too** (`by` on `create_todo`), which is the field a
+  model is most likely to get subtly wrong — it can hear a date perfectly and
+  still file it as a plan instead of a deadline, which is why the proposal
+  panel shows it.
+  **A repeat clears it**, with the date, in `setTodoRepeat` and in
+  `createTodo`: a chore that comes round every Thursday has no one day to beat.
+  **And the printout stopped saying "by" about the date.** `todoDetails` wrote
+  `by 2026-09-24` for a chosen day, which was harmless while that was the only
+  day a to-do had and became a lie the moment this field existed. The day is
+  "on" and the deadline is "before" — nobody reading a sheet of paper in a
+  garage can tell two "by"s apart.
+
 - **EFFORT AND DURATION ARE TWO AXES. Do not collapse them again.** `Todo.energy` is
   how much of your head a job takes; `Todo.takes` is how long it takes, in the same
   buckets Free Time asks about. Free Time filters on both, independently: how your
