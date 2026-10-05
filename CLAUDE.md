@@ -1129,6 +1129,11 @@ one came close to a hard rule, the reasoning is recorded here.
   personal tab. `/settings` and `/settings/import` are top-level routes now; Me is
   habits and wins only. Five is the ceiling: six starts to crowd the bar on a phone,
   where each tab gets 75px.
+  **The conflict log sits LAST, under Data.** "Overwritten edits" renders only
+  when sync has actually overwritten something, so wherever it sits it arrives
+  unannounced — and it used to arrive above Dictation, Gemini and Data, pushing
+  the controls you came for down the page. Asked for directly. Rare,
+  diagnostic and read once; the everyday controls keep their places.
 - **Today's capture row is gone, and the assistant is what is left of it**
   ([AskBar.svelte](src/lib/components/AskBar.svelte); CaptureBox.svelte is
   deleted). The two entries below describe that row and are kept because their

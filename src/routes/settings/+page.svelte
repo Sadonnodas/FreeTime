@@ -318,32 +318,6 @@
     {/if}
   </section>
 
-  {#if (($conflictsQ as ConflictLog[] | undefined) ?? []).length}
-    <section class="mb-8">
-      <h2 class="section-label mb-2">
-        Overwritten edits
-      </h2>
-      <!-- Cheap insurance, quiet by default (spec 8.3). Only appears when there
-           is genuinely something here. -->
-      <p class="footnote mb-2">
-        Two devices changed the same thing at nearly the same moment. The newer edit won;
-        the older one is kept here in case it mattered.
-      </p>
-      <ul class="space-y-1">
-        {#each ($conflictsQ as ConflictLog[]) as c (c.id)}
-          <li class="card-flat px-4 py-3 text-xs">
-            <p class="text-ink-400">{c.table} · {ago(c.createdAt)}</p>
-            <pre class="mt-1 overflow-x-auto text-ink-200">{c.overwrittenJson}</pre>
-          </li>
-        {/each}
-      </ul>
-      <button
-        class="press tap mt-2 rounded-xl px-4 text-sm text-ink-400"
-        onclick={() => db.conflicts.clear()}>Clear</button
-      >
-    </section>
-  {/if}
-
   <!--
     WHAT LANGUAGE DICTATION LISTENS FOR. Only shown where the browser can
     dictate live at all; on the devices that fall back to recording, Gemini
@@ -460,4 +434,38 @@
       <span class="text-ink-400">›</span>
     </a>
   </section>
+
+  <!--
+    LAST ON THE PAGE, and it is here rather than halfway up because of WHEN it
+    appears. It renders only when sync has actually overwritten something, so
+    wherever it sits it arrives unannounced and pushes everything below it
+    down — and it used to sit above Dictation, Gemini and Data, which are the
+    controls you came to Settings for. Rare, diagnostic and read once; the
+    everyday controls keep their places.
+  -->
+  {#if (($conflictsQ as ConflictLog[] | undefined) ?? []).length}
+    <section class="mb-8">
+      <h2 class="section-label mb-2">
+        Overwritten edits
+      </h2>
+      <!-- Cheap insurance, quiet by default (spec 8.3). Only appears when there
+           is genuinely something here. -->
+      <p class="footnote mb-2">
+        Two devices changed the same thing at nearly the same moment. The newer edit won;
+        the older one is kept here in case it mattered.
+      </p>
+      <ul class="space-y-1">
+        {#each ($conflictsQ as ConflictLog[]) as c (c.id)}
+          <li class="card-flat px-4 py-3 text-xs">
+            <p class="text-ink-400">{c.table} · {ago(c.createdAt)}</p>
+            <pre class="mt-1 overflow-x-auto text-ink-200">{c.overwrittenJson}</pre>
+          </li>
+        {/each}
+      </ul>
+      <button
+        class="press tap mt-2 rounded-xl px-4 text-sm text-ink-400"
+        onclick={() => db.conflicts.clear()}>Clear</button
+      >
+    </section>
+  {/if}
 </div>
