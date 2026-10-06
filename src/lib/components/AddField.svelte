@@ -93,6 +93,22 @@
     </div>
 
     {#if extra}{@render extra(text)}{/if}
+
+    <!--
+      THE SAME ADD, AT THE OTHER END. Reported once the panel had grown to
+      eight controls: *"I'm filling out all the things in the add form and
+      scrolling down to do so, but then have to scroll up again to actually
+      add it."* The button at the top is right where the eye is when you have
+      only typed a title — which is most of the time — and off-screen by the
+      time you have finished with the pickers.
+      It is a second `submit` in the same form rather than a second handler,
+      so the two cannot do different things, and it is only there while the
+      panel is: with an empty field the top button already says "Done" and a
+      second one underneath would be a button for nothing.
+    -->
+    {#if extra && text.trim()}
+      <button class="btn btn-primary press mt-2 w-full">Add</button>
+    {/if}
   </form>
 {:else}
   <!--

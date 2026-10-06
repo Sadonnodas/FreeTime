@@ -40,6 +40,7 @@
   import AfterPicker from '$lib/components/AfterPicker.svelte';
   import WhenPicker from '$lib/components/WhenPicker.svelte';
   import ByPicker from '$lib/components/ByPicker.svelte';
+  import Controls from '$lib/components/Controls.svelte';
   import RepeatPicker from '$lib/components/RepeatPicker.svelte';
   import NoteEditor from '$lib/components/NoteEditor.svelte';
   import ProjectTagEditor from '$lib/components/ProjectTagEditor.svelte';
@@ -219,6 +220,19 @@
   /** The weekdays it comes round on. Kept between adds like the sizes: three
    *  weekly chores in a row should not mean picking Thursday three times. */
   let newRepeat = $state<number[] | undefined>(undefined);
+
+  /** What is set behind the "More" fold, named on its closed header — see
+   *  Brain's form for why that line is the load-bearing part. */
+  const moreSummary = $derived(
+    [
+      newBy ? byLabel(newBy) : null,
+      repeatLabel(newRepeat),
+      newAfter ? `after ${todosQ.find((t) => t.id === newAfter)?.title ?? 'something'}` : null,
+      newImage ? 'photo' : null
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  );
 
   function choose(kind: AddKind) {
     sheet = false;
@@ -479,27 +493,16 @@
                  afterwards. Free Time can only rule a job out of a short window
                  if the job says how long it is. -->
             <div class="card mt-2 space-y-3 p-3">
+              <!-- The day, then the two sizes. The four under "More" are the
+                   ones least often the reason a to-do is being written, and
+                   they fold — the same arrangement as Brain's form, so the two
+                   cannot read differently. -->
               <!-- A DATE, not today's three. The chips are WhenPicker's, so an
                    empty day cannot draw as the blank grey bar an
                    <input type="date"> is on iOS. -->
               <div>
                 <p class="section-label mb-2">When</p>
                 <WhenPicker value={newDate} onpick={(d) => (newDate = d)} />
-              </div>
-              <!-- The day it has to be done BEFORE, which is not the day above
-                   and can be set with it: one is your plan, the other is
-                   somebody else's rule. Cleared after each add. -->
-              <div>
-                <p class="section-label mb-2">Needs doing before</p>
-                <ByPicker value={newBy} onpick={(by) => (newBy = by)} />
-              </div>
-              <!-- Days it comes round on, for a chore like the bins. It was
-                   missed here when recurring to-dos shipped: the row editor
-                   below got it and this form did not, which is the third time
-                   this exact gap has been found. -->
-              <div>
-                <p class="section-label mb-2">Repeats</p>
-                <RepeatPicker value={newRepeat} onpick={(days) => (newRepeat = days)} />
               </div>
               <div>
                 <p class="section-label mb-2">How long will it take?</p>
@@ -514,29 +517,52 @@
                   hint={false}
                 />
               </div>
-              <!-- Against this project's own to-dos, which is the list a link
-                   is meaningful in. -->
-              <div>
-                <p class="section-label mb-2">Comes after</p>
-                <AfterPicker
-                  value={newAfter}
-                  options={possibleBlockers({ id: '' }, todosQ)}
-                  onpick={(after) => (newAfter = after)}
-                />
-              </div>
-              <!-- The photo, while writing it — not add, reopen, then add. -->
-              <div>
-                <p class="section-label mb-2">Photo</p>
-                <PhotoPicker
-                  image={newImage}
-                  onpick={(image) => (newImage = image)}
-                  onremove={() => (newImage = undefined)}
-                />
-                {#if newImage}
-                  <!-- Which photo, before the to-do exists to show it on. -->
-                  <img src={newImage} alt="" class="mt-2 h-20 rounded-lg object-cover" />
-                {/if}
-              </div>
+
+              <!-- Folded, with whatever is set named on the header: `newRepeat`
+                   survives an add, so a hidden one would quietly repeat the
+                   next four to-dos written here. See Brain's form. -->
+              <Controls label="More" summary={moreSummary}>
+                <div class="space-y-3">
+                  <!-- The day it has to be done BEFORE, which is not the day
+                       above and can be set with it: one is your plan, the other
+                       is somebody else's rule. Cleared after each add. -->
+                  <div>
+                    <p class="section-label mb-2">Needs doing before</p>
+                    <ByPicker value={newBy} onpick={(by) => (newBy = by)} />
+                  </div>
+                  <!-- Days it comes round on, for a chore like the bins. It was
+                       missed here when recurring to-dos shipped: the row editor
+                       below got it and this form did not, which is the third
+                       time this exact gap has been found. -->
+                  <div>
+                    <p class="section-label mb-2">Repeats</p>
+                    <RepeatPicker value={newRepeat} onpick={(days) => (newRepeat = days)} />
+                  </div>
+                  <!-- Against this project's own to-dos, which is the list a
+                       link is meaningful in. -->
+                  <div>
+                    <p class="section-label mb-2">Comes after</p>
+                    <AfterPicker
+                      value={newAfter}
+                      options={possibleBlockers({ id: '' }, todosQ)}
+                      onpick={(after) => (newAfter = after)}
+                    />
+                  </div>
+                  <!-- The photo, while writing it — not add, reopen, then add. -->
+                  <div>
+                    <p class="section-label mb-2">Photo</p>
+                    <PhotoPicker
+                      image={newImage}
+                      onpick={(image) => (newImage = image)}
+                      onremove={() => (newImage = undefined)}
+                    />
+                    {#if newImage}
+                      <!-- Which photo, before the to-do exists to show it on. -->
+                      <img src={newImage} alt="" class="mt-2 h-20 rounded-lg object-cover" />
+                    {/if}
+                  </div>
+                </div>
+              </Controls>
             </div>
           {/if}
         {/snippet}

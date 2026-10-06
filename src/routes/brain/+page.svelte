@@ -441,6 +441,25 @@
    */
   let newImage = $state<string | undefined>(undefined);
 
+  /**
+   * What is set behind the "More" fold, named on its closed header.
+   *
+   * This is the load-bearing half of folding those four away. `newRepeat`
+   * survives an add on purpose, so without it a repeat set for the bins would
+   * ride along on the next four to-dos with nothing on screen saying so —
+   * exactly the trap Controls.svelte was written about.
+   */
+  const moreSummary = $derived(
+    [
+      newBy ? byLabel(newBy, todayIso) : null,
+      repeatLabel(newRepeat),
+      newAfter ? `after ${allTodos.find((t) => t.id === newAfter)?.title ?? 'something'}` : null,
+      newImage ? 'photo' : null
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  );
+
   async function addTodo(title: string) {
     await createTodo(title, {
       projectId: newEra || undefined,
@@ -621,6 +640,19 @@
         <!-- Shown only once there is something to file, so the fast path is
              still type-and-Enter and none of this is in the way of it. -->
         <div class="card mt-2 space-y-3 p-3">
+          <!-- WHAT THE FORM ASKS FIRST is what actually gets answered: the
+               day, the two sizes, and where it belongs. The four below are
+               real fields and rarely the reason a to-do is being written, so
+               they fold. -->
+          {#if day}
+            <p class="footnote">Lands on {dayPhrase(day, todayIso)}.</p>
+          {:else}
+            <div>
+              <p class="section-label mb-2">When</p>
+              <WhenPicker value={newDate || undefined} onpick={(d) => (newDate = d ?? '')} />
+            </div>
+          {/if}
+
           <div>
             <p class="section-label mb-2">How long will it take?</p>
             <DurationPicker value={newTakes} onpick={(v) => (newTakes = v)} unset={false} />
@@ -666,59 +698,65 @@
             </label>
           </div>
 
-          <div>
-            <p class="section-label mb-2">Repeats</p>
-            <RepeatPicker value={newRepeat} onpick={(days) => (newRepeat = days)} />
-          </div>
+          <!--
+            THE FOUR LEAST-ASKED FIELDS, folded. Asked for with the second Add
+            button: *"maybe we can also hide some stuff like repeats, comes
+            after, add photo, needs doing before… those are the ones I use the
+            least."*
+            It is the component Brain's own filters use, taken for its SUMMARY
+            rather than for its fold: whatever is set inside is named on the
+            closed header, in the accent. Without that, `newRepeat` — which
+            deliberately survives an add — could put the bins on the next four
+            things you wrote with nothing on screen to say so.
+          -->
+          <Controls label="More" summary={moreSummary}>
+            <div class="space-y-3">
+              <!-- A deadline, which is a different question from the day above
+                   and can be set alongside it: the day is your plan, this is
+                   somebody else's. Offered even on a day list, where "When" is
+                   already answered. -->
+              <div>
+                <p class="section-label mb-2">Needs doing before</p>
+                <ByPicker value={newBy} onpick={(by) => (newBy = by)} />
+              </div>
 
-          <!-- Offered against the siblings of whatever era and project are
-               chosen ABOVE, so picking a project first narrows this to that
-               project's to-dos — which is the only list where a link means
-               anything (see order.ts). -->
-          <div>
-            <p class="section-label mb-2">Comes after</p>
-            <AfterPicker
-              value={newAfter}
-              options={possibleBlockers(
-                { id: '' },
-                allTodos.filter(
-                  (t) => t.projectId === (newEra || undefined) && t.tag === (newTag || undefined)
-                )
-              )}
-              onpick={(after) => (newAfter = after)}
-            />
-          </div>
+              <div>
+                <p class="section-label mb-2">Repeats</p>
+                <RepeatPicker value={newRepeat} onpick={(days) => (newRepeat = days)} />
+              </div>
 
-          <div>
-            <p class="section-label mb-2">Photo</p>
-            <PhotoPicker
-              image={newImage}
-              onpick={(image) => (newImage = image)}
-              onremove={() => (newImage = undefined)}
-            />
-            {#if newImage}
-              <!-- Which photo, before the to-do exists to show it on. -->
-              <img src={newImage} alt="" class="mt-2 h-20 rounded-lg object-cover" />
-            {/if}
-          </div>
+              <!-- Offered against the siblings of whatever era and project are
+                   chosen ABOVE, so picking a project first narrows this to that
+                   project's to-dos — which is the only list where a link means
+                   anything (see order.ts). -->
+              <div>
+                <p class="section-label mb-2">Comes after</p>
+                <AfterPicker
+                  value={newAfter}
+                  options={possibleBlockers(
+                    { id: '' },
+                    allTodos.filter(
+                      (t) => t.projectId === (newEra || undefined) && t.tag === (newTag || undefined)
+                    )
+                  )}
+                  onpick={(after) => (newAfter = after)}
+                />
+              </div>
 
-          {#if day}
-            <p class="footnote">Lands on {dayPhrase(day, todayIso)}.</p>
-          {:else}
-            <div>
-              <p class="section-label mb-2">When</p>
-              <WhenPicker value={newDate || undefined} onpick={(d) => (newDate = d ?? '')} />
+              <div>
+                <p class="section-label mb-2">Photo</p>
+                <PhotoPicker
+                  image={newImage}
+                  onpick={(image) => (newImage = image)}
+                  onremove={() => (newImage = undefined)}
+                />
+                {#if newImage}
+                  <!-- Which photo, before the to-do exists to show it on. -->
+                  <img src={newImage} alt="" class="mt-2 h-20 rounded-lg object-cover" />
+                {/if}
+              </div>
             </div>
-          {/if}
-
-          <!-- A deadline, which is a different question from the day above and
-               can be set alongside it: the day is your plan, this is somebody
-               else's. Offered even on a day list, where "When" is already
-               answered. -->
-          <div>
-            <p class="section-label mb-2">Needs doing before</p>
-            <ByPicker value={newBy} onpick={(by) => (newBy = by)} />
-          </div>
+          </Controls>
         </div>
         {/if}
       {/snippet}

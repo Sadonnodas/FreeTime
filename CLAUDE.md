@@ -2795,6 +2795,29 @@ device; there is nothing to build. Memos are the exception, below.
   Still on the older always-open bar: Brain → Ideas, Brain → Buy, and the
   project screen's To buy section. Swapping them over is passing `AddField` the
   same three props; it was left alone because only to-dos were asked for.
+  **AND IT ADDS FROM BOTH ENDS NOW, with the rarely-used half folded.** The
+  panel had grown to eight controls, and that is a different complaint from
+  the one above: *"I'm filling out all the things in the add form and scrolling
+  down to do so, but then have to scroll up again to actually add it."*
+  The foot button is a second `submit` IN THE SAME FORM, never a second
+  handler, so the two cannot come to mean different things, and it exists only
+  while the panel does — with an empty field the top button already says
+  "Done" and one underneath would be a button for nothing.
+  **Four fields fold: Needs doing before, Repeats, Comes after, Photo** —
+  Toon's own list of the ones he uses least. What is left (When, the two sizes,
+  and era/project in Brain) fits a phone screen without scrolling, which is
+  most of the fix.
+  **It is `Controls`, taken for its SUMMARY rather than for its fold.**
+  `newRepeat` deliberately survives an add — three weekly chores should not
+  mean picking Thursday three times — so a hidden repeat could have ridden
+  along on the next four to-dos with nothing on screen saying so. The closed
+  header names whatever is set inside, in the accent ("More · Every Thursday"),
+  which is the exact failure that component's own comment was written about.
+  **`type="button"` on its header**, for the trap already recorded below: a
+  bare `<button>` inside a `<form>` submits it, so reaching for the fold would
+  have written the to-do. Controls had never been inside a form before.
+  Both add forms were changed together and in the same order, since two forms
+  for one thing drifting apart is this file's most repeated bug.
 
 - **Everything written in one field can be renamed afterwards**
   ([RenameField.svelte](src/lib/components/RenameField.svelte)). Reported

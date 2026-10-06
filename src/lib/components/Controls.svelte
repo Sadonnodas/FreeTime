@@ -38,7 +38,11 @@
 
 <div class="mb-3">
   <div class="flex items-center gap-2">
+  <!-- `type="button"` is load-bearing: this folds the extra fields INSIDE the
+       add form too, and a bare <button> in a form submits it — which would
+       write the to-do the moment you reached for the controls. -->
   <button
+    type="button"
     class="press tap-h flex min-w-0 flex-1 items-center gap-2 text-left"
     onclick={() => (open = !open)}
     aria-expanded={open}
