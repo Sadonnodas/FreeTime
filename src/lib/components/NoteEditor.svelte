@@ -1,20 +1,24 @@
 <script lang="ts">
   import { renderMarkdown } from '$lib/markdown';
-  import { continueListIn } from '$lib/textLists';
-  import { markKey } from '$lib/textMarks';
+  import RichNote from './RichNote.svelte';
 
   /**
-   * A note, written as Markdown and read as formatted text.
+   * A note: stored as Markdown, read as formatted text, and now WRITTEN as
+   * formatted text too.
    *
-   * TWO MODES RATHER THAN ONE RICH EDITOR. A contenteditable box that formats
-   * as you type is the obvious thing to reach for and the wrong one here: what
-   * is stored has to stay plain text, because it syncs as JSON, is written by
-   * the importer and the assistant, and has to survive being merged. Markdown
-   * keeps the file honest and the toolbar hides the syntax from anyone who does
-   * not want to learn it.
+   * THE OLD NOTE HERE SAID "two modes rather than one rich editor", and half
+   * of that reasoning still stands while the other half has been overtaken.
+   * What is STORED still has to be plain Markdown — it syncs as JSON, the
+   * importer and the assistant both write it, and it has to survive a merge —
+   * and it still is: the editor renders that Markdown on the way in and
+   * writes it back on the way out, and the HTML never reaches the database.
+   * What was wrong was the conclusion that the BOX had to show the syntax.
+   * It did not, and the proof is that quick notes do not.
    *
-   * READ IS THE DEFAULT, which is the whole reason this exists: a pasted link
-   * was not clickable, so following it meant selecting and copying it out.
+   * READ IS STILL THE DEFAULT, and Edit is still a toggle, which now matters
+   * for a subtler reason than it used to: reading follows a link, linkifies a
+   * bare URL and renders a code span, and none of those may happen to text
+   * somebody is in the middle of writing.
    */
   let {
     value,
@@ -27,86 +31,46 @@
   } = $props();
 
   let editing = $state(false);
-  let box = $state<HTMLTextAreaElement | null>(null);
+  let box = $state<ReturnType<typeof RichNote> | null>(null);
+  /** The URL being typed, while the link row is open. */
+  let linking = $state<string | null>(null);
 
   const html = $derived(renderMarkdown(value));
 
   /**
-   * Wrap or prefix the selection.
+   * THE SAME EDITOR QUICK NOTES USE, for the same reason they got it: the
+   * toolbar made `**bold**` and you read asterisks until you pressed Done.
+   * Asked for straight after that one landed — *"WYSIWYG"* being the word for
+   * a box whose text already looks like the finished thing.
    *
-   * `prefix` alone marks whole lines (a bullet, a heading, an indent); with
-   * `suffix` it wraps the selection (bold, a link). Either way the cursor is
-   * put back where a person would expect to carry on typing, because a
-   * formatting button that loses your place is worse than typing the asterisks.
-   */
-  function apply(prefix: string, suffix = '', lineWise = false) {
-    const el = box;
-    if (!el) return;
-    const { selectionStart: start, selectionEnd: end } = el;
-    const before = value.slice(0, start);
-    const selected = value.slice(start, end);
-    const after = value.slice(end);
-
-    if (lineWise) {
-      const from = before.lastIndexOf('\n') + 1;
-      const head = value.slice(0, from);
-      const body = value.slice(from, end) || '';
-      const marked = body
-        .split('\n')
-        .map((line) => (line.startsWith(prefix) ? line.slice(prefix.length) : prefix + line))
-        .join('\n');
-      onchange(head + marked + after);
-      queueMicrotask(() => el.focus());
-      return;
-    }
-
-    onchange(before + prefix + selected + suffix + after);
-    queueMicrotask(() => {
-      el.focus();
-      const caret = start + prefix.length + selected.length;
-      el.setSelectionRange(caret, caret);
-    });
-  }
-
-  /**
-   * A LIST CARRIES ITSELF ON. Reported plainly: *"when adding a bullet point,
-   * pressing enter should add another one automatically. Right now you have to
-   * add every bullet point manually."*
+   * **Read is still the default and Edit is still a toggle.** Editing in place
+   * now looks much like reading, and the two are not the same: the read view
+   * follows a link, linkifies a bare URL and renders a code span, none of
+   * which an editor may do to text somebody is in the middle of writing.
    *
-   * The • and 1. buttons above made the first item and then stood there while
-   * every following one was typed by hand — and quick notes have done this
-   * properly since the day lists were built, which is what makes it a gap
-   * rather than a missing feature. Same helper, so the two cannot drift.
-   *
-   * Enter on an empty item ends the list, the way the phone's Notes app does.
+   * What the editor cannot write back it leaves exactly as it found it (see
+   * richText.ts), which is what makes it safe to point at notes that hold
+   * lyrics.
    */
-  /**
-   * Cmd/Ctrl+B, I and U, which the toolbar above has always done by hand.
-   * Nobody reaches for a toolbar to make a word bold, and a textarea does
-   * nothing with those keys on its own — reported from a laptop.
-   */
-  function keys(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
-    const next = markKey(e, e.currentTarget);
-    if (next !== null) onchange(next);
-  }
-
-  function typed(e: Event & { currentTarget: HTMLTextAreaElement }) {
-    const ie = e as unknown as InputEvent;
-    onchange(continueListIn(e.currentTarget, ie.inputType) ?? e.currentTarget.value);
-  }
-
   const TOOLS: { label: string; title: string; run: () => void }[] = [
-    { label: 'H', title: 'Heading', run: () => apply('## ', '', true) },
-    { label: 'B', title: 'Bold', run: () => apply('**', '**') },
-    { label: 'I', title: 'Italic', run: () => apply('*', '*') },
-    // Underline is this app's own `__text__` — markdown has none. textMarks.ts.
-    { label: 'U', title: 'Underline', run: () => apply('__', '__') },
-    { label: '•', title: 'Bullet', run: () => apply('- ', '', true) },
-    { label: '1.', title: 'Numbered', run: () => apply('1. ', '', true) },
-    { label: '→', title: 'Indent', run: () => apply('  ', '', true) },
-    { label: '🔗', title: 'Link', run: () => apply('[', '](https://)') },
-    { label: '—', title: 'Divider', run: () => apply('\n---\n') }
+    { label: 'H', title: 'Heading', run: () => box?.block('h3') },
+    { label: 'B', title: 'Bold', run: () => box?.command('bold') },
+    { label: 'I', title: 'Italic', run: () => box?.command('italic') },
+    // Underline is this app's own `__text__` — markdown has none; markdown.ts.
+    { label: 'U', title: 'Underline', run: () => box?.command('underline') },
+    { label: '•', title: 'Bullet', run: () => box?.command('insertUnorderedList') },
+    { label: '1.', title: 'Numbered', run: () => box?.command('insertOrderedList') },
+    { label: '☐', title: 'Checklist', run: () => box?.checkList() },
+    { label: '❝', title: 'Quote', run: () => box?.block('blockquote') },
+    { label: '🔗', title: 'Link', run: () => (linking = 'https://') },
+    { label: '—', title: 'Divider', run: () => box?.divider() }
   ];
+
+  function addLink() {
+    const url = (linking ?? '').trim();
+    linking = null;
+    if (url && url !== 'https://') box?.link(url);
+  }
 </script>
 
 <div class="mb-2 flex items-center gap-1">
@@ -137,14 +101,31 @@
 </div>
 
 {#if editing}
-  <textarea
+  {#if linking !== null}
+    <!-- A link needs somewhere to point, and a WYSIWYG box has nowhere to
+         type that. One row, only while it is being asked for. -->
+    <div class="mb-2 flex gap-2">
+      <input
+        type="text"
+        bind:value={linking}
+        placeholder="https://…"
+        aria-label="Link address"
+        class="field min-w-0 flex-1"
+        onkeydown={(e) => {
+          if (e.key === 'Enter') addLink();
+          if (e.key === 'Escape') linking = null;
+        }}
+      />
+      <button type="button" class="btn btn-secondary press" onclick={addLink}>Link</button>
+    </div>
+  {/if}
+  <RichNote
     bind:this={box}
     {value}
-    oninput={typed}
-    onkeydown={keys}
+    oninput={onchange}
     {placeholder}
-    class="field min-h-[40vh] w-full py-4 font-mono leading-relaxed"
-  ></textarea>
+    class="note-body min-h-[40vh] w-full rounded-xl bg-surface-1 px-4 py-4"
+  />
 {:else if value.trim()}
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   <div class="note-body">{@html html}</div>

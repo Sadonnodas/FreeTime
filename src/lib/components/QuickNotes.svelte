@@ -13,9 +13,9 @@
   import ProjectSelect from './ProjectSelect.svelte';
   import { totalOf, formatNumber } from '$lib/calc';
   import { stripMarker } from '$lib/textLists';
-  import { type Mark } from '$lib/textMarks';
   import { renderMarks } from '$lib/markdown';
   import RichNote from './RichNote.svelte';
+  import { type Mark } from '$lib/richText';
   import ShareText from './ShareText.svelte';
 
   /**
@@ -270,7 +270,7 @@
   /**
    * Bold, italic and underline — the same Markdown the project notes use, and
    * the same toggle the keyboard shortcut applies, so a button and Cmd+B
-   * cannot come to mean different things. See textMarks.ts.
+   * cannot come to mean different things.
    */
   /** Cmd/Ctrl+B, I and U need no handler here: a contenteditable applies them
    *  itself and reports the change as an ordinary input. */

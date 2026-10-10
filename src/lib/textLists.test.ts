@@ -76,20 +76,22 @@ const read = (file: string) => {
 };
 
 describe('prose boxes all continue a list', () => {
+  it('the note widget does, in its textarea', () => {
+    // The last plain textarea anybody writes prose into, and the only caller
+    // this helper has left.
+    expect(read('WidgetBoard.svelte')).toContain('continueListIn');
+  });
+
   for (const [file, what] of [
-    ['NoteEditor.svelte', 'a project or era note'],
-    ['WidgetBoard.svelte', 'a note widget']
+    ['QuickNotes.svelte', 'a quick note'],
+    ['NoteEditor.svelte', 'a project or era note']
   ] as const) {
-    it(`${what} does, in its textarea`, () => {
-      expect(read(file)).toContain('continueListIn');
+    it(`${what} does, by holding a real list`, () => {
+      // These stopped needing the helper when they stopped being textareas: a
+      // contenteditable makes <ul>/<li> and the browser continues, ends and
+      // nests those itself. The guard stays, pointed at what now owns the
+      // behaviour — dropping it would leave the capability unwatched.
+      expect(read(file)).toContain('RichNote');
     });
   }
-
-  it('a quick note does, by being a real list', () => {
-    // Quick notes stopped needing this when they stopped being a textarea: a
-    // contenteditable makes <ul>/<li>, and the browser continues, ends and
-    // nests those itself. The guard stays, pointed at the thing that now owns
-    // the behaviour — deleting it would be the capability going unwatched.
-    expect(read('QuickNotes.svelte')).toContain('RichNote');
-  });
 });

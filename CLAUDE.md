@@ -963,8 +963,13 @@ one came close to a hard rule, the reasoning is recorded here.
   If a priority scale is ever asked for again, this is the argument to make first.
 - **Notes render, and a pasted link is clickable** ([markdown.ts](src/lib/markdown.ts),
   [NoteEditor.svelte](src/lib/components/NoteEditor.svelte)). Reading is the
-  default and Edit is a toggle; the toolbar inserts the syntax so nobody has to
-  know it is Markdown. **Stored text stays plain Markdown** — it syncs as JSON, the
+  default and Edit is a toggle. **Edit is the rich editor now too** — see
+  *A quick note is typed INTO formatted text* below, which this followed a day
+  later for the same reason and with the same machinery; what is stored is
+  still Markdown, and the round trip was checked against a note holding a
+  heading, nested bullets, a quote, a rule, a bare URL, a written link, a code
+  span and `2 * 3 * 4`, which came back byte for byte apart from the character
+  that was typed. **Stored text stays plain Markdown** — it syncs as JSON, the
   importer and the assistant both write it, and it has to survive a merge, so a
   contenteditable rich editor was the wrong shape however much easier it looks.
   **No markdown library**: tens of kilobytes on every page load for headings,
@@ -2580,6 +2585,42 @@ device; there is nothing to build. Memos are the exception, below.
   querySelectorAll puts both right, and a fresh item always starts unticked —
   pressing Enter after something you have done is you writing the next thing,
   not having done it already.
+
+- **And the PROJECT notes use the same editor** (`renderEditable`, headings /
+  quotes / rules / links in richText.ts). Asked for in the same breath as the
+  phone and the checklists, and it is the same complaint one screen along: the
+  toolbar made `**bold**` and you read asterisks until you pressed Done.
+  **The old note at the top of NoteEditor.svelte said a contenteditable was
+  the wrong shape here. Half of that reasoning still stands**: what is STORED
+  has to be Markdown, because it syncs as JSON, the importer and the assistant
+  write it, and it has to survive a merge. The part that was wrong was the
+  conclusion that the BOX therefore had to show the syntax.
+  **Read stays the default and Edit stays a toggle**, for a subtler reason
+  than before: the read view follows a link, linkifies a bare URL and renders
+  a code span, and none of those may happen to text somebody is in the middle
+  of writing.
+  **Which is exactly why the editor has its own inline renderer**
+  (`renderEditable`): `inline()` turns "see https://x.com" into a link, which
+  is right for reading and a rewrite here — the note would come back saying
+  `[https://x.com](https://x.com)` purely because it had been opened. Only an
+  explicit `[text](url)` becomes a link in the editor.
+  **Headings are off by one on purpose and symmetrically.** `#` renders as an
+  h2 because h1 is the page's own title; the editor reads h2 back as `#`. If
+  those two ever disagree, opening a note adds a hash to every heading in it.
+  **Two nesting bugs, both caught in the browser against a real note:** an
+  indented bullet came back flat (the note un-indented by having been opened),
+  and then the fix exposed worse — `toMarkdown` only looked for a nested list
+  INSIDE its item, the shape a browser makes, while `toEditorHtml` and
+  renderMarkdown both write it BESIDE the items, so every nested item was
+  being dropped rather than flattened. Both shapes are read now.
+  **A link needs a URL and a WYSIWYG box has nowhere to type one**, so the 🔗
+  button opens a one-row field while it is being asked for, and nothing else.
+  **The mark helpers were retired with this** (`textMarks.ts` is gone):
+  `toggleMark` and `markKey` wrapped Markdown round a textarea selection, and
+  with both prose boxes editors there was no textarea left to wrap. The type
+  they exported moved to richText.ts and the underline reasoning moved into
+  markdown.ts beside the rule that implements it. **Their source guards did
+  not go** — they moved, and now assert that both boxes hold the editor.
 
 - **"Safari couldn't open the page because the server stopped responding" was
   the PHONE, not the deploy.** Reported straight after an update, which is the

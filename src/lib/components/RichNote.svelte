@@ -230,6 +230,42 @@
     emit();
   }
 
+  /** A whole-line shape: a heading, a quote, or back to a plain line. */
+  export function block(tag: 'h2' | 'h3' | 'blockquote' | 'p') {
+    el?.focus();
+    document.execCommand('formatBlock', false, tag);
+    emit();
+  }
+
+  export function divider() {
+    el?.focus();
+    document.execCommand('insertHorizontalRule');
+    emit();
+  }
+
+  /**
+   * The selected words, made a link.
+   *
+   * `createLink` needs something selected — a link with no text is a link to
+   * nothing — so with a bare caret the URL itself is written in first and then
+   * linked, which is what a pasted address should look like anyway.
+   */
+  export function link(url: string) {
+    el?.focus();
+    const sel = getSelection();
+    if (sel?.isCollapsed) insert(url);
+    const range = sel?.rangeCount ? sel.getRangeAt(0) : null;
+    if (range?.collapsed) {
+      // Select what was just written, so there is something to link.
+      const node = range.startContainer;
+      range.setStart(node, Math.max(0, range.startOffset - url.length));
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+    document.execCommand('createLink', false, url);
+    emit();
+  }
+
   export function focus() {
     caretToEnd();
   }

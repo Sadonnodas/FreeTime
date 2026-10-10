@@ -56,10 +56,13 @@ const link = (href: string, text: string) =>
 /**
  * The emphasis marks, on already-escaped text.
  *
- * `__underline__` is the app's own and is the one place this renderer parts
- * company with CommonMark, which reads it as bold. Underline was asked for by
- * name and Markdown has no spelling for it; `**` still means bold, so nothing
- * written before this changes meaning. See textMarks.ts.
+ * **`__underline__` IS THE APP'S OWN, and the one place this renderer parts
+ * company with CommonMark**, which reads it as bold — the same as `**`.
+ * Underline was asked for by name (*"I want to be able to underline, make
+ * bold or use italics"*) and Markdown has no spelling for it, while `**`
+ * still means bold, so nothing written before it changed meaning. The cost,
+ * worth knowing: a note pasted into another Markdown tool shows an underline
+ * as bold.
  *
  * It runs before the asterisk rules for no reason other than reading order —
  * underscores and asterisks cannot collide.
@@ -77,6 +80,25 @@ function emphasis(text: string): string {
     .replace(/\*\*(\S[^*]*?\S|\S)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*(\S[^*\n]*?\S|\S)\*/g, '$1<em>$2</em>')
     .replace(/~~(\S[^~]*?\S|\S)~~/g, '<del>$1</del>');
+}
+
+/**
+ * What an EDITOR shows for one line: the marks, plus links that were written
+ * as links.
+ *
+ * Bare URLs are deliberately left alone, unlike the read view. `inline()`
+ * turns "see https://x.com" into a link, which is right for reading and
+ * disastrous for editing — the editor would write it back as
+ * `[https://x.com](https://x.com)` and the note would have been rewritten by
+ * being opened. Only `[text](url)`, which was already a link, becomes one.
+ */
+export function renderEditable(source: string): string {
+  const escaped = escapeHtml(source ?? '');
+  const linked = escaped.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (whole, text: string, url: string) => {
+    const href = safeHref(url);
+    return href ? link(href, text) : whole;
+  });
+  return emphasis(linked);
 }
 
 /**

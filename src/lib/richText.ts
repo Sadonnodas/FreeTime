@@ -1,4 +1,4 @@
-import { renderMarks } from './markdown';
+import { renderMarks, renderEditable } from './markdown';
 
 /**
  * The computer's rich editor for quick notes: what you see is bold, not
@@ -34,6 +34,10 @@ import { renderMarks } from './markdown';
  * that can quietly mangle a note is exactly the code that has to be tested
  * rather than eyeballed in a browser.
  */
+/** The three marks a note can carry. The syntax each one writes is in
+ *  markdown.ts, which is also where underline's deviation is explained. */
+export type Mark = 'bold' | 'italic' | 'underline';
+
 export interface Nodeish {
   nodeType: number;
   nodeName: string;
@@ -50,7 +54,7 @@ const kids = (n: Nodeish): Nodeish[] => Array.from(n.childNodes ?? []);
 const name = (n: Nodeish): string => (n.nodeType === ELEMENT ? n.nodeName.toUpperCase() : '');
 
 /** Things that start their own line. */
-const BLOCK = new Set(['DIV', 'P', 'LI', 'UL', 'OL', 'BLOCKQUOTE', 'PRE', 'H1', 'H2', 'H3', 'H4']);
+const BLOCK = new Set(['DIV', 'P', 'LI', 'UL', 'OL', 'BLOCKQUOTE', 'PRE', 'HR', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
 
 const MARK_FOR: Record<string, string> = {
   B: '**',
@@ -84,9 +88,24 @@ function inlineOf(node: Nodeish): string {
   const tag = name(node);
   if (tag === 'BR') return '\n';
   const inner = kids(node).map(inlineOf).join('');
+  if (tag === 'A') {
+    const href = node.getAttribute?.('href');
+    // A link with nothing to point at is just its words.
+    return href ? `[${inner}](${href})` : inner;
+  }
   const mark = MARK_FOR[tag];
   return mark ? wrap(mark, inner) : inner;
 }
+
+/**
+ * The hashes a heading is written with.
+ *
+ * `#` is an h2 and `##` an h3, which looks off by one and is not: h1 is the
+ * page's own title, so renderMarkdown has always shifted notes down a level.
+ * Matching it here is what makes a heading survive being edited — the other
+ * way round, opening a note would quietly add a hash to every heading in it.
+ */
+const HEADING = /^H([1-6])$/;
 
 /** The lines of a block, dropping the trailing `<br>` a browser leaves behind
  *  to mark "this line ends here" — without that, every paragraph would gain a
@@ -96,10 +115,26 @@ function linesOf(node: Nodeish): string[] {
   return text.split('\n');
 }
 
+/**
+ * A list, as lines of Markdown.
+ *
+ * TWO SHAPES OF NESTING, and both have to work. A browser puts a nested list
+ * INSIDE the item it hangs under, which is the correct HTML; `toEditorHtml`
+ * and renderMarkdown both emit it as a SIBLING of the items, which browsers
+ * render identically. Reading only the first shape silently dropped every
+ * nested item — not flattened, gone — which is far worse than the indentation
+ * bug that led here.
+ */
 function listLines(list: Nodeish, ordered: boolean, indent: string, out: string[]): void {
   let n = 1;
   for (const li of kids(list)) {
-    if (name(li) !== 'LI') continue;
+    const tag = name(li);
+    if (tag === 'UL' || tag === 'OL') {
+      // A nested list standing beside the items rather than inside one.
+      listLines(li, tag === 'OL', `${indent}  `, out);
+      continue;
+    }
+    if (tag !== 'LI') continue;
     // The item's own text, which is everything in it that is not a nested list.
     const own = kids(li)
       .filter((c) => name(c) !== 'UL' && name(c) !== 'OL')
@@ -139,6 +174,16 @@ export function toMarkdown(root: Nodeish): string {
       if (tag === 'UL' || tag === 'OL') {
         if (current) flush();
         listLines(child, tag === 'OL', '', out);
+      } else if (tag === 'HR') {
+        if (current) flush();
+        out.push('---');
+      } else if (HEADING.test(tag)) {
+        if (current) flush();
+        const level = Number(HEADING.exec(tag)![1]);
+        out.push(`${'#'.repeat(Math.max(1, level - 1))} ${inlineOf(child).replace(/\n$/, '')}`);
+      } else if (tag === 'BLOCKQUOTE') {
+        if (current) flush();
+        for (const line of linesOf(child)) out.push(`> ${line}`);
       } else if (BLOCK.has(tag)) {
         if (current) flush();
         // A wrapper around other blocks is not a line of its own: go in.
@@ -178,32 +223,59 @@ const boxHtml = '<span class="box" contenteditable="false"></span>';
  */
 export function toEditorHtml(markdown: string): string {
   const out: string[] = [];
-  let open: 'ul' | 'ol' | null = null;
-  const closeList = () => {
-    if (open) out.push(`</${open}>`);
-    open = null;
+  /** The lists currently open, outermost first. Indentation is what makes a
+   *  sub-point a sub-point, and a flat rebuild would quietly un-indent one:
+   *  the note comes back a line shallower than it was written. */
+  const open: { tag: 'ul' | 'ol'; indent: number }[] = [];
+  const closeList = (toIndent = -1) => {
+    while (open.length && open[open.length - 1].indent > toIndent) {
+      out.push(`</${open.pop()!.tag}>`);
+    }
   };
 
   for (const line of (markdown ?? '').split('\n')) {
+    const heading = /^(#{1,4})\s+(.*)$/.exec(line);
+    if (heading) {
+      closeList();
+      out.push(`<h${heading[1].length + 1}>${renderEditable(heading[2])}</h${heading[1].length + 1}>`);
+      continue;
+    }
+    if (/^(---+|\*\*\*+)$/.test(line.trim())) {
+      closeList();
+      out.push('<hr>');
+      continue;
+    }
+    const quote = /^>\s?(.*)$/.exec(line);
+    if (quote) {
+      closeList();
+      out.push(`<blockquote>${renderEditable(quote[1]) || '<br>'}</blockquote>`);
+      continue;
+    }
     const item = LIST.exec(line);
     if (item) {
-      const tag = /\d/.test(item[2]) ? 'ol' : 'ul';
-      if (open !== tag) {
-        closeList();
+      const tag: 'ul' | 'ol' = /\d/.test(item[2]) ? 'ol' : 'ul';
+      const indent = item[1].replace(/\t/g, '  ').length;
+      closeList(indent);
+      const top = open[open.length - 1];
+      if (!top || top.indent < indent) {
+        open.push({ tag, indent });
         out.push(`<${tag}>`);
-        open = tag;
+      } else if (top.tag !== tag) {
+        out.push(`</${top.tag}>`);
+        open[open.length - 1] = { tag, indent };
+        out.push(`<${tag}>`);
       }
       const checked = BOX.exec(item[3]);
       if (checked) {
         const done = checked[1].toLowerCase() === 'x' ? '1' : '0';
-        out.push(`<li data-check="${done}">${boxHtml}${renderMarks(checked[2]) || '<br>'}</li>`);
+        out.push(`<li data-check="${done}">${boxHtml}${renderEditable(checked[2]) || '<br>'}</li>`);
       } else {
-        out.push(`<li>${renderMarks(item[3]) || '<br>'}</li>`);
+        out.push(`<li>${renderEditable(item[3]) || '<br>'}</li>`);
       }
       continue;
     }
     closeList();
-    out.push(`<div>${renderMarks(line) || '<br>'}</div>`);
+    out.push(`<div>${renderEditable(line) || '<br>'}</div>`);
   }
   closeList();
   return out.join('');
