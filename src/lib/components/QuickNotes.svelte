@@ -371,6 +371,15 @@
       onclick={() => listButton('number', which)}
       aria-label="Numbered list">1. List</button
     >
+    <!-- Lines to tick off, inside the note. Text and only text: nothing here
+         reaches Today, Free Time or any count — see RichNote.checkList. -->
+    <button
+      type="button"
+      class="press tap-h rounded-lg px-2.5 text-sm text-ink-200"
+      onpointerdown={(e) => e.preventDefault()}
+      onclick={() => editor(which)?.checkList()}
+      aria-label="Checklist">☐ List</button
+    >
   </div>
 {/snippet}
 

@@ -13,6 +13,13 @@ const el = (nodeName: string, ...childNodes: Nodeish[]): Nodeish => ({
   nodeName,
   childNodes
 });
+/** A list item with a box on it, ticked or not. */
+const check = (done: boolean, ...childNodes: Nodeish[]): Nodeish => ({
+  nodeType: 1,
+  nodeName: 'LI',
+  childNodes,
+  getAttribute: (n) => (n === 'data-check' ? (done ? '1' : '0') : null)
+});
 const root = (...children: Nodeish[]) => el('DIV', ...children);
 
 describe('what the editor holds, as markdown', () => {
@@ -65,6 +72,17 @@ describe('what the editor holds, as markdown', () => {
     expect(toMarkdown(root(nested))).toBe('- paint\n  - primer');
   });
 
+  it('writes a ticked line as a box', () => {
+    const list = el('UL', check(false, t('milk')), check(true, t('eggs')));
+    expect(toMarkdown(root(list))).toBe('- [ ] milk\n- [x] eggs');
+  });
+
+  it('leaves a plain bullet a plain bullet', () => {
+    // Only an item that was MADE a box gets one: an ordinary list in a note
+    // must not grow checkboxes because it happens to sit in the same editor.
+    expect(toMarkdown(root(el('UL', el('LI', t('milk')))))).toBe('- milk');
+  });
+
   it('goes INTO a block that holds other blocks', () => {
     // Found in the browser: pressing Enter after a list put the new line
     // inside the div wrapping it, and reading that div as a single line
@@ -99,6 +117,22 @@ describe('markdown, as the editor shows it', () => {
     expect(toEditorHtml('- milk\n- eggs')).toBe('<ul><li>milk</li><li>eggs</li></ul>');
     expect(toEditorHtml('1. one\n2. two')).toBe('<ol><li>one</li><li>two</li></ol>');
     expect(toEditorHtml('- milk\n1. one')).toBe('<ul><li>milk</li></ul><ol><li>one</li></ol>');
+  });
+
+  it('draws a box for a ticked line, and remembers which', () => {
+    expect(toEditorHtml('- [ ] milk')).toBe(
+      '<ul><li data-check="0"><span class="box" contenteditable="false"></span>milk</li></ul>'
+    );
+    expect(toEditorHtml('- [x] eggs')).toContain('data-check="1"');
+    expect(toEditorHtml('- [X] eggs')).toContain('data-check="1"');
+  });
+
+  it('round-trips a checklist', () => {
+    // The pair that matters: what is stored, shown, and stored again.
+    const md = '- [ ] milk\n- [x] eggs';
+    const html = toEditorHtml(md);
+    expect(html).toContain('data-check="0"');
+    expect(html).toContain('data-check="1"');
   });
 
   it('styles the four marks and nothing else', () => {

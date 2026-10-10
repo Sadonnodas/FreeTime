@@ -206,7 +206,16 @@ export function renderMarkdown(source: string): string {
         stack[stack.length - 1] = { tag, indent };
         out.push(`<${tag}>`);
       }
-      out.push(`<li>${inline(item[3])}</li>`);
+      // A checklist written anywhere else in the app — a quick note moved into
+      // a project's notes, the importer, the assistant — reads as boxes rather
+      // than as the brackets it is stored with. Not tickable here: this is the
+      // read view, and the note it belongs to is one tap away.
+      const box = /^\[([ xX])\]\s+(.*)$/.exec(item[3]);
+      out.push(
+        box
+          ? `<li class="task">${box[1] === ' ' ? '☐' : '☑'} ${inline(box[2])}</li>`
+          : `<li>${inline(item[3])}</li>`
+      );
       continue;
     }
 

@@ -2553,6 +2553,34 @@ device; there is nothing to build. Memos are the exception, below.
   picture meaning "pinned" and a picture meaning "pin this" are the same
   picture.
 
+- **A note can hold LINES YOU TICK OFF, and they are text** (`☐ List`,
+  `RichNote.checkList`, `- [ ] milk` in the stored Markdown). Offered with the
+  danger named, because it is real: a second place where things get ticked,
+  beside to-dos and the shopping list, is the parallel-systems failure at the
+  top of this file. Toon chose it anyway, and the rule that keeps it honest is
+  absolute —
+  **a ticked line reaches NOTHING.** Not Today, not Free Time, not the wins
+  feed, not the weekly look-back, not a count anywhere; nothing asks how many
+  are ticked and nothing ever mentions one that is not. It is a line in a
+  note, and a packing list is not a project. **If anything is ever tempted to
+  read these, that is the moment this was the wrong call** — the to-do, with
+  its era, project, sizes and date, is what a thing to do actually is.
+  Written as `- [ ] milk`, which is what every notes app and Markdown reader
+  already uses, so it survives being moved into a project's note, exported,
+  printed or pasted anywhere else. The read views draw ☐ and ☑ rather than
+  printing the brackets.
+  **The box is a real element, not a glyph in the text** — empty,
+  `contenteditable="false"`, drawn in CSS, with the tick in `data-check` on
+  the item. The caret cannot land in it, and `toMarkdown` reads the attribute
+  rather than trying to parse a character out of the line.
+  **`repair()` runs after every edit and is not optional.** A browser builds
+  the new item itself when Enter is pressed and what it carries over varies:
+  the attribute without the span (a checklist item with no box to tick), or
+  the span after the words (a box in the middle of a line). One
+  querySelectorAll puts both right, and a fresh item always starts unticked —
+  pressing Enter after something you have done is you writing the next thing,
+  not having done it already.
+
 - **"Safari couldn't open the page because the server stopped responding" was
   the PHONE, not the deploy.** Reported straight after an update, which is the
   obvious suspect and was wrong: the origin answered 200 in 0.06s, that

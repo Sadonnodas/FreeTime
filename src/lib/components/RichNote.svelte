@@ -81,6 +81,7 @@
 
   function emit() {
     if (!el) return;
+    repair();
     const md = toMarkdown(el);
     mine = md;
     oninput(md);
@@ -153,6 +154,72 @@
     emit();
   }
 
+  /**
+   * The list items the selection touches — the one the caret is in, or every
+   * item a selection crosses.
+   */
+  function selectedItems(): HTMLLIElement[] {
+    const sel = getSelection();
+    if (!el || !sel?.rangeCount) return [];
+    const range = sel.getRangeAt(0);
+    return [...el.querySelectorAll('li')].filter((li) => range.intersectsNode(li));
+  }
+
+  /**
+   * A line you can tick off, inside a note.
+   *
+   * **IT IS TEXT, AND IT STAYS TEXT.** `- [ ] milk` is a line in this note and
+   * nothing else: it never reaches Today, Free Time, the wins feed or any
+   * count, and nothing anywhere asks how many of them are ticked. That rule is
+   * the whole reason this is allowed to exist beside to-dos — a second place
+   * where things get ticked and counted is exactly what this app is built not
+   * to have. A packing list is not a project.
+   */
+  export function checkList() {
+    el?.focus();
+    if (!selectedItems().length) document.execCommand('insertUnorderedList');
+    const items = selectedItems();
+    // Off only when every item it touches already has a box, so a mixed
+    // selection turns the rest into boxes rather than clearing the lot.
+    const adding = items.some((li) => !li.hasAttribute('data-check'));
+    for (const li of items) {
+      if (adding) li.setAttribute('data-check', li.getAttribute('data-check') ?? '0');
+      else li.removeAttribute('data-check');
+    }
+    repair();
+    emit();
+  }
+
+  /**
+   * Put a box on any item that says it has one and does not.
+   *
+   * A browser builds the new item itself when Enter is pressed, and what it
+   * carries over varies: Chrome clones the attribute and drops the span, which
+   * would leave a checklist item with no box to tick. Run after every edit,
+   * since it costs one querySelectorAll and the alternative is a note that
+   * quietly stops working halfway down.
+   */
+  function repair() {
+    for (const li of el?.querySelectorAll('li[data-check]') ?? []) {
+      let box = li.querySelector('.box');
+      if (!box) {
+        box = document.createElement('span');
+        box.className = 'box';
+        (box as HTMLElement).contentEditable = 'false';
+      }
+      // ALWAYS first. Splitting an item with Enter makes the browser carry the
+      // span along with the text, which lands it after the words — a box in
+      // the middle of a line, which is nonsense on screen even though it
+      // stores correctly.
+      if (li.firstChild !== box) li.prepend(box);
+      // A fresh item starts unticked: pressing Enter after something you have
+      // done is you writing the next thing, not having done it already.
+      if (li.getAttribute('data-check') === '1' && !li.textContent?.trim()) {
+        li.setAttribute('data-check', '0');
+      }
+    }
+  }
+
   export function command(name: 'bold' | 'italic' | 'underline' | 'insertUnorderedList' | 'insertOrderedList') {
     // Focus first: on a phone the toolbar button is a tap somewhere else, and
     // a command with no selection to act on does nothing at all.
@@ -174,6 +241,11 @@
   would throw away anyway — taking the text is the same result without the
   mess in between. It also keeps a pasted stylesheet out of a note that syncs.
 -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- The warning is for a plain div given a click handler. This one is already
+     a focusable textbox, and the click is for the box inside it: ticking from
+     the keyboard is Space with the caret on the line, which the browser gives
+     us for free once the caret is in the item. -->
 <div
   bind:this={el}
   contenteditable="true"
@@ -185,6 +257,15 @@
   class="rich-note {klass}"
   oninput={(e) => {
     answer(e as unknown as InputEvent);
+    emit();
+  }}
+  onclick={(e) => {
+    // The box is the one thing in here that is tapped rather than typed into.
+    const box = (e.target as HTMLElement | null)?.closest?.('.box');
+    const li = box?.closest('li');
+    if (!li) return;
+    e.preventDefault();
+    li.setAttribute('data-check', li.getAttribute('data-check') === '1' ? '0' : '1');
     emit();
   }}
   onpaste={(e) => {

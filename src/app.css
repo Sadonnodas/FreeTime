@@ -1032,6 +1032,49 @@ body {
   color: var(--color-ink-400);
   pointer-events: none;
 }
+/* A line you can tick off. The box is drawn rather than written, so it looks
+   the same on every platform, and it is the only thing in the editor that is
+   tapped rather than typed into. */
+.rich-note li[data-check] {
+  list-style: none;
+  margin-inline-start: -1.2em;
+}
+.rich-note .box {
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  margin-inline-end: 0.45em;
+  border: 2px solid var(--color-ink-400);
+  border-radius: 6px;
+  vertical-align: -0.2em;
+  cursor: pointer;
+  position: relative;
+}
+.rich-note li[data-check='1'] .box {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.rich-note li[data-check='1'] .box::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8em;
+  line-height: 1;
+  color: var(--color-on-accent);
+}
+/* Struck through and quieted, the way a ticked to-do is. Never hidden. */
+.rich-note li[data-check='1'] {
+  color: var(--color-ink-400);
+  text-decoration: line-through;
+}
+.note-body li.task {
+  list-style: none;
+  margin-inline-start: -1.2em;
+}
+
 .rich-note ul,
 .rich-note ol {
   margin: 0;

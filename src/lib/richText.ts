@@ -39,6 +39,8 @@ export interface Nodeish {
   nodeName: string;
   textContent?: string | null;
   childNodes: ArrayLike<Nodeish>;
+  /** Only `data-check` is ever read, and only off a list item. */
+  getAttribute?: (name: string) => string | null;
 }
 
 const TEXT = 3;
@@ -104,7 +106,11 @@ function listLines(list: Nodeish, ordered: boolean, indent: string, out: string[
       .map(inlineOf)
       .join('')
       .replace(/\n$/, '');
-    out.push(`${indent}${ordered ? `${n++}. ` : '- '}${own}`);
+    // A box, if this item is one: `- [ ] milk`, which is how every notes app
+    // and every Markdown reader writes a checklist.
+    const check = li.getAttribute?.('data-check') ?? null;
+    const box = check === null ? '' : check === '1' ? '[x] ' : '[ ] ';
+    out.push(`${indent}${ordered ? `${n++}. ` : '- '}${box}${own}`);
     for (const nested of kids(li)) {
       const tag = name(nested);
       if (tag === 'UL' || tag === 'OL') listLines(nested, tag === 'OL', `${indent}  `, out);
@@ -153,6 +159,16 @@ export function toMarkdown(root: Nodeish): string {
 }
 
 const LIST = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
+/** `[ ]` or `[x]` at the head of a list item's content. */
+const BOX = /^\[([ xX])\]\s+(.*)$/;
+
+/**
+ * The box itself: empty, drawn in CSS, and `contenteditable="false"` so the
+ * caret cannot land inside it and the browser cannot carry it into the middle
+ * of a word. The tick lives in `data-check` on the item rather than in here,
+ * because that is what `toMarkdown` reads and what a click toggles.
+ */
+const boxHtml = '<span class="box" contenteditable="false"></span>';
 
 /**
  * Markdown as the editor shows it: `<div>` per line, real lists, and the four
@@ -177,7 +193,13 @@ export function toEditorHtml(markdown: string): string {
         out.push(`<${tag}>`);
         open = tag;
       }
-      out.push(`<li>${renderMarks(item[3]) || '<br>'}</li>`);
+      const checked = BOX.exec(item[3]);
+      if (checked) {
+        const done = checked[1].toLowerCase() === 'x' ? '1' : '0';
+        out.push(`<li data-check="${done}">${boxHtml}${renderMarks(checked[2]) || '<br>'}</li>`);
+      } else {
+        out.push(`<li>${renderMarks(item[3]) || '<br>'}</li>`);
+      }
       continue;
     }
     closeList();
