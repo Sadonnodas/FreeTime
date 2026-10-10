@@ -2486,6 +2486,29 @@ device; there is nothing to build. Memos are the exception, below.
   Paste arrives as plain text on purpose: a copy from a web page brings spans
   and colours that `toMarkdown` would throw away anyway.
 
+- **A quick note can be NAMED, in a field of its own** (`QuickNote.title`,
+  `setQuickNoteTitle`, `quickNoteName`). Asked for with the alternative ruled
+  out in the same breath: *"not like on the notes app where the first thing you
+  type is kind of like a title. I want a separate field above the notes field
+  for the name of the note."*
+  **That distinction is the design.** The first line of a quick note is
+  usually the measurement — "2.43 by 1.10" — so promoting it would name the
+  note wrongly AND give the first thing you type a second meaning you did not
+  ask for, which is exactly the kind of guess this screen exists not to make.
+  **Optional, and it stays out of the way.** A note still exists from its
+  first letter whichever field that letter lands in, and a note with a name
+  and nothing in it yet is a note somebody started on purpose, so "empty"
+  now means both fields. An untitled note is listed by its first line exactly
+  as every note was before, which is what keeps every note already written
+  looking the way it did.
+  A titled row leads with the name and keeps ALL of its text underneath;
+  search reads both; **the name travels** — it is what a new project is called
+  when the note becomes one, and it arrives as a `## heading` when the note is
+  appended to a project's notes, since a page of appended notes with nothing
+  between them reads as one long note.
+  No migration: the field is optional on a synced record, so an old note and a
+  device still running the old build both carry on as they are.
+
 - **"Safari couldn't open the page because the server stopped responding" was
   the PHONE, not the deploy.** Reported straight after an update, which is the
   obvious suspect and was wrong: the origin answered 200 in 0.06s, that

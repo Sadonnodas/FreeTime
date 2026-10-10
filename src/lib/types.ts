@@ -444,6 +444,22 @@ export interface Note extends Base {
  */
 export interface QuickNote extends Base {
   text: string;
+  /**
+   * A name for the note, in a field of its own above the writing box.
+   *
+   * Asked for with the alternative ruled out in the same breath: *"not like on
+   * the notes app where the first thing you type is kind of like a title. I
+   * want a separate field."* That distinction is the whole design — the first
+   * line of a quick note is usually the measurement, and promoting it to a
+   * title would both name the note wrongly and make the first thing you type
+   * mean something you did not intend.
+   *
+   * Optional, and stays optional: a quick note is for the thing you need
+   * written down before you forget it, so naming one must never be in the way
+   * of writing it. A note with no title falls back to its first line, which is
+   * what every note did before this existed.
+   */
+  title?: string;
 }
 
 /**

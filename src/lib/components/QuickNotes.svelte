@@ -2,7 +2,8 @@
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
   import {
-    createQuickNote, updateQuickNote, softDelete, quickNoteToProjectNote, quickNoteToProject
+    createQuickNote, updateQuickNote, setQuickNoteTitle, softDelete, quickNoteToProjectNote,
+    quickNoteToProject
   } from '$lib/store';
   import { activeProjects } from '$lib/queries';
   import type { Project, QuickNote } from '$lib/types';
@@ -42,6 +43,18 @@
   // --- writing: the box at the top, or an older note opened full screen
   let editingId = $state<string | null>(null);
   let draft = $state('');
+  /**
+   * The note's own name, in its own field — *"not like on the notes app where
+   * the first thing you type is kind of like a title. I want a separate
+   * field."* The first line of a quick note is usually the measurement, so
+   * promoting it would name the note wrongly AND quietly give the first thing
+   * you type a second meaning.
+   *
+   * Optional, and never in the way: a note still exists from its first letter
+   * whether that letter lands here or in the box below, and an untitled note
+   * is listed by its first line exactly as every note was before this.
+   */
+  let draftTitle = $state('');
   /** The note the top box is writing into, once it has a first letter. */
   let composingId = $state<string | null>(null);
   let pending: Promise<string> | null = null;
@@ -54,8 +67,28 @@
     }
     // Created exactly once, even if the second letter arrives before the
     // first write has finished.
-    pending ??= createQuickNote(text);
+    pending ??= createQuickNote(text, draftTitle);
     return pending;
+  }
+
+  /** The row being written into, made now if the first letter has just
+   *  arrived — in either field. */
+  async function ensureNote(): Promise<string> {
+    if (composingId) return composingId;
+    pending ??= createQuickNote(draft, draftTitle);
+    const id = await pending;
+    composingId = id;
+    pending = null;
+    return id;
+  }
+
+  let titleTimer: ReturnType<typeof setTimeout> | undefined;
+  function onComposeTitle(title: string) {
+    draftTitle = title;
+    clearTimeout(titleTimer);
+    titleTimer = setTimeout(() => {
+      void ensureNote().then((id) => setQuickNoteTitle(id, draftTitle));
+    }, 300);
   }
 
   function onCompose(text: string) {
@@ -77,25 +110,41 @@
   /** Put the top box down and start fresh; the note stays in the list. */
   async function finishCompose() {
     clearTimeout(timer);
+    clearTimeout(titleTimer);
     const id = composingId ?? (pending ? await pending : null);
     if (id) {
-      if (draft.trim()) await updateQuickNote(id, draft);
-      else await softDelete('quickNotes', id);
+      // Empty now means both fields: a note called something, with nothing in
+      // it yet, is a note somebody started on purpose.
+      if (draft.trim() || draftTitle.trim()) {
+        await updateQuickNote(id, draft);
+        await setQuickNoteTitle(id, draftTitle);
+      } else await softDelete('quickNotes', id);
     }
     composingId = null;
     pending = null;
     draft = '';
+    draftTitle = '';
   }
 
   const editing = $derived(notes.find((n) => n.id === editingId));
   let editText = $state('');
+  let editTitle = $state('');
   let editTimer: ReturnType<typeof setTimeout> | undefined;
+  let editTitleTimer: ReturnType<typeof setTimeout> | undefined;
 
   function open(n: QuickNote) {
     moving = null;
     showTotal = false;
     editText = n.text;
+    editTitle = n.title ?? '';
     editingId = n.id;
+  }
+
+  function onEditTitle(title: string) {
+    editTitle = title;
+    clearTimeout(editTitleTimer);
+    const id = editingId;
+    editTitleTimer = setTimeout(() => id && void setQuickNoteTitle(id, title), 300);
   }
   function onEdit(text: string) {
     editText = text;
@@ -105,11 +154,14 @@
   }
   async function back() {
     clearTimeout(editTimer);
+    clearTimeout(editTitleTimer);
     const id = editingId;
     editingId = null;
     if (!id) return;
-    if (editText.trim()) await updateQuickNote(id, editText);
-    else await softDelete('quickNotes', id);
+    if (editText.trim() || editTitle.trim()) {
+      await updateQuickNote(id, editText);
+      await setQuickNoteTitle(id, editTitle);
+    } else await softDelete('quickNotes', id);
   }
 
   // --- moving on: into a project's notes, or into a project of its own
@@ -131,7 +183,12 @@
     moving = kind;
     refusal = '';
     toEra ||= eras[0]?.id ?? '';
-    if (kind === 'project') newName = firstLine(editText) === 'Empty note' ? '' : firstLine(editText);
+    if (kind === 'project') {
+      // Its name if it has one — that is what the note is called, and it was
+      // typed deliberately where a first line was not.
+      const name = editTitle.trim() || (firstLine(editText) === 'Empty note' ? '' : firstLine(editText));
+      newName = name;
+    }
   }
 
   function say(text: string) {
@@ -145,7 +202,9 @@
     const id = editingId;
     if (!id || !toEra) return;
     clearTimeout(editTimer);
+    clearTimeout(editTitleTimer);
     await updateQuickNote(id, editText);
+    await setQuickNoteTitle(id, editTitle);
     const eraName = eras.find((e) => e.id === toEra)?.name ?? '';
     if (moving === 'notes') {
       if (!(await quickNoteToProjectNote(id, toEra, toTag || undefined))) return;
@@ -286,13 +345,21 @@
   const shown = $derived(
     notes
       .filter((n) => n.id !== composingId)
-      .filter((n) => (search.trim() ? n.text.toLowerCase().includes(search.trim().toLowerCase()) : true))
+      .filter((n) => {
+        const q = search.trim().toLowerCase();
+        return q ? `${n.title ?? ''}\n${n.text}`.toLowerCase().includes(q) : true;
+      })
   );
 
   // Previews read without list markers: "Paint", then "Primer · Brushes".
   const lines = (t: string) => t.trim().split('\n').map((l) => stripMarker(l).trim()).filter(Boolean);
   const firstLine = (t: string) => lines(t)[0] || 'Empty note';
   const rest = (t: string) => lines(t).slice(1).join(' · ');
+  /** A titled note leads with its name and keeps ALL of its text underneath;
+   *  an untitled one is listed by its first line, as it always was. */
+  const rowTitle = (n: QuickNote) => (n.title?.trim() ? n.title.trim() : firstLine(n.text));
+  const rowRest = (n: QuickNote) =>
+    n.title?.trim() ? lines(n.text).join(' · ') : rest(n.text);
   function when(iso: string): string {
     const d = new Date(iso);
     const same = d.toDateString() === new Date().toDateString();
@@ -420,6 +487,17 @@
         }}
       />
     </header>
+    <!-- Above the writing box, which is where the request put it. A plain
+         one-line field: a title is a name, and formatting one would be a
+         second place to reach for the same three buttons. -->
+    <input
+      type="text"
+      value={editTitle}
+      oninput={(e) => onEditTitle(e.currentTarget.value)}
+      placeholder="Title"
+      aria-label="Note title"
+      class="w-full bg-transparent px-5 pt-2 text-[19px] font-semibold tracking-[-0.01em] text-ink-50 outline-none placeholder:font-normal placeholder:text-ink-400"
+    />
     <div class="px-3">{@render listTools('edit')}</div>
     {#if rich}
       <!-- The sums, the lists and Cmd+B all live inside the editor here: it
@@ -526,6 +604,14 @@
     <div class="min-h-0 flex-1 overflow-y-auto px-4 pb-8">
       <!-- Write first. Every letter is kept; there is no Save. -->
       <div class="card-flat p-3">
+        <input
+          type="text"
+          value={draftTitle}
+          oninput={(e) => onComposeTitle(e.currentTarget.value)}
+          placeholder="Title"
+          aria-label="Title for this note"
+          class="mb-1 w-full bg-transparent text-[19px] font-semibold tracking-[-0.01em] text-ink-50 outline-none placeholder:font-normal placeholder:text-ink-400"
+        />
         {#if rich}
           <RichNote
             bind:this={composeRich}
@@ -552,7 +638,7 @@
         {/if}
         <div class="-ml-2 flex items-center justify-between gap-2">
           {@render listTools('compose')}
-          {#if draft.trim()}
+          {#if draft.trim() || draftTitle.trim()}
             <button class="press tap-h rounded-lg px-3 text-sm font-medium text-accent" onclick={finishCompose}>
               New note
             </button>
@@ -609,10 +695,10 @@
                        seen. Escaped first, and never a link — see
                        renderMarks. -->
                   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                  <span class="block truncate font-medium">{@html renderMarks(firstLine(n.text))}</span>
+                  <span class="block truncate font-medium">{@html renderMarks(rowTitle(n))}</span>
                   <span class="footnote block truncate">
-                    {when(n.updatedAt)}{#if rest(n.text)}{' · '}<!--
-                      -->{@html renderMarks(rest(n.text))}{/if}
+                    {when(n.updatedAt)}{#if rowRest(n)}{' · '}<!--
+                      -->{@html renderMarks(rowRest(n))}{/if}
                   </span>
                 </span>
               </button>

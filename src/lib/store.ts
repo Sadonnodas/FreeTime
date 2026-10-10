@@ -938,14 +938,27 @@ export async function moveNoteSection(
 
 // ------------------------------------------------------------ quick notes
 
-export async function createQuickNote(text = ''): Promise<string> {
-  const n = stamp({ text });
+export async function createQuickNote(text = '', title?: string): Promise<string> {
+  const n = stamp({ text, title: title?.trim() || undefined });
   await db.quickNotes.add(n);
   return n.id;
 }
 
 export async function updateQuickNote(id: string, text: string): Promise<void> {
   await db.quickNotes.update(id, { text, updatedAt: now() });
+}
+
+/** The note's own name. Empty removes it — Dexie's update deletes a property
+ *  set to undefined, so an untitled note carries no empty string around. */
+export async function setQuickNoteTitle(id: string, title: string): Promise<void> {
+  await db.quickNotes.update(id, { title: title.trim() || undefined, updatedAt: now() });
+}
+
+/** What a note is called: its title, or its first line, the way an untitled
+ *  one has always been listed. One answer, so the list, the project it may
+ *  become and the note it may be appended to cannot disagree. */
+export function quickNoteName(note: { title?: string; text: string }): string {
+  return note.title?.trim() || note.text.trim().split('\n')[0]?.trim() || '';
 }
 
 /**
@@ -964,7 +977,11 @@ export async function quickNoteToProjectNote(
   if (!note || note.deletedAt || !era || !text) return false;
   const section = tag && (era.tags ?? []).includes(tag) ? tag : undefined;
   const existing = (await getNote(eraId, section))?.markdown ?? '';
-  await saveNote(eraId, existing.trim() ? `${existing.trimEnd()}\n\n${text}` : text, section);
+  // A titled note arrives WITH its name, as a heading: it was called that for
+  // a reason, and a page of appended notes with nothing between them reads as
+  // one long note.
+  const titled = note.title?.trim() ? `## ${note.title.trim()}\n\n${text}` : text;
+  await saveNote(eraId, existing.trim() ? `${existing.trimEnd()}\n\n${titled}` : titled, section);
   await softDelete('quickNotes', noteId);
   return true;
 }
