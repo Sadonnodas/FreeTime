@@ -1,6 +1,7 @@
 <script lang="ts">
   import { renderMarkdown } from '$lib/markdown';
   import { continueListIn } from '$lib/textLists';
+  import { markKey } from '$lib/textMarks';
 
   /**
    * A note, written as Markdown and read as formatted text.
@@ -79,6 +80,16 @@
    *
    * Enter on an empty item ends the list, the way the phone's Notes app does.
    */
+  /**
+   * Cmd/Ctrl+B, I and U, which the toolbar above has always done by hand.
+   * Nobody reaches for a toolbar to make a word bold, and a textarea does
+   * nothing with those keys on its own — reported from a laptop.
+   */
+  function keys(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
+    const next = markKey(e, e.currentTarget);
+    if (next !== null) onchange(next);
+  }
+
   function typed(e: Event & { currentTarget: HTMLTextAreaElement }) {
     const ie = e as unknown as InputEvent;
     onchange(continueListIn(e.currentTarget, ie.inputType) ?? e.currentTarget.value);
@@ -88,6 +99,8 @@
     { label: 'H', title: 'Heading', run: () => apply('## ', '', true) },
     { label: 'B', title: 'Bold', run: () => apply('**', '**') },
     { label: 'I', title: 'Italic', run: () => apply('*', '*') },
+    // Underline is this app's own `__text__` — markdown has none. textMarks.ts.
+    { label: 'U', title: 'Underline', run: () => apply('__', '__') },
     { label: '•', title: 'Bullet', run: () => apply('- ', '', true) },
     { label: '1.', title: 'Numbered', run: () => apply('1. ', '', true) },
     { label: '→', title: 'Indent', run: () => apply('  ', '', true) },
@@ -128,6 +141,7 @@
     bind:this={box}
     {value}
     oninput={typed}
+    onkeydown={keys}
     {placeholder}
     class="field min-h-[40vh] w-full py-4 font-mono leading-relaxed"
   ></textarea>

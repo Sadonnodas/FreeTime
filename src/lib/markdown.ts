@@ -53,6 +53,38 @@ const link = (href: string, text: string) =>
  * inside them — otherwise a note explaining `**not bold**` would render bold
  * and lose the point it was making.
  */
+/**
+ * The emphasis marks, on already-escaped text.
+ *
+ * `__underline__` is the app's own and is the one place this renderer parts
+ * company with CommonMark, which reads it as bold. Underline was asked for by
+ * name and Markdown has no spelling for it; `**` still means bold, so nothing
+ * written before this changes meaning. See textMarks.ts.
+ *
+ * It runs before the asterisk rules for no reason other than reading order —
+ * underscores and asterisks cannot collide.
+ */
+function emphasis(text: string): string {
+  return text
+    .replace(/__([^_]+)__/g, '<u>$1</u>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+    .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+}
+
+/**
+ * Bold, italic, underline and strike — and nothing else — for places that
+ * show a line of a note rather than the note: the quick-notes list.
+ *
+ * NO LINKS, deliberately. Those previews are themselves buttons that open the
+ * note, and an `<a>` inside a `<button>` is invalid HTML where the inner one
+ * silently stops working — a trap this app has hit before. A preview is read,
+ * not followed.
+ */
+export function renderMarks(source: string): string {
+  return emphasis(escapeHtml(source ?? ''));
+}
+
 function inline(escaped: string): string {
   const codes: string[] = [];
   let out = escaped.replace(/`([^`]+)`/g, (_, code: string) => {
@@ -80,10 +112,7 @@ function inline(escaped: string): string {
     }
   );
 
-  out = out
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
-    .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+  out = emphasis(out);
 
   return out.replace(
     new RegExp(`${MARK}(\\d+)${MARK}`, 'g'),

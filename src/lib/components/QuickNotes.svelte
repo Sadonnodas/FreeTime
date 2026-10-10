@@ -11,6 +11,8 @@
   import ProjectSelect from './ProjectSelect.svelte';
   import { answerFor, totalOf, formatNumber } from '$lib/calc';
   import { continueListIn, toggleList, stripMarker } from '$lib/textLists';
+  import { toggleMark, markKey, type Mark } from '$lib/textMarks';
+  import { renderMarks } from '$lib/markdown';
 
   /**
    * Quick notes — the phone's Notes app, inside this one.
@@ -213,6 +215,31 @@
     else onEdit(r.text);
   }
 
+  /**
+   * Bold, italic and underline — the same Markdown the project notes use, and
+   * the same toggle the keyboard shortcut applies, so a button and Cmd+B
+   * cannot come to mean different things. See textMarks.ts.
+   */
+  function markButton(mark: Mark, which: 'compose' | 'edit') {
+    const el = which === 'compose' ? composeEl : editEl;
+    if (!el) return;
+    const r = toggleMark(el.value, el.selectionStart ?? 0, el.selectionEnd ?? 0, mark);
+    el.value = r.text;
+    el.focus();
+    el.setSelectionRange(r.from ?? r.caret, r.caret);
+    if (which === 'compose') onCompose(r.text);
+    else onEdit(r.text);
+  }
+
+  /** Cmd/Ctrl+B, I and U in either box. Returns nothing when the key was not
+   *  one of ours, so every other key behaves exactly as it did. */
+  function onMarkKey(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }, which: 'compose' | 'edit') {
+    const next = markKey(e, e.currentTarget);
+    if (next === null) return;
+    if (which === 'compose') onCompose(next);
+    else onEdit(next);
+  }
+
   // --- selecting several, to delete them together
   let selecting = $state(false);
   let picked = $state<string[]>([]);
@@ -281,7 +308,34 @@
 {#snippet listTools(which: 'compose' | 'edit')}
   <!-- pointerdown is cancelled so tapping these keeps the cursor (and the
        phone's keyboard) where it was. -->
-  <div class="flex gap-1">
+  <div class="flex flex-wrap gap-1">
+    <!-- The three marks, written as what they do. Cmd/Ctrl+B, I and U do the
+         same thing for anyone who never looks at a toolbar — which was the
+         actual report: *"pressing Command + B doesn't work either."* -->
+    <button
+      type="button"
+      class="press tap-h rounded-lg px-2.5 text-sm font-bold text-ink-200"
+      onpointerdown={(e) => e.preventDefault()}
+      onclick={() => markButton('bold', which)}
+      title="Bold (⌘B)"
+      aria-label="Bold">B</button
+    >
+    <button
+      type="button"
+      class="press tap-h rounded-lg px-2.5 text-sm text-ink-200 italic"
+      onpointerdown={(e) => e.preventDefault()}
+      onclick={() => markButton('italic', which)}
+      title="Italic (⌘I)"
+      aria-label="Italic">I</button
+    >
+    <button
+      type="button"
+      class="press tap-h rounded-lg px-2.5 text-sm text-ink-200 underline"
+      onpointerdown={(e) => e.preventDefault()}
+      onclick={() => markButton('underline', which)}
+      title="Underline (⌘U)"
+      aria-label="Underline">U</button
+    >
     <button
       type="button"
       class="press tap-h rounded-lg px-2.5 text-sm text-ink-200"
@@ -348,6 +402,7 @@
       bind:this={editEl}
       value={editText}
       oninput={(e) => onEdit(withAnswer(e))}
+      onkeydown={(e) => onMarkKey(e, 'edit')}
       class="min-h-0 w-full flex-1 resize-none bg-transparent px-5 py-3 text-[17px] leading-relaxed text-ink-50 outline-none"
       aria-label="Note"
     ></textarea>
@@ -437,6 +492,7 @@
           bind:this={composeEl}
           value={draft}
           oninput={(e) => onCompose(withAnswer(e))}
+          onkeydown={(e) => onMarkKey(e, 'compose')}
           rows={3}
           use:grow={draft}
           placeholder="Write it down…"
@@ -499,9 +555,16 @@
                   >
                 {/if}
                 <span class="min-w-0 flex-1">
-                  <span class="block truncate font-medium">{firstLine(n.text)}</span>
+                  <!-- The marks are RENDERED here rather than shown as
+                       asterisks: this is where a note is read rather than
+                       written, so it is the one place the formatting can be
+                       seen. Escaped first, and never a link — see
+                       renderMarks. -->
+                  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                  <span class="block truncate font-medium">{@html renderMarks(firstLine(n.text))}</span>
                   <span class="footnote block truncate">
-                    {when(n.updatedAt)}{rest(n.text) ? ` · ${rest(n.text)}` : ''}
+                    {when(n.updatedAt)}{#if rest(n.text)}{' · '}<!--
+                      -->{@html renderMarks(rest(n.text))}{/if}
                   </span>
                 </span>
               </button>

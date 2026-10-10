@@ -2444,6 +2444,39 @@ device; there is nothing to build. Memos are the exception, below.
   marker needs the space after it. A calculator that is confidently wrong is
   worse than one that declines.
 
+- **Bold, italic and underline — in quick notes, and from the keyboard**
+  ([textMarks.ts](src/lib/textMarks.ts), [textMarks.test.ts](src/lib/textMarks.test.ts),
+  `renderMarks` in [markdown.ts](src/lib/markdown.ts)). Reported from a
+  laptop: *"I want to be able to underline, make bold or use italics but I
+  don't see a way to do that on computer. Pressing Command + B doesn't work
+  either."*
+  **Cmd+B could not have worked, and that is the whole shape of the fix**: a
+  quick note is a `<textarea>`, and a textarea has no formatting for the key
+  to toggle. What a plain-text note can carry is the Markdown the project
+  notes have always used, so the buttons and the shortcuts write exactly
+  that — `**bold**`, `*italic*`, `__underline__` — and nothing about how a
+  note is stored, synced or merged changes.
+  **UNDERLINE IS THE ONE DEVIATION FROM MARKDOWN.** CommonMark reads
+  `__text__` as bold; here it is `<u>`. Underline was asked for by name and
+  Markdown has no other spelling for it, while `**` still means bold, so
+  nothing written before this changed meaning. The cost, worth knowing: a
+  note pasted into another Markdown tool shows an underline as bold.
+  **The marks TOGGLE**, including when the selection sits inside them, which
+  is what a double-click gives you — and italic is kept out of bold's
+  asterisks, since taking one `*` off each side of `**paint**` would quietly
+  turn bold into italic. Pinned by tests.
+  **They are rendered in the quick-notes LIST, not in the box.** The box is
+  where a note is written and shows the syntax, exactly as the project notes
+  do in Edit; the row underneath is where it is read, so that is where it
+  comes out bold. `renderMarks` is emphasis only and deliberately makes NO
+  links: those rows are buttons, and an `<a>` inside a `<button>` is the
+  invalid nesting this file already records.
+  **Both boxes got the shortcut**, quick notes and NoteEditor, and a source
+  test names them — the project notes had a Bold BUTTON and still did nothing
+  on Cmd+B, which is the same gap in a different disguise. The note WIDGET is
+  left out on purpose: no toolbar and nothing renders it, so a mark there
+  would be asterisks for ever.
+
 - **Habits have colours** (`Habit.color`, `habitColor`, `setHabitColor`).
   *"They look bland while they should look inviting."* The project palette,
   handed out at creation (first colour no other habit wears) and changeable on

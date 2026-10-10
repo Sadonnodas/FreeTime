@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderMarkdown } from './markdown';
+import { renderMarkdown, renderMarks } from './markdown';
 
 /**
  * This is the only place in the app that turns stored text into HTML, so the
@@ -89,5 +89,34 @@ describe('notes rendering', () => {
 
   it('is empty for empty input rather than throwing', () => {
     expect(renderMarkdown('')).toBe('');
+  });
+});
+
+describe('underline, which this app spells itself', () => {
+  it('renders __text__ as an underline, not as bold', () => {
+    // CommonMark says this is bold. It is underline here because underline
+    // was asked for and markdown has no other way to write it; `**` still
+    // means bold, so nothing written before this changed meaning.
+    expect(renderMarkdown('__Lisa__ called')).toContain('<u>Lisa</u>');
+    expect(renderMarkdown('__Lisa__ called')).not.toContain('<strong>');
+    expect(renderMarkdown('**Lisa** called')).toContain('<strong>Lisa</strong>');
+  });
+
+  it('is escaped like everything else', () => {
+    expect(renderMarkdown('__<b>x</b>__')).toBe('<p><u>&lt;b&gt;x&lt;/b&gt;</u></p>');
+  });
+});
+
+describe('a one-line preview', () => {
+  it('shows the marks and NEVER a link', () => {
+    // The quick-notes rows are buttons; an <a> inside a <button> is invalid
+    // HTML and the inner one stops working.
+    expect(renderMarks('__Lisa__ at **9** on https://x.com')).toBe(
+      '<u>Lisa</u> at <strong>9</strong> on https://x.com'
+    );
+  });
+
+  it('escapes first', () => {
+    expect(renderMarks('<script>')).toBe('&lt;script&gt;');
   });
 });
