@@ -1008,6 +1008,42 @@ body {
  * phone, not an article, and the default browser margins on h2 and p turn a
  * short list of measurements into a page of scrolling.
  */
+/*
+ * The computer's rich quick-note editor (RichNote.svelte). A contenteditable
+ * has no placeholder of its own, and its lists arrive with the browser's own
+ * margins, which turn three bullets into half a screen.
+ */
+.rich-note {
+  position: relative;
+  line-height: 1.55;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* An empty editor is not :empty — it holds the one blank line the caret sits
+   on — so the second selector is the one that does the work. Absolute, or the
+   placeholder would take a line of its own and push that caret down. */
+.rich-note:empty::before,
+.rich-note:has(> div:only-child > br:only-child)::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  color: var(--color-ink-400);
+  pointer-events: none;
+}
+.rich-note ul,
+.rich-note ol {
+  margin: 0;
+  padding-inline-start: 1.5em;
+}
+.rich-note ul {
+  list-style: disc;
+}
+.rich-note ol {
+  list-style: decimal;
+}
+
 .note-body {
   line-height: 1.55;
 }

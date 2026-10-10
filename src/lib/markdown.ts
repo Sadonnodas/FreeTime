@@ -65,11 +65,18 @@ const link = (href: string, text: string) =>
  * underscores and asterisks cannot collide.
  */
 function emphasis(text: string): string {
+  /*
+   * A MARK MUST HUG ITS TEXT: `*x*` is italic, `* x *` is two asterisks with
+   * a word between them. CommonMark says so, and the reason it matters here
+   * is quick notes — "2 * 3 * 4 = 24" was coming out as "2 _ 3 _ 4 = 24",
+   * which is a sum quietly rewritten by a renderer. Hence `\S` at both ends
+   * of every pair, with the single-character case spelled out beside it.
+   */
   return text
-    .replace(/__([^_]+)__/g, '<u>$1</u>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
-    .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+    .replace(/__(\S[^_]*?\S|\S)__/g, '<u>$1</u>')
+    .replace(/\*\*(\S[^*]*?\S|\S)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*(\S[^*\n]*?\S|\S)\*/g, '$1<em>$2</em>')
+    .replace(/~~(\S[^~]*?\S|\S)~~/g, '<del>$1</del>');
 }
 
 /**

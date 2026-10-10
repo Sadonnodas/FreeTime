@@ -13,6 +13,8 @@
   import { continueListIn, toggleList, stripMarker } from '$lib/textLists';
   import { toggleMark, markKey, type Mark } from '$lib/textMarks';
   import { renderMarks } from '$lib/markdown';
+  import RichNote from './RichNote.svelte';
+  import { richEditing } from '$lib/richText';
 
   /**
    * Quick notes — the phone's Notes app, inside this one.
@@ -199,7 +201,25 @@
   // --- list buttons
   let composeEl = $state<HTMLTextAreaElement | null>(null);
   let editEl = $state<HTMLTextAreaElement | null>(null);
+
+  /**
+   * THE COMPUTER WRITES INTO FORMATTED TEXT; THE PHONE WRITES MARKDOWN.
+   * Decided once, at the pointer — see richText.ts. Both halves store the
+   * same Markdown, so this changes how a note is typed and nothing about what
+   * a note is.
+   */
+  const rich = richEditing();
+  let composeRich = $state<ReturnType<typeof RichNote> | null>(null);
+  let editRich = $state<ReturnType<typeof RichNote> | null>(null);
+  const editor = (which: 'compose' | 'edit') => (which === 'compose' ? composeRich : editRich);
   function listButton(kind: 'bullet' | 'number', which: 'compose' | 'edit') {
+    if (rich) {
+      // The browser's own list editing: it continues on Enter, outdents on an
+      // empty item and nests on Tab, all of which textLists.ts had to do by
+      // hand for a textarea.
+      editor(which)?.command(kind === 'bullet' ? 'insertUnorderedList' : 'insertOrderedList');
+      return;
+    }
     const el = which === 'compose' ? composeEl : editEl;
     if (!el) return;
     const from = el.selectionStart ?? 0;
@@ -221,6 +241,10 @@
    * cannot come to mean different things. See textMarks.ts.
    */
   function markButton(mark: Mark, which: 'compose' | 'edit') {
+    if (rich) {
+      editor(which)?.command(mark);
+      return;
+    }
     const el = which === 'compose' ? composeEl : editEl;
     if (!el) return;
     const r = toggleMark(el.value, el.selectionStart ?? 0, el.selectionEnd ?? 0, mark);
@@ -397,15 +421,29 @@
       />
     </header>
     <div class="px-3">{@render listTools('edit')}</div>
-    <textarea
-      use:focus
-      bind:this={editEl}
-      value={editText}
-      oninput={(e) => onEdit(withAnswer(e))}
-      onkeydown={(e) => onMarkKey(e, 'edit')}
-      class="min-h-0 w-full flex-1 resize-none bg-transparent px-5 py-3 text-[17px] leading-relaxed text-ink-50 outline-none"
-      aria-label="Note"
-    ></textarea>
+    {#if rich}
+      <!-- The sums, the lists and Cmd+B all live inside the editor here: it
+           owns its own DOM, so a textarea's value-and-selection arithmetic
+           does not apply to it. -->
+      <RichNote
+        bind:this={editRich}
+        value={editText}
+        oninput={onEdit}
+        autofocus
+        placeholder="Note"
+        class="min-h-0 w-full flex-1 overflow-y-auto px-5 py-3 text-[17px] text-ink-50"
+      />
+    {:else}
+      <textarea
+        use:focus
+        bind:this={editEl}
+        value={editText}
+        oninput={(e) => onEdit(withAnswer(e))}
+        onkeydown={(e) => onMarkKey(e, 'edit')}
+        class="min-h-0 w-full flex-1 resize-none bg-transparent px-5 py-3 text-[17px] leading-relaxed text-ink-50 outline-none"
+        aria-label="Note"
+      ></textarea>
+    {/if}
 
     <!-- Where a note can go once it turns out to belong somewhere. -->
     <div class="border-t border-line-1 px-4 pt-3 pb-3">
@@ -488,17 +526,27 @@
     <div class="min-h-0 flex-1 overflow-y-auto px-4 pb-8">
       <!-- Write first. Every letter is kept; there is no Save. -->
       <div class="card-flat p-3">
-        <textarea
-          bind:this={composeEl}
-          value={draft}
-          oninput={(e) => onCompose(withAnswer(e))}
-          onkeydown={(e) => onMarkKey(e, 'compose')}
-          rows={3}
-          use:grow={draft}
-          placeholder="Write it down…"
-          class="w-full resize-none bg-transparent text-[17px] leading-relaxed text-ink-50 outline-none placeholder:text-ink-400"
-          aria-label="New quick note"
-        ></textarea>
+        {#if rich}
+          <RichNote
+            bind:this={composeRich}
+            value={draft}
+            oninput={onCompose}
+            placeholder="Write it down…"
+            class="w-full min-h-[4.5rem] text-[17px] text-ink-50"
+          />
+        {:else}
+          <textarea
+            bind:this={composeEl}
+            value={draft}
+            oninput={(e) => onCompose(withAnswer(e))}
+            onkeydown={(e) => onMarkKey(e, 'compose')}
+            rows={3}
+            use:grow={draft}
+            placeholder="Write it down…"
+            class="w-full resize-none bg-transparent text-[17px] leading-relaxed text-ink-50 outline-none placeholder:text-ink-400"
+            aria-label="New quick note"
+          ></textarea>
+        {/if}
         {#if totalOf(draft)}
           <div class="mb-2 border-t border-line-1 pt-2">{@render total(draft)}</div>
         {/if}

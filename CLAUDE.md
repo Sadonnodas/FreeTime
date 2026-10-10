@@ -2444,6 +2444,63 @@ device; there is nothing to build. Memos are the exception, below.
   marker needs the space after it. A calculator that is confidently wrong is
   worse than one that declines.
 
+- **On a computer a quick note is typed INTO formatted text, not into
+  Markdown** ([richText.ts](src/lib/richText.ts),
+  [RichNote.svelte](src/lib/components/RichNote.svelte),
+  [richText.test.ts](src/lib/richText.test.ts)). The marks above shipped as
+  Markdown and came straight back: *"instead of really going bold or putting
+  italics I get `**what I typed**`"*, then *"on computer at least"*.
+  **A textarea cannot do it, and that is not a setting.** It holds characters,
+  so the syntax has to be on screen somewhere; the only element that lets a
+  caret sit inside formatted text is a `contenteditable`. Three shapes were
+  offered — faded syntax, a read/edit split, or a real editor — and Toon chose
+  the editor.
+  **WHAT IS STORED DID NOT CHANGE, which is the half of the old "no
+  contenteditable" rule that was always the real one.** A note is still plain
+  Markdown in IndexedDB: it syncs as JSON, merges per record, is searched,
+  totalled, and moves into a project's notes. The HTML lives between
+  `toEditorHtml` and `toMarkdown` and never reaches the database.
+  **Only four things are styled** — bold, italic, underline, bulleted and
+  numbered lists. Everything else a note might hold travels through as literal
+  text and comes back byte for byte, which is the rule that makes this safe:
+  **opening a note must never change it**, so anything the editor could not
+  write back is not touched. A heading stays `# like this` on screen.
+  **The phone keeps its textarea** (`richEditing()`, a `pointer: fine` test —
+  the same question loudness.ts asks). Both halves write the same Markdown, so
+  a note made on one reads and edits on the other; what is NOT wanted is a
+  contenteditable arguing with iOS autocorrect, the caret and undo on the
+  device this app is mostly used on.
+  **Three bugs worth keeping, all found in the browser and two now pinned by
+  tests:**
+  A browser NESTS blocks — pressing Enter after a list puts the next line
+  inside the div holding it — and reading that wrapper as one line flattened
+  the list into a run of words with every bullet gone. `toMarkdown` walks into
+  a block that holds blocks.
+  `execCommand` called re-entrantly from inside the `input` event it is
+  answering is IGNORED, so the sums worked out the right answer and dropped
+  it — which reads exactly like the feature never being wired up. The insert
+  is deferred one task.
+  And `2 * 3 * 4` rendered as italics, in the one screen where sums get
+  written. markdown.ts now requires a mark to HUG its text, the way CommonMark
+  always said: `*x*` is emphasis, `* x *` is asterisks.
+  Paste arrives as plain text on purpose: a copy from a web page brings spans
+  and colours that `toMarkdown` would throw away anyway.
+
+- **"Safari couldn't open the page because the server stopped responding" was
+  the PHONE, not the deploy.** Reported straight after an update, which is the
+  obvious suspect and was wrong: the origin answered 200 in 0.06s, that
+  commit's deploy had succeeded, every chunk, the worker, the manifest and the
+  icons all served, and the live build booted clean in a browser here.
+  Flipping airplane mode off and on fixed it. **Check that the origin responds
+  before touching anything** — `curl -o /dev/null -w "%{http_code} %{time_total}"`
+  against the live URL and `gh run list` take ten seconds and settle it, and
+  the alternative is rolling back a deploy that was never at fault.
+  **Never answer this one with "delete and re-add the icon"** until Drive sync
+  is known to be current: an iOS home-screen app has its own storage, so that
+  wipes the IndexedDB on the device that cannot currently open to sync itself.
+  A Mac on a cable (Safari → Develop → the iPhone) can read that storage and
+  is the move before anything destructive.
+
 - **Bold, italic and underline — in quick notes, and from the keyboard**
   ([textMarks.ts](src/lib/textMarks.ts), [textMarks.test.ts](src/lib/textMarks.test.ts),
   `renderMarks` in [markdown.ts](src/lib/markdown.ts)). Reported from a

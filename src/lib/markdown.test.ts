@@ -107,6 +107,22 @@ describe('underline, which this app spells itself', () => {
   });
 });
 
+describe('a mark has to hug its text', () => {
+  it('leaves a multiplication alone', () => {
+    // Found by the rich editor's tests: "2 * 3 * 4" rendered as italics, so a
+    // sum written in a note came back meaning something else.
+    expect(renderMarkdown('2 * 3 * 4 = 24')).toBe('<p>2 * 3 * 4 = 24</p>');
+    expect(renderMarkdown('a * b')).toBe('<p>a * b</p>');
+  });
+
+  it('still emphasises a word', () => {
+    expect(renderMarkdown('*now* and **then**')).toBe(
+      '<p><em>now</em> and <strong>then</strong></p>'
+    );
+    expect(renderMarkdown('*a*')).toBe('<p><em>a</em></p>');
+  });
+});
+
 describe('a one-line preview', () => {
   it('shows the marks and NEVER a link', () => {
     // The quick-notes rows are buttons; an <a> inside a <button> is invalid
