@@ -948,6 +948,11 @@ export async function updateQuickNote(id: string, text: string): Promise<void> {
   await db.quickNotes.update(id, { text, updatedAt: now() });
 }
 
+/** Pin a note to the top of the list, or let it go back to its place. */
+export async function setQuickNotePinned(id: string, pinned: boolean): Promise<void> {
+  await db.quickNotes.update(id, { pinnedAt: pinned ? now() : undefined, updatedAt: now() });
+}
+
 /** The note's own name. Empty removes it — Dexie's update deletes a property
  *  set to undefined, so an untitled note carries no empty string around. */
 export async function setQuickNoteTitle(id: string, title: string): Promise<void> {

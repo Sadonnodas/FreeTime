@@ -2540,6 +2540,19 @@ device; there is nothing to build. Memos are the exception, below.
   a project", for the reason Export learned: a lone control on a row of its
   own reads as a leftover.
 
+- **A quick note can be PINNED** (`QuickNote.pinnedAt`, `setQuickNotePinned`).
+  The list is newest-touched first, which is right until one note is the one
+  you keep coming back to.
+  A timestamp rather than a flag, like `doneAt` and `becameProjectAt` — it
+  records when, which is free to keep. **It is an order and not a state about
+  the note**: nothing counts pinned notes, nothing mentions one that has been
+  pinned for a year, and within the pinned ones the same newest-first rule
+  applies, so a pin changes where a note sits and never how its neighbours are
+  ordered.
+  The control says "Pin" or "Pinned" in words beside the glyph, because a
+  picture meaning "pinned" and a picture meaning "pin this" are the same
+  picture.
+
 - **"Safari couldn't open the page because the server stopped responding" was
   the PHONE, not the deploy.** Reported straight after an update, which is the
   obvious suspect and was wrong: the origin answered 200 in 0.06s, that

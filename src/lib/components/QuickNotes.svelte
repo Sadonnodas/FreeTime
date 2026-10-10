@@ -2,7 +2,8 @@
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db';
   import {
-    createQuickNote, updateQuickNote, setQuickNoteTitle, softDelete, quickNoteToProjectNote,
+    createQuickNote, updateQuickNote, setQuickNoteTitle, setQuickNotePinned, softDelete,
+    quickNoteToProjectNote,
     quickNoteToProject
   } from '$lib/store';
   import { activeProjects } from '$lib/queries';
@@ -36,7 +37,13 @@
   const notesQ = liveQuery(async () =>
     (await db.quickNotes.toArray())
       .filter((n) => !n.deletedAt)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      // Pinned first, then most recently touched. Within the pinned ones the
+      // same rule applies, so a pin changes where a note sits and never how
+      // its neighbours are ordered.
+      .sort(
+        (a, b) =>
+          (a.pinnedAt ? 0 : 1) - (b.pinnedAt ? 0 : 1) || b.updatedAt.localeCompare(a.updatedAt)
+      )
   );
   const notes = $derived(($notesQ as QuickNote[] | undefined) ?? []);
 
@@ -400,6 +407,17 @@
     <header class="flex items-center gap-2 px-2 pt-2 pb-1">
       <button class="press tap px-2 text-[17px] text-accent" onclick={back}>‹ Notes</button>
       <span class="footnote flex-1 text-center">{when(editing.updatedAt)}</span>
+      <!-- Said in words as well as in the pin, because a glyph that means
+           "pinned" and a glyph that means "pin this" are the same picture. -->
+      <button
+        class="press tap-h shrink-0 rounded-lg px-2 text-sm {editing.pinnedAt
+          ? 'text-accent'
+          : 'text-ink-400'}"
+        aria-pressed={!!editing.pinnedAt}
+        onclick={() => setQuickNotePinned(editing.id, !editing.pinnedAt)}
+      >
+        📌 {editing.pinnedAt ? 'Pinned' : 'Pin'}
+      </button>
       <RemoveButton
         label="Delete"
         confirm="Delete note?"
@@ -618,7 +636,9 @@
                        seen. Escaped first, and never a link — see
                        renderMarks. -->
                   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                  <span class="block truncate font-medium">{@html renderMarks(rowTitle(n))}</span>
+                  <span class="block truncate font-medium">
+                    {#if n.pinnedAt}<span aria-label="Pinned">📌</span>{' '}{/if}<!--
+                    -->{@html renderMarks(rowTitle(n))}</span>
                   <span class="footnote block truncate">
                     {when(n.updatedAt)}{#if rowRest(n)}{' · '}<!--
                       -->{@html renderMarks(rowRest(n))}{/if}

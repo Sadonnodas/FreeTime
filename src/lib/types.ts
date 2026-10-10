@@ -460,6 +460,19 @@ export interface QuickNote extends Base {
    * what every note did before this existed.
    */
   title?: string;
+  /**
+   * When this note was pinned to the top of the list, if it is.
+   *
+   * A timestamp rather than a flag, like `doneAt` and `becameProjectAt`: it
+   * records WHEN, which is free to keep and occasionally worth knowing, and
+   * "is it pinned" is `!!pinnedAt` either way.
+   *
+   * It is an order, not a state about the note — nothing anywhere else reads
+   * it, nothing counts pinned notes, and a note that stays pinned for a year
+   * is never mentioned. The list is sorted by most recently touched, which is
+   * right until one note is the one you keep coming back to.
+   */
+  pinnedAt?: string;
 }
 
 /**
