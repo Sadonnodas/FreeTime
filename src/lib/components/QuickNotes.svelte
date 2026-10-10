@@ -10,12 +10,12 @@
   import { portal } from '$lib/portal';
   import RemoveButton from './RemoveButton.svelte';
   import ProjectSelect from './ProjectSelect.svelte';
-  import { answerFor, totalOf, formatNumber } from '$lib/calc';
-  import { continueListIn, toggleList, stripMarker } from '$lib/textLists';
-  import { toggleMark, markKey, type Mark } from '$lib/textMarks';
+  import { totalOf, formatNumber } from '$lib/calc';
+  import { stripMarker } from '$lib/textLists';
+  import { type Mark } from '$lib/textMarks';
   import { renderMarks } from '$lib/markdown';
   import RichNote from './RichNote.svelte';
-  import { richEditing } from '$lib/richText';
+  import ShareText from './ShareText.svelte';
 
   /**
    * Quick notes — the phone's Notes app, inside this one.
@@ -134,6 +134,7 @@
 
   function open(n: QuickNote) {
     moving = null;
+    sharing = false;
     showTotal = false;
     editText = n.text;
     editTitle = n.title ?? '';
@@ -163,6 +164,22 @@
       await setQuickNoteTitle(id, editTitle);
     } else await softDelete('quickNotes', id);
   }
+
+  /**
+   * A note on its way to somebody else — the measurements, the name, the
+   * number you were asked for. The one thing a quick note could not do was
+   * leave the app, which is strange for the screen that holds exactly the
+   * sort of thing you get asked to send on.
+   *
+   * It leaves as MARKDOWN, title first, which is what every other export here
+   * does: `**Hall**` reads as asterisks in a message and as bold in anything
+   * that understands notes, and one convention beats a second one that only
+   * this screen uses. The preview shows precisely what lands.
+   */
+  let sharing = $state(false);
+  const shareText = $derived(
+    [editTitle.trim(), editText.trim()].filter(Boolean).join('\n\n')
+  );
 
   // --- moving on: into a project's notes, or into a project of its own
   const erasQ = liveQuery(() => activeProjects());
@@ -229,69 +246,18 @@
   }
 
   // --- sums
-  /**
-   * Typing "=" at the end of a sum writes the answer after it — into the note
-   * itself, so it is kept, synced and can be totalled like any other number.
-   * Only on a typed "=", never on paste or on editing an old line, so going
-   * back over "3 + 4 = 7" does not append another 7.
-   */
-  function withAnswer(e: Event & { currentTarget: HTMLTextAreaElement }): string {
-    const el = e.currentTarget;
-    const ie = e as unknown as InputEvent;
-    // A new line in a list carries the list on (or ends it) — see textLists.ts.
-    // The same call the project notes and the note widget make, so the three
-    // cannot end up behaving differently.
-    const list = continueListIn(el, ie.inputType);
-    if (list !== null) return list;
-    if (ie.inputType === 'insertLineBreak' || ie.inputType === 'insertParagraph') return el.value;
-    if (ie.inputType !== 'insertText' || ie.data !== '=') return el.value;
-    const caret = el.selectionStart ?? el.value.length;
-    const answer = answerFor(el.value, caret);
-    if (answer === null) return el.value;
-    const spaced = el.value[caret - 2] === ' ' ? ` ${answer}` : answer;
-    const next = el.value.slice(0, caret) + spaced + el.value.slice(caret);
-    el.value = next;
-    el.setSelectionRange(caret + spaced.length, caret + spaced.length);
-    return next;
-  }
 
   let showTotal = $state(false);
 
   // --- list buttons
-  let composeEl = $state<HTMLTextAreaElement | null>(null);
-  let editEl = $state<HTMLTextAreaElement | null>(null);
-
-  /**
-   * THE COMPUTER WRITES INTO FORMATTED TEXT; THE PHONE WRITES MARKDOWN.
-   * Decided once, at the pointer — see richText.ts. Both halves store the
-   * same Markdown, so this changes how a note is typed and nothing about what
-   * a note is.
-   */
-  const rich = richEditing();
   let composeRich = $state<ReturnType<typeof RichNote> | null>(null);
   let editRich = $state<ReturnType<typeof RichNote> | null>(null);
   const editor = (which: 'compose' | 'edit') => (which === 'compose' ? composeRich : editRich);
+  /** The browser's own list editing: it continues on Enter, ends the list on
+   *  an empty item and nests on Tab, all of which textLists.ts had to do by
+   *  hand while this was a textarea. */
   function listButton(kind: 'bullet' | 'number', which: 'compose' | 'edit') {
-    if (rich) {
-      // The browser's own list editing: it continues on Enter, outdents on an
-      // empty item and nests on Tab, all of which textLists.ts had to do by
-      // hand for a textarea.
-      editor(which)?.command(kind === 'bullet' ? 'insertUnorderedList' : 'insertOrderedList');
-      return;
-    }
-    const el = which === 'compose' ? composeEl : editEl;
-    if (!el) return;
-    const from = el.selectionStart ?? 0;
-    const to = el.selectionEnd ?? 0;
-    const r = toggleList(el.value, from, to, kind);
-    el.value = r.text;
-    el.focus();
-    // Several lines selected stay selected, so a second tap (numbers to
-    // bullets, or off again) acts on the same lines.
-    if (to > from) el.setSelectionRange(r.from ?? 0, r.caret);
-    else el.setSelectionRange(r.caret, r.caret);
-    if (which === 'compose') onCompose(r.text);
-    else onEdit(r.text);
+    editor(which)?.command(kind === 'bullet' ? 'insertUnorderedList' : 'insertOrderedList');
   }
 
   /**
@@ -299,28 +265,10 @@
    * the same toggle the keyboard shortcut applies, so a button and Cmd+B
    * cannot come to mean different things. See textMarks.ts.
    */
+  /** Cmd/Ctrl+B, I and U need no handler here: a contenteditable applies them
+   *  itself and reports the change as an ordinary input. */
   function markButton(mark: Mark, which: 'compose' | 'edit') {
-    if (rich) {
-      editor(which)?.command(mark);
-      return;
-    }
-    const el = which === 'compose' ? composeEl : editEl;
-    if (!el) return;
-    const r = toggleMark(el.value, el.selectionStart ?? 0, el.selectionEnd ?? 0, mark);
-    el.value = r.text;
-    el.focus();
-    el.setSelectionRange(r.from ?? r.caret, r.caret);
-    if (which === 'compose') onCompose(r.text);
-    else onEdit(r.text);
-  }
-
-  /** Cmd/Ctrl+B, I and U in either box. Returns nothing when the key was not
-   *  one of ours, so every other key behaves exactly as it did. */
-  function onMarkKey(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }, which: 'compose' | 'edit') {
-    const next = markKey(e, e.currentTarget);
-    if (next === null) return;
-    if (which === 'compose') onCompose(next);
-    else onEdit(next);
+    editor(which)?.command(mark);
   }
 
   // --- selecting several, to delete them together
@@ -368,32 +316,7 @@
       : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   }
 
-  /**
-   * The writing box grows with what is in it, so a note is read in the page
-   * rather than through a three-line slot — *"after a while I need to start
-   * scrolling"*. Unlike autogrow.ts this keeps Enter as a new line (a note has
-   * lines) and has no cap: the screen scrolls, the box never does. The value
-   * is the parameter only so a change from outside (a list toggled, the box
-   * cleared by New note) re-fits it too.
-   */
-  const grow = (node: HTMLTextAreaElement, _value: string) => {
-    const fit = () => {
-      node.style.height = 'auto';
-      node.style.height = `${node.scrollHeight}px`;
-    };
-    node.style.overflowY = 'hidden';
-    node.addEventListener('input', fit);
-    queueMicrotask(fit);
-    return {
-      update: () => queueMicrotask(fit),
-      destroy: () => node.removeEventListener('input', fit)
-    };
-  };
 
-  const focus = (node: HTMLTextAreaElement) => {
-    node.focus();
-    node.setSelectionRange(node.value.length, node.value.length);
-  };
 </script>
 
 {#snippet listTools(which: 'compose' | 'edit')}
@@ -499,50 +422,64 @@
       class="w-full bg-transparent px-5 pt-2 text-[19px] font-semibold tracking-[-0.01em] text-ink-50 outline-none placeholder:font-normal placeholder:text-ink-400"
     />
     <div class="px-3">{@render listTools('edit')}</div>
-    {#if rich}
-      <!-- The sums, the lists and Cmd+B all live inside the editor here: it
-           owns its own DOM, so a textarea's value-and-selection arithmetic
-           does not apply to it. -->
-      <RichNote
-        bind:this={editRich}
-        value={editText}
-        oninput={onEdit}
-        autofocus
-        placeholder="Note"
-        class="min-h-0 w-full flex-1 overflow-y-auto px-5 py-3 text-[17px] text-ink-50"
-      />
-    {:else}
-      <textarea
-        use:focus
-        bind:this={editEl}
-        value={editText}
-        oninput={(e) => onEdit(withAnswer(e))}
-        onkeydown={(e) => onMarkKey(e, 'edit')}
-        class="min-h-0 w-full flex-1 resize-none bg-transparent px-5 py-3 text-[17px] leading-relaxed text-ink-50 outline-none"
-        aria-label="Note"
-      ></textarea>
-    {/if}
+    <!-- The sums, the lists and the marks all live inside the editor: it owns
+         its own DOM, so a textarea's value-and-selection arithmetic does not
+         apply to it. -->
+    <RichNote
+      bind:this={editRich}
+      value={editText}
+      oninput={onEdit}
+      autofocus
+      placeholder="Note"
+      class="min-h-0 w-full flex-1 overflow-y-auto px-5 py-3 text-[17px] text-ink-50"
+    />
 
     <!-- Where a note can go once it turns out to belong somewhere. -->
     <div class="border-t border-line-1 px-4 pt-3 pb-3">
       {#if totalOf(editText)}
         <div class="mb-3">{@render total(editText)}</div>
       {/if}
-      {#if !moving}
-        <div class="flex gap-2">
+      {#if sharing}
+        <!--
+          THE PREVIEW EARNS ITS KEEP HERE, where elsewhere it is a formality.
+          The screen shows the note formatted and what leaves the app is the
+          Markdown underneath, so this is the one place those two differ — and
+          the box says exactly which of them is about to land in the message.
+          Same component as both exports, so a note cannot copy or fail
+          differently from a project.
+        -->
+        <ShareText text={shareText} title={editTitle.trim() || firstLine(editText)} />
+        <button
+          class="press tap-h mt-2 w-full rounded-xl px-3 text-sm text-ink-400"
+          onclick={() => (sharing = false)}
+        >
+          Done sharing
+        </button>
+      {:else if !moving}
+        <div class="flex flex-wrap gap-2">
           <button
-            class="press tap-h flex-1 rounded-xl bg-surface-1 px-3 text-sm font-medium text-accent"
+            class="press tap-h min-w-[9rem] flex-1 rounded-xl bg-surface-1 px-3 text-sm font-medium text-accent"
             disabled={!editText.trim() || !eras.length}
             onclick={() => startMoving('notes')}
           >
             Add to notes of…
           </button>
           <button
-            class="press tap-h flex-1 rounded-xl bg-surface-1 px-3 text-sm font-medium text-accent"
+            class="press tap-h min-w-[9rem] flex-1 rounded-xl bg-surface-1 px-3 text-sm font-medium text-accent"
             disabled={!editText.trim() || !eras.length}
             onclick={() => startMoving('project')}
           >
             Make a project
+          </button>
+          <!-- On the row that already exists rather than one of its own: a
+               lone control on a row reads as a leftover, which this project
+               learned once with Export. -->
+          <button
+            class="press tap-h min-w-[6rem] flex-1 rounded-xl bg-surface-1 px-3 text-sm font-medium text-accent"
+            disabled={!editText.trim() && !editTitle.trim()}
+            onclick={() => (sharing = true)}
+          >
+            Copy or share
           </button>
         </div>
       {:else}
@@ -612,27 +549,13 @@
           aria-label="Title for this note"
           class="mb-1 w-full bg-transparent text-[19px] font-semibold tracking-[-0.01em] text-ink-50 outline-none placeholder:font-normal placeholder:text-ink-400"
         />
-        {#if rich}
-          <RichNote
-            bind:this={composeRich}
-            value={draft}
-            oninput={onCompose}
-            placeholder="Write it down…"
-            class="w-full min-h-[4.5rem] text-[17px] text-ink-50"
-          />
-        {:else}
-          <textarea
-            bind:this={composeEl}
-            value={draft}
-            oninput={(e) => onCompose(withAnswer(e))}
-            onkeydown={(e) => onMarkKey(e, 'compose')}
-            rows={3}
-            use:grow={draft}
-            placeholder="Write it down…"
-            class="w-full resize-none bg-transparent text-[17px] leading-relaxed text-ink-50 outline-none placeholder:text-ink-400"
-            aria-label="New quick note"
-          ></textarea>
-        {/if}
+        <RichNote
+          bind:this={composeRich}
+          value={draft}
+          oninput={onCompose}
+          placeholder="Write it down…"
+          class="w-full min-h-[4.5rem] text-[17px] text-ink-50"
+        />
         {#if totalOf(draft)}
           <div class="mb-2 border-t border-line-1 pt-2">{@render total(draft)}</div>
         {/if}

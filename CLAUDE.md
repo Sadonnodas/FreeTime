@@ -2465,11 +2465,26 @@ device; there is nothing to build. Memos are the exception, below.
   text and comes back byte for byte, which is the rule that makes this safe:
   **opening a note must never change it**, so anything the editor could not
   write back is not touched. A heading stays `# like this` on screen.
-  **The phone keeps its textarea** (`richEditing()`, a `pointer: fine` test —
-  the same question loudness.ts asks). Both halves write the same Markdown, so
-  a note made on one reads and edits on the other; what is NOT wanted is a
-  contenteditable arguing with iOS autocorrect, the caret and undo on the
-  device this app is mostly used on.
+  **IT IS THE ONLY EDITOR, phone included — and that reversed a decision one
+  message old.** It shipped behind a `pointer: fine` test, on the grounds that
+  a contenteditable on iOS brings its own quarrels with autocorrect, the caret
+  and undo, and the answer came back *"can you make it work on phone as
+  well?"* Two editors for one screen is the parallel-systems failure this file
+  keeps recording, so the textarea went rather than being kept as a fallback
+  nobody would notice rotting — **and the helpers it needed went with it**:
+  `toggleList` had no other caller, and nor did `richEditing`, so both were
+  deleted under this file's own rule that a function with no call site is a
+  feature that does not exist. `continueListIn` and `markKey` stay; project
+  notes and the note widget are still textareas.
+  **The two source guards were re-pointed, not deleted.** Both failed the
+  moment quick notes stopped calling `continueListIn` and `markKey` — which is
+  exactly what they are for — and the honest fix is to assert the thing that
+  now owns the behaviour (`RichNote` is in that file) rather than to drop the
+  check and leave the capability unwatched.
+  **`insert()` has a hand-rolled fallback**, because `execCommand` is the one
+  deprecated piece here and refuses in more situations than it documents. The
+  fallback loses its place in the undo stack, which is a far smaller loss than
+  an answer that silently never appears.
   **Three bugs worth keeping, all found in the browser and two now pinned by
   tests:**
   A browser NESTS blocks — pressing Enter after a list puts the next line
@@ -2508,6 +2523,22 @@ device; there is nothing to build. Memos are the exception, below.
   between them reads as one long note.
   No migration: the field is optional on a synced record, so an old note and a
   device still running the old build both carry on as they are.
+
+- **A quick note can leave the app** (`Copy or share` in the note's action
+  row, [ShareText.svelte](src/lib/components/ShareText.svelte)). The screen
+  that holds measurements, a name and a number somebody asked for had no way
+  to hand any of it on, which is strange for exactly that content.
+  **It leaves as MARKDOWN, title first**, the same convention every other
+  export here uses: one format that both a person and a notes app can read
+  beats a second one that only this screen speaks.
+  **And the preview earns its keep here in a way it does not elsewhere.** The
+  screen now shows a note FORMATTED while what leaves is the Markdown
+  underneath, so this is the one place those two differ — the box says
+  precisely which of them lands in the message. Same component as both
+  exports, so a note cannot copy or fail differently from a project.
+  It sits on the row that already exists, beside "Add to notes of…" and "Make
+  a project", for the reason Export learned: a lone control on a row of its
+  own reads as a leftover.
 
 - **"Safari couldn't open the page because the server stopped responding" was
   the PHONE, not the deploy.** Reported straight after an update, which is the

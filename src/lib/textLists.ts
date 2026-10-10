@@ -11,6 +11,12 @@
  *
  * Markers understood: "-", "*", "•" (with an optional "[ ]" checkbox after),
  * "1." "1)", and single letters "a." "a)". Indentation is kept.
+ *
+ * THE TOGGLE THAT USED TO LIVE HERE IS GONE. It put markers on the selected
+ * lines for the quick-notes toolbar, and quick notes are a contenteditable
+ * now — the browser makes real lists in one, so the buttons ask it rather
+ * than rewriting text. What is left is what a plain textarea still needs:
+ * Enter continuing a list in a project note, and reading markers off a line.
  */
 
 export interface Edit {
@@ -113,30 +119,4 @@ export function continueListIn(el: HTMLTextAreaElement, inputType: string): stri
   el.value = r.text;
   el.setSelectionRange(r.caret, r.caret);
   return r.text;
-}
-
-/**
- * The toolbar: make the selected lines a bulleted or numbered list, or, when
- * they already all are one of that kind, plain lines again. Numbering starts
- * at 1 and follows the lines.
- */
-export function toggleList(text: string, from: number, to: number, kind: 'bullet' | 'number'): Edit {
-  const start = text.lastIndexOf('\n', from - 1) + 1;
-  let end = text.indexOf('\n', to);
-  if (end < 0) end = text.length;
-  const lines = text.slice(start, end).split('\n');
-  const isKind = (l: string) => (kind === 'bullet' ? BULLET.test(l) : NUMBER.test(l));
-  // An empty line is not "already a list" — it is where one is about to start.
-  const allAlready = lines.some((l) => l.trim()) && lines.every((l) => !l.trim() || isKind(l));
-  let n = 0;
-  const changed = lines.map((l) => {
-    if (allAlready) return stripMarker(l);
-    if (!l.trim() && lines.length > 1) return l;
-    const m = /^(\s*)(.*)$/.exec(stripMarker(l))!;
-    n++;
-    return m[1] + (kind === 'bullet' ? '- ' : `${n}. `) + m[2];
-  });
-  const block = changed.join('\n');
-  const next = text.slice(0, start) + block + text.slice(end);
-  return { text: next, caret: start + block.length, from: start };
 }

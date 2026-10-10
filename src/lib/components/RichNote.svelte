@@ -7,11 +7,20 @@
    * not `**bold**`.
    *
    * Asked for after the Markdown version came straight back: *"instead of
-   * really going bold or putting italics I get `**what I typed**`"*, and then
-   * *"on computer at least"*, which is the scope. A textarea cannot do this —
-   * it holds characters, so the syntax has to be visible somewhere in it —
-   * so this is a `contenteditable`, the only element that lets a caret sit
-   * inside formatted text.
+   * really going bold or putting italics I get `**what I typed**`"*. A
+   * textarea cannot do this — it holds characters, so the syntax has to be
+   * visible somewhere in it — so this is a `contenteditable`, the only
+   * element that lets a caret sit inside formatted text.
+   *
+   * **IT IS THE ONLY EDITOR, phone included.** It shipped behind a
+   * `pointer: fine` test, on the grounds that a contenteditable on iOS brings
+   * its own quarrels with autocorrect, the caret and undo — and that lasted
+   * until the next message: *"can you make it work on phone as well?"* Two
+   * editors for one screen is the parallel-systems failure this project keeps
+   * recording anyway, so the textarea went rather than being kept as a
+   * fallback nobody would notice rotting. The list continuation, the list
+   * toggles and the mark wrapping it needed went with it; the browser does
+   * all three natively in here.
    *
    * **MARKDOWN IS STILL WHAT IS STORED.** `value` in and out is the same
    * plain Markdown the phone's textarea writes, so a note made here syncs,
@@ -120,13 +129,33 @@
     setTimeout(() => insert(line.endsWith(' =') ? ` ${found}` : found));
   }
 
-  /** Typed in, rather than written to the DOM, so the browser keeps the caret
-   *  where it belongs and the undo stack keeps working. */
+  /**
+   * Typed in, rather than written to the DOM, so the browser keeps the caret
+   * where it belongs and the undo stack keeps working.
+   *
+   * With a hand-rolled fallback, because `execCommand` is the one piece of
+   * this that is deprecated and refuses in more situations than it documents.
+   * The fallback loses its place in the undo stack, which is a far smaller
+   * loss than an answer that silently never appears.
+   */
   function insert(text: string) {
-    document.execCommand('insertText', false, text);
+    if (document.execCommand('insertText', false, text)) return;
+    const sel = getSelection();
+    const range = sel?.rangeCount ? sel.getRangeAt(0) : null;
+    if (!range || !el?.contains(range.startContainer)) return;
+    range.deleteContents();
+    const node = document.createTextNode(text);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    emit();
   }
 
   export function command(name: 'bold' | 'italic' | 'underline' | 'insertUnorderedList' | 'insertOrderedList') {
+    // Focus first: on a phone the toolbar button is a tap somewhere else, and
+    // a command with no selection to act on does nothing at all.
     el?.focus();
     // Deprecated for twenty years and implemented everywhere; there is no
     // replacement that edits a contenteditable with its undo stack intact.

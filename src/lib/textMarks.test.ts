@@ -75,14 +75,21 @@ const read = (file: string) =>
   Object.entries(SOURCES).find(([key]) => key.endsWith(file))?.[1] ?? '';
 
 describe('bold, italic and underline are offered where notes are written', () => {
+  it('a project or era note takes the keyboard shortcut', () => {
+    expect(read('NoteEditor.svelte'), 'no such component: NoteEditor.svelte').toContain('markKey');
+  });
+
+  it('a quick note takes it from the browser', () => {
+    // A contenteditable applies Cmd+B itself and reports it as an ordinary
+    // input, so there is no key handler to assert — what has to be true is
+    // that the editor is the one in there.
+    expect(read('QuickNotes.svelte')).toContain('RichNote');
+  });
+
   for (const [file, what] of [
     ['NoteEditor.svelte', 'a project or era note'],
     ['QuickNotes.svelte', 'a quick note']
   ] as const) {
-    it(`${what} takes the keyboard shortcut`, () => {
-      expect(read(file), `no such component: ${file}`).toContain('markKey');
-    });
-
     it(`${what} has an underline button`, () => {
       // Bold and italic predate this; underline is the one that had nowhere to
       // be written, so it is the one worth pinning.

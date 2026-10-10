@@ -186,21 +186,3 @@ export function toEditorHtml(markdown: string): string {
   closeList();
   return out.join('');
 }
-
-/**
- * Whether this device gets the rich editor.
- *
- * A FINE POINTER, which is to say a mouse or a trackpad — asked for as *"on
- * computer at least"*. The phone keeps the textarea it has: a contenteditable
- * on iOS brings its own quarrels with autocorrect, the caret and undo, and
- * the box there works. Both write the same Markdown, so a note made on one
- * reads and edits perfectly on the other.
- *
- * The same test loudness.ts uses, and for the same kind of reason: the
- * question is what the device is, and the pointer answers it without asking
- * the user agent string anything.
- */
-export function richEditing(): boolean {
-  if (typeof matchMedia !== 'function') return false;
-  return matchMedia('(pointer: fine)').matches;
-}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { continueList, toggleList, stripMarker } from './textLists';
+import { continueList, stripMarker } from './textLists';
 import { totalOf } from './calc';
 
 /** Type Enter at the end of `text` and return what the note becomes. */
@@ -41,25 +41,6 @@ describe('Enter in a list', () => {
   });
 });
 
-describe('the list buttons', () => {
-  it('turn lines into a list, numbered in order, and back', () => {
-    const text = 'saw\ndrill\nglue';
-    const numbered = toggleList(text, 0, text.length, 'number').text;
-    expect(numbered).toBe('1. saw\n2. drill\n3. glue');
-    expect(toggleList(numbered, 0, numbered.length, 'number').text).toBe(text);
-    expect(toggleList(numbered, 0, numbered.length, 'bullet').text).toBe('- saw\n- drill\n- glue');
-  });
-
-  it('works on the current line only when nothing is selected', () => {
-    const text = 'title\nsaw';
-    expect(toggleList(text, 8, 8, 'bullet').text).toBe('title\n- saw');
-  });
-
-  it('starts an empty line as a list item', () => {
-    expect(toggleList('', 0, 0, 'bullet')).toEqual({ text: '- ', caret: 2, from: 0 });
-  });
-});
-
 describe('a total ignores list numbering', () => {
   it('does not count "1." as a number', () => {
     expect(stripMarker('1. milk 2.40')).toBe('milk 2.40');
@@ -88,16 +69,27 @@ const SOURCES = import.meta.glob('./components/*.svelte', {
   import: 'default'
 }) as Record<string, string>;
 
+const read = (file: string) => {
+  const source = Object.entries(SOURCES).find(([key]) => key.endsWith(file))?.[1];
+  expect(source, `no such component: ${file}`).toBeTruthy();
+  return source ?? '';
+};
+
 describe('prose boxes all continue a list', () => {
   for (const [file, what] of [
     ['NoteEditor.svelte', 'a project or era note'],
-    ['QuickNotes.svelte', 'a quick note'],
     ['WidgetBoard.svelte', 'a note widget']
   ] as const) {
-    it(`${what} does`, () => {
-      const source = Object.entries(SOURCES).find(([key]) => key.endsWith(file))?.[1];
-      expect(source, `no such component: ${file}`).toBeTruthy();
-      expect(source).toContain('continueListIn');
+    it(`${what} does, in its textarea`, () => {
+      expect(read(file)).toContain('continueListIn');
     });
   }
+
+  it('a quick note does, by being a real list', () => {
+    // Quick notes stopped needing this when they stopped being a textarea: a
+    // contenteditable makes <ul>/<li>, and the browser continues, ends and
+    // nests those itself. The guard stays, pointed at the thing that now owns
+    // the behaviour — deleting it would be the capability going unwatched.
+    expect(read('QuickNotes.svelte')).toContain('RichNote');
+  });
 });
