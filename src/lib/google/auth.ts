@@ -332,6 +332,22 @@ export async function renewIfSafe(): Promise<void> {
   if (await needsSilentRenewal()) await beginSignIn(true);
 }
 
+/*
+ * Both intervals are arguments, with these as the defaults, for one reason:
+ * the thing that went wrong here was the WIRING — a safe moment this file
+ * described and nobody connected — so the wiring is what the tests have to be
+ * able to drive. Fake timers cannot do it, because the renewal awaits
+ * IndexedDB and the fake clock never lets that settle.
+ */
+/** How often the watch looks at the clock. Cheap: one settings read and a
+ *  comparison, no network, and `needsSilentRenewal` says no almost every
+ *  time. */
+const RENEW_CHECK_MS = 60 * 1000;
+
+/** Hands off the keyboard and the mouse for this long before a renewal is
+ *  allowed to take the page away. */
+const IDLE_BEFORE_MS = 20 * 1000;
+
 /**
  * The SECOND safe moment, which this file described for months and nobody
  * wired up.
@@ -350,14 +366,54 @@ export async function renewIfSafe(): Promise<void> {
  * bug than the one this fixes. When it is refused, nothing is lost: the app
  * keeps working offline and the reconnect notice offers the trip explicitly.
  */
-export function startRenewalWatch(): () => void {
+export function startRenewalWatch(opts: { every?: number; idle?: number } = {}): () => void {
+  const every = opts.every ?? RENEW_CHECK_MS;
+  const idle = opts.idle ?? IDLE_BEFORE_MS;
   const onVisible = () => {
     if (document.visibilityState !== 'visible') return;
     if (isTyping()) return;
     void renewIfSafe();
   };
   document.addEventListener('visibilitychange', onVisible);
-  return () => document.removeEventListener('visibilitychange', onVisible);
+
+  /*
+   * THE THIRD SAFE MOMENT, and the one that was missing: a window simply LEFT
+   * OPEN. Reported exactly, and the shape of the report is the diagnosis —
+   * *"when I leave the app open on my laptop I often need to sign back into
+   * my google account. But if I quit the app and reopen it, it signs in
+   * automatically."* A relaunch works because that is the cold-launch
+   * trigger. A window that is never closed, never reloaded and never hidden
+   * fires NEITHER trigger, so the hour runs out with nothing ever having
+   * tried. On a laptop that is the normal way to use the app.
+   *
+   * Note that switching to another application does not necessarily help: a
+   * browser window behind another window is still `visible`, so no
+   * visibilitychange arrives. Only the clock can catch this, which is what
+   * the update check learned for the same reason.
+   */
+  let lastTouch = Date.now();
+  const touched = () => (lastTouch = Date.now());
+  document.addEventListener('keydown', touched, true);
+  document.addEventListener('pointerdown', touched, true);
+
+  const tick = setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    // NEVER mid-interaction. A focused field is the obvious half; the idle
+    // window is the rest of it, because a redirect also takes away a drag, a
+    // Free Time flow, and the assistant's proposals, none of which hold
+    // focus. The renewal starts ten minutes before the token dies, so there
+    // are ten of these to catch a pause in — it does not need the first one.
+    if (isTyping()) return;
+    if (Date.now() - lastTouch < idle) return;
+    void renewIfSafe();
+  }, every);
+
+  return () => {
+    document.removeEventListener('visibilitychange', onVisible);
+    document.removeEventListener('keydown', touched, true);
+    document.removeEventListener('pointerdown', touched, true);
+    clearInterval(tick);
+  };
 }
 
 function isTyping(): boolean {

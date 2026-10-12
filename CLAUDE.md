@@ -2895,6 +2895,30 @@ device; there is nothing to build. Memos are the exception, below.
   refresh token is the only thing that removes the daily tap. That breaks "no
   backend" for sign-in alone — data stays local and in Drive — and is Toon's
   call to make, with the error code above as the evidence.
+  **THE THIRD SAFE MOMENT: a window simply LEFT OPEN** (`RENEW_CHECK_MS`,
+  `IDLE_BEFORE_MS` in `startRenewalWatch`). Reported in a form that was its own
+  diagnosis — *"when I leave the app open on my laptop I often need to sign
+  back into my google account. But if I quit the app and reopen it, it signs
+  in automatically."* A relaunch works because that is the cold-launch
+  trigger; the other trigger is a tab becoming visible again. **A window that
+  is never closed, never reloaded and never hidden fires neither**, so the
+  hour ran out with nothing having tried — and on a laptop that is simply how
+  the app gets used. Switching to another application does not help either: a
+  browser window behind another window is still `visible`, so no
+  visibilitychange arrives. **Only the clock can catch this**, which is the
+  same conclusion the update check reached, and the fifth entry of the shape
+  *a device that has been left alone has to be told to look again*.
+  **The guard is IDLENESS, not just an unfocused field.** A redirect takes the
+  page away, which also loses a drag, a Free Time flow and the assistant's
+  unsent proposals — none of which hold focus. So the tick wants twenty
+  seconds of no keystroke and no pointer before it goes, and since the renewal
+  starts ten minutes before the token dies there are ten chances to find a
+  pause. It does not need the first one.
+  **The two intervals are arguments with defaults, deliberately.** What went
+  wrong here was the WIRING — a safe moment this file had described and nobody
+  had connected — so the wiring is what a test has to be able to drive, and
+  fake timers cannot do it: the renewal awaits IndexedDB, and a fake clock
+  never lets that settle. That cost a hung test run before it was obvious.
   **This reduces the frequency; it cannot guarantee a renewal succeeds.**
   prompt=none needs a live Google session in this browser, and an installed
   iOS web app does not necessarily share Safari's. When Google declines, a tap

@@ -23,7 +23,8 @@ function stubBrowser(opts: { visible?: boolean; typingIn?: string | null } = {})
     visibilityState: opts.visible === false ? 'hidden' : 'visible',
     activeElement: active,
     addEventListener: (name: string, fn: () => void) => listeners.set(name, fn),
-    removeEventListener: (name: string) => listeners.delete(name)
+    removeEventListener: (name: string) => listeners.delete(name),
+    hasFocus: () => true
   });
   const store = new Map<string, string>();
   vi.stubGlobal('sessionStorage', {
@@ -92,6 +93,53 @@ describe('renewing when the app comes back to the front', () => {
     const stop = startRenewalWatch();
     listeners.get('visibilitychange')!();
     await new Promise((r) => setTimeout(r, 20));
+    expect(assigned).toEqual([]);
+    stop();
+  });
+
+  it('RENEWS A WINDOW THAT IS SIMPLY LEFT OPEN', async () => {
+    // The gap this was written for: a laptop window that is never closed,
+    // never reloaded and never hidden fires neither of the other two
+    // triggers, so the hour ran out with nothing ever having tried. Reported
+    // as needing to sign in again when the app was left open, while quitting
+    // and reopening always worked — which is the cold-launch trigger.
+    stubBrowser();
+    await expiredSession();
+
+    const stop = startRenewalWatch({ every: 5, idle: 0 });
+    await vi.waitFor(() => expect(assigned).toHaveLength(1));
+    expect(assigned[0]).toContain('prompt=none');
+    stop();
+  });
+
+  it('waits for a pause before taking the page away', async () => {
+    // A redirect loses a drag, a Free Time flow and the assistant's unsent
+    // proposals, none of which hold focus — so idleness is the guard, not
+    // just an unfocused field.
+    stubBrowser();
+    await expiredSession();
+
+    // The idle window is deliberately far longer than the gap between
+    // keystrokes here: a tighter margin would make this test fail whenever the
+    // machine stalled for a moment rather than when the code was wrong.
+    const stop = startRenewalWatch({ every: 5, idle: 300 });
+    for (let i = 0; i < 6; i++) {
+      await new Promise((r) => setTimeout(r, 25));
+      listeners.get('keydown')!();
+    }
+    expect(assigned).toEqual([]);
+
+    // Hands off, and the next look takes it.
+    await vi.waitFor(() => expect(assigned).toHaveLength(1));
+    stop();
+  });
+
+  it('leaves a hidden window alone', async () => {
+    stubBrowser({ visible: false });
+    await expiredSession();
+
+    const stop = startRenewalWatch({ every: 5, idle: 0 });
+    await new Promise((r) => setTimeout(r, 60));
     expect(assigned).toEqual([]);
     stop();
   });
