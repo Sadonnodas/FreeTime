@@ -1836,6 +1836,40 @@ device; there is nothing to build. Memos are the exception, below.
   Both ways in now sit side by side once the day has something on it: *Free
   time?* and *Add (N left)*.
 
+- **Today says when it is syncing — on the line that is already there**
+  ([SyncLine.svelte](src/lib/components/SyncLine.svelte),
+  [syncWords.ts](src/lib/syncWords.ts)). Asked for exactly: *"when I open the
+  app it takes a while for everything to sync up and sometimes I think it
+  didn't sync all the way or don't know when it is done syncing."* Settings
+  has said this for months, which is the wrong place — by the time you have
+  gone looking, the thing you wanted to know has happened.
+  **It takes Today's subtitle rather than adding a line.** That page's hero
+  was shrunk once already to keep the habits above the fold, and a status line
+  that appears and disappears would push the page around on every sync.
+  Measured in all three states: the same 17.5px, so the words change and
+  nothing moves.
+  **MOST OF THE DESIGN IS ABOUT NOT SPEAKING**, because a sync runs ten
+  seconds after every edit and a line that announced each one would blink
+  under the title all evening — a nag wearing a status light. So it says
+  nothing until a sync has run for 400ms: the complaint was about a WAIT, so a
+  wait is what it reports.
+  **Having spoken, it always says how that ended** ("Synced."), because the
+  actual question was *"don't know when it is done"* and an indicator that
+  merely vanishes answers that with "something happened". Gone again in two
+  and a half seconds; the state is the absence of it.
+  **A failure stays up until a sync works.** That is the other half of what
+  was asked, and it is the update notice's rule: a staleness warning that
+  dismisses itself is no use. It is a statement, not an alarm — nothing is
+  lost when a sync fails, and it says so.
+  **Paused says nothing at all**, both halves deliberately: a missing token is
+  the ReconnectNotice's job on every screen, and two voices for one problem is
+  worse than one; being offline is not an event in an app that works offline
+  by design, and a permanent line for the length of a train journey is
+  furniture that means "normal".
+  Worth knowing for the next component: **a variable called `state` shadows
+  the `$state` rune**, and TypeScript then reads the declaration as referring
+  to itself. The errors name `$state`, not your variable.
+
 - **Every section on Today says what it is, and the hero shrank to make room.**
   Habits had a heading and the calendar strip and the day's three did not, so
   they ran together as one undifferentiated column; asked for directly. The

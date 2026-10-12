@@ -23,6 +23,7 @@
   import RepeatPicker from '$lib/components/RepeatPicker.svelte';
   import { repeats, repeatsOn, repeatLabel } from '$lib/recurring';
   import { comingUp, byLabel } from '$lib/deadlines';
+  import SyncLine from '$lib/components/SyncLine.svelte';
   import { pickClearCheer } from '$lib/clearCheers';
   import MilestoneCard from '$lib/components/MilestoneCard.svelte';
   import { Reorder } from '$lib/reorder.svelte';
@@ -732,7 +733,9 @@
           <ShoppingListButton look="icon" />
         </div>
       </div>
-      <p class="footnote mt-1">
+      <!-- The same line says whether the app is syncing, when there is a wait
+           worth explaining — see SyncLine. Nothing moves when it speaks. -->
+      <SyncLine>
         {#if day?.closedAt}
           Day closed. {doneCount} done.
         {:else if slotTodos.length}
@@ -742,7 +745,7 @@
         {:else}
           Nothing planned yet.
         {/if}
-      </p>
+      </SyncLine>
     </header>
 
     <!--
