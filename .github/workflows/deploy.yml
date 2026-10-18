@@ -41,6 +41,13 @@ jobs:
 
       - run: npm run build
 
+      # The service worker only exists in build output, and the way it fails is
+      # by throwing while the browser evaluates it — which installs nothing and
+      # shows up nowhere. That shipped once and cost the app every bit of its
+      # offline support for months, so the deploy is gated on the built worker
+      # actually being installable. See scripts/check-offline.mjs.
+      - run: npm run check:offline
+
       # Pages must already be enabled with Source = "GitHub Actions" in
       # Settings > Pages. This step used to pass `enablement: true` to turn it
       # on automatically, but creating a Pages site needs admin rights that the

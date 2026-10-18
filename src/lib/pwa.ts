@@ -101,6 +101,22 @@ async function liveRegistration(): Promise<ServiceWorkerRegistration | undefined
  *
  * Comparing the entry chunk's hashed filename needs no version endpoint and
  * cannot be fooled by a cached response, because the fetch bypasses the cache.
+ *
+ * AND IT HAS TO BYPASS THE SERVICE WORKER TOO, which is a newer problem: for
+ * most of this app's life there was no installed worker to bypass (the built
+ * one threw on evaluation and never installed — see vite.config.ts). Now that
+ * there is one, a plain `fetch(base + '/')` is answered from the precache,
+ * which breaks this check in both directions: online it compares the running
+ * build against itself and can never see a new one, and offline it SUCCEEDS
+ * and reports "this is the latest version" without having reached anything —
+ * the exact false reassurance this file's other rule forbids.
+ *
+ * `cache: 'no-store'` does not help; it skips the HTTP cache and still goes
+ * through the worker. A query parameter does: workbox matches a precache entry
+ * by exact URL (it only strips `utm_*` and `fbclid`), and its navigation route
+ * only takes requests whose mode is `navigate`, which a `fetch()` is not. So
+ * no route claims it and the browser goes to the network — or fails, offline,
+ * which is the honest answer.
  */
 function loadedEntryScript(): string | null {
   const urls = [...document.querySelectorAll('script[src], link[rel="modulepreload"][href]')]
@@ -111,7 +127,7 @@ function loadedEntryScript(): string | null {
 }
 
 async function servedEntryScript(): Promise<string | null> {
-  const res = await fetch(`${base}/`, { cache: 'no-store' });
+  const res = await fetch(`${base}/?build-check=${Date.now()}`, { cache: 'no-store' });
   const html = await res.text();
   const match = html.match(/immutable\/entry\/app\.[A-Za-z0-9_-]+\.js/);
   return match ? (match[0].split('/').pop() ?? null) : null;
@@ -177,7 +193,32 @@ async function apply(): Promise<void> {
   }
 
   /*
-   * No worker to hand over from — the server simply has something newer.
+   * The server has something newer and the worker has not noticed yet. ASK IT
+   * TO LOOK, because a reload can no longer fetch anything.
+   *
+   * This is the other half of the worker finally existing. A reload is served
+   * by the controlling worker out of the precache, so it hands back the very
+   * build we are trying to leave — and `justTriedUpdating` would then stop the
+   * second attempt and leave the banner up with no way through it. The worker
+   * is the only thing that can replace the precache, so the fix is to make it
+   * check now and then hand over properly.
+   */
+  const r = await liveRegistration();
+  if (r) {
+    try {
+      await r.update();
+      await settle(r);
+    } catch {
+      /* fall through to the reload, which is all that is left to try */
+    }
+    if (workerWaiting && applyUpdate) {
+      await applyUpdate(true);
+      return;
+    }
+  }
+
+  /*
+   * No worker at all — the server simply has something newer.
    *
    * `location.reload()` alone is NOT enough, and this was observed rather than
    * theorised: GitHub Pages serves index.html with max-age=600, so a reload

@@ -8,6 +8,14 @@
       "port": 5199,
       "autoPort": false,
       "url": "http://localhost:5199"
+    },
+    {
+      "name": "freetime-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "--", "--port", "5198", "--strictPort"],
+      "port": 5198,
+      "autoPort": false,
+      "url": "http://localhost:5198"
     }
   ]
 }

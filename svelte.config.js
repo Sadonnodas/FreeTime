@@ -37,7 +37,29 @@ const config = {
       strict: true
     }),
     paths: {
-      base: BASE
+      base: BASE,
+      /*
+       * ABSOLUTE ASSET URLS, AND THE SERVICE WORKER IS WHY.
+       *
+       * SvelteKit 2 defaults this to true, which writes `./_app/…` into every
+       * prerendered page — correct for a page served from the one path it was
+       * prerendered at, and wrong for the app SHELL, which by definition gets
+       * served for URLs at any depth. Offline, a refresh on
+       * /FreeTime/projects/<id>/Mixing is answered from cache with the shell,
+       * the browser resolves `./_app/…` against THAT url, and asks for
+       * /FreeTime/projects/<id>/_app/… — which is in no cache and on no server.
+       * The page comes up blank with "Failed to fetch dynamically imported
+       * module" and nothing else.
+       *
+       * `build/404.html` was already absolute, because the adapter cannot know
+       * what depth a fallback will be served at. This makes the rest agree, so
+       * any cached page can answer for any url.
+       *
+       * The cost is that the app can only be served from BASE, which is the
+       * only place it is ever served from; set BASE to '' and absolute urls
+       * follow it to a domain root exactly as relative ones would.
+       */
+      relative: false
     }
   }
 };

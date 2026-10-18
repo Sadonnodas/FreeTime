@@ -42,7 +42,10 @@ cd FreeTime && npm install
 npm run dev      # http://localhost:5173/FreeTime  <- note the path
 ```
 
-Node 22. `npm run build`, `npm run preview`, `npm run check`, `npm test`.
+Node 22. `npm run build`, `npm run preview`, `npm run check`, `npm test`, and
+`npm run check:offline` — which reads the BUILT service worker and is the only
+thing that can tell you whether the app still works without a network. Run it
+after a build; CI gates the deploy on it.
 
 **The dev URL includes `/FreeTime`** because `kit.paths.base` is set. Bare
 `localhost:5173` will not work.
@@ -554,16 +557,25 @@ Do not "fix" these without talking to Toon first.
 - **The built-in `<audio controls>` is a white pill on every platform.** It reads as a
   form element dropped into the page and undoes the whole dark treatment in one
   element. MemoList drives a hidden `<audio>` by hand instead; it is about forty lines.
-- **The in-app preview browser cripples the microphone and service workers, and it
-  does it differently per origin.** The mic throws `NotAllowedError` everywhere. On
-  **localhost**, SW registration fails outright with *"An unknown error occurred when
-  fetching the script"* even though the script returns 200 with the right MIME type — a
-  three-line no-op worker fails identically, so it is the browser, not a scope or
-  base-path bug. On the **live HTTPS origin** `register()` resolves and the registration
-  appears, but the worker never activates: `navigator.serviceWorker.ready` never
-  settles, and the registration has vanished by the next evaluation. So an update check
-  there can look like it succeeded when nothing happened. Recording, offline boot and
-  the update cycle all have to be tested on a real device.
+- **The in-app preview browser cripples the microphone. IT DOES NOT CRIPPLE SERVICE
+  WORKERS, and believing it did is part of why offline was broken for months.**
+  The mic still throws `NotAllowedError` everywhere; that part stands.
+  The service-worker half of this entry used to say that registration fails on
+  localhost and that on the live origin the worker registers but never
+  activates — `navigator.serviceWorker.ready` never settling, the registration
+  gone by the next evaluation. **Every one of those symptoms is what a worker
+  whose script THROWS looks like**, and ours threw, on every origin, for exactly
+  that whole period (see *The service worker never installed* below). The
+  browser was reporting the bug accurately and it was read as a browser defect.
+  Measured against `npm run preview` after the fix: `register()` resolves,
+  `ready` settles as **activated**, the worker controls the page, all 127 files
+  precache, and stopping the server leaves the whole app working — Today, Brain,
+  Me, a deep link into a project, and writing a new to-do that survives a reload.
+  **So offline IS testable from here**, which it was always assumed not to be.
+  `.claude/launch.json` has a `freetime-preview` config for it; the DEV server is
+  no use, because vite-plugin-pwa emits no worker in dev. Recording still needs a
+  real device. **When the preview pane says something failed, check whether it
+  did.**
 - **`location.reload()` does not escape the HTTP cache, and that broke updating.**
   Observed live: a page running an old build while the server had a newer one, because
   GitHub Pages serves index.html with `max-age=600` and a reload inside that window is
@@ -3375,6 +3387,82 @@ device; there is nothing to build. Memos are the exception, below.
 
 **Still not built:** `Memo.place` is never filled in, deliberately — see the privacy
 note above.
+
+- **THE SERVICE WORKER NEVER INSTALLED, so the app was not offline-capable at
+  all** ([vite.config.ts](vite.config.ts), [svelte.config.js](svelte.config.js),
+  [scripts/check-offline.mjs](scripts/check-offline.mjs)). Asked for as *"we need
+  the app to not be dependent on the internet to still do its basic functions.
+  And then sync later when internet is back."* The second half already worked
+  and always had — writes go straight to IndexedDB, and `startSync` listens for
+  `online` — so this entry is entirely about the first half, which did not work
+  in any form. There was no worker, no precache, and no offline boot: every
+  navigation and every asset came off the network, on a PWA whose whole config
+  said otherwise.
+  **Three independent bugs, each on its own fatal.** Found by running the built
+  worker in a stub ServiceWorkerGlobalScope under Node, which is what
+  `check-offline.mjs` now is.
+  **One: `navigateFallback` pointed at a file that was not precached.** It
+  compiles to `createHandlerBoundToURL('/FreeTime/404.html')`, and that function
+  throws SYNCHRONOUSLY, while the worker script is still being evaluated, if the
+  url was not precached. A worker whose script throws never reaches `install`.
+  So this was never "deep links fall back to the network" — it was no worker at
+  all. And the file could not have been there: the plugin globs
+  `.svelte-kit/output`, and adapter-static writes the fallback straight to
+  `build/404.html`. `kit: { adapterFallback, spa }` is the plugin's own way to
+  append it.
+  **Two: `index.html` was precached as `/`.** The plugin maps it to Vite's
+  `base`, which SvelteKit leaves at `/` because it does its own base handling,
+  so the entry resolved against the worker's url to `https://sadonnodas.github.io/`
+  — the GitHub user page, which 404s. A precache entry that answers 4xx throws
+  `bad-precaching-response` and fails the install. Even with bug one fixed, no
+  worker. `globIgnores` drops it; the shell entry covers the same file at the
+  right url, and workbox resolves `…/FreeTime/` to it by itself.
+  **Three: the shell's own asset urls were relative** (`paths.relative`, which
+  SvelteKit 2 defaults to true). This one was MINE, introduced while fixing the
+  other two, and it is the subtlest of the three: a shell is served for urls it
+  was not prerendered at, so `./_app/…` resolves against the visited url. A
+  refresh on `/FreeTime/projects/<id>/Mixing` offline asked for
+  `/FreeTime/projects/<id>/_app/…`, gave a blank page and one console line.
+  `build/404.html` was absolute already, because the adapter cannot know a
+  fallback's depth; `relative: false` makes everything agree.
+  **The shell is index.html, not the adapter's 404.html**, and the reason is
+  testability: Pages serves `/FreeTime/404.html` as 200, SvelteKit's preview
+  server serves it as 404 (correctly — serving that file is how it says "no such
+  page"), and a 4xx precache entry fails the install. Picking 404.html would
+  make offline work on the live site and be impossible to test anywhere else.
+  Both files are the same empty 4KB shell, since this app renders from IndexedDB.
+  **Two older notes in this file were wrong because of this**, and both are
+  corrected above. The preview browser was never crippling service workers; it
+  was reporting ours throwing. And *"Safari couldn't open the page because the
+  server stopped responding"* — filed under the phone's network, which was the
+  proximate cause and is still true — should never have been able to happen to
+  an installed PWA at all. **A flaky network taking the app down IS the symptom
+  of this bug.** If that report ever recurs, check `npm run check:offline`
+  before blaming the network again.
+  **WHY NOTHING NOTICED, and what now does.** The failure lives in generated
+  output, not in any source file, and it is fatal at script-evaluation time —
+  so there was nothing to read, no test that could see it, no error in the app,
+  and the config looked immaculate. `npm run check:offline` runs the built
+  worker and fails the deploy if it cannot install; it also resolves every
+  precache entry to a real file and refuses a shell with relative asset urls.
+  All three bugs were re-introduced one at a time and it caught each. **Any
+  future change to vite.config.ts, svelte.config.js or the adapter has to be
+  checked against a BUILD, because that is the only place this is visible.**
+  **A working worker changes how UPDATES behave, which had to be fixed with
+  it** ([pwa.ts](src/lib/pwa.ts)). `servedEntryScript` fetched `${base}/` to
+  compare build hashes — described in its own comment as the check that "cannot
+  be fooled by a cached response". With a worker installed it is answered from
+  the precache, so online it compared the running build against itself and could
+  never see a new one, and offline it SUCCEEDED and said *"This is the latest
+  version"* — the false reassurance this file's own rule forbids. `cache:
+  'no-store'` does not help, since that skips the HTTP cache and still goes
+  through the worker; a query parameter does, because workbox matches precache
+  entries by exact url and its navigation route only takes `navigate`-mode
+  requests. Verified offline: it now says *"Couldn't check just now — you may be
+  offline."* And `apply()`'s no-worker path reloaded to escape a stale HTTP
+  cache, which a controlling worker answers from the precache with the very
+  build being left behind — so it now asks the registration to update and hands
+  over properly, falling back to the reload only when there is no worker.
 
 **A waiting service worker can wedge forever on an installed iOS app.** Cost a round
 trip to learn, so: a worker that does not `skipWaiting` stays in *waiting* until every
