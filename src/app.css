@@ -106,6 +106,30 @@
 }
 
 /*
+ * TELL THE BROWSER WHICH WAY ROUND THIS IS.
+ *
+ * Nothing here ever said, so every native widget was drawn in LIGHT on top of
+ * a near-black app — reported as *"this ugly scroll bar on computer"*, which
+ * was a white track with a grey slab in it running down the side of the page.
+ * It is not a scrollbar problem; it is this one line missing, and the scroll
+ * bar was simply the biggest piece of browser furniture on screen.
+ *
+ * `color-scheme` is the only way to reach those parts: they are drawn by the
+ * OS, not by CSS, so no amount of styling elsewhere could have touched them.
+ * It also fixes the selects and the date fields, the text caret, and the
+ * flash of white a reload shows before the first paint.
+ *
+ * Deliberately NOT `::-webkit-scrollbar`, which is the obvious alternative.
+ * Giving that pseudo-element a width turns macOS's OVERLAY scrollbar into a
+ * permanent one that takes real layout space — so the fix for a bar that looks
+ * wrong would be a bar that is always there, on every screen, for everyone.
+ * This changes how it is painted and nothing about where anything sits.
+ */
+:root {
+  color-scheme: dark;
+}
+
+/*
  * LIGHT.
  *
  * Only the tokens change. The ramp inverts, the surface lifts become darkenings
@@ -120,6 +144,8 @@
  */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
+    color-scheme: light;
+
     --color-ink-950: #f7f5f2;
     --color-ink-900: #efece8;
     --color-ink-800: #e5e1db;
@@ -158,6 +184,8 @@
 }
 
 :root[data-theme='light'] {
+  color-scheme: light;
+
   --color-ink-950: #f7f5f2;
   --color-ink-900: #efece8;
   --color-ink-800: #e5e1db;

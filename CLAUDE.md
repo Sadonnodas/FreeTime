@@ -1270,6 +1270,30 @@ one came close to a hard rule, the reasoning is recorded here.
   A blocking script in [app.html](src/app.html) sets the attribute before first paint —
   without it a light theme shows a full frame of near-black first, worst on the phone
   where it is the whole screen.
+- **THE SCROLL BAR WAS WHITE BECAUSE NOTHING EVER SAID THE APP WAS DARK**
+  (`color-scheme` in [app.css](src/app.css)). Reported with a screenshot as
+  *"this ugly scroll bar on computer"* — a white track with a pale grey slab in
+  it, running the full height of a near-black page.
+  **It is not a scroll bar problem.** Scroll bars, selects, date fields, the
+  text caret and the pre-paint canvas are drawn by the OS, not by CSS, and the
+  OS draws them LIGHT unless the page declares otherwise. Eight ink values and
+  five surface tokens flip between themes and not one of them could reach any
+  of that. The scroll bar was simply the largest piece of browser furniture on
+  screen, so it is what got noticed.
+  So `color-scheme` is declared beside the tokens, in all three places the
+  theme is decided: `dark` on `:root`, `light` in the `prefers-color-scheme`
+  block and again on `:root[data-theme='light']`. **If a token block is ever
+  added or moved, this has to move with it** — the two disagreeing means native
+  widgets from the other theme.
+  **Deliberately NOT `::-webkit-scrollbar`, which is the obvious alternative.**
+  Giving that pseudo-element a width turns macOS's OVERLAY scroll bar into a
+  permanent one taking real layout space — the fix for a bar that looks wrong
+  would be a bar that is always there, for everyone, on every screen. This
+  changes how it is painted and nothing about where anything sits.
+  Verified both ways round at 1280px by forcing the old value back: white track
+  and grey thumb before, near-black track that disappears into the page after,
+  and a correctly light one under the light theme.
+
 - **`:global()` is Svelte syntax and is INVALID in app.css.** Moving the map's styles
   out of the component and into the global sheet took the `:global()` wrappers along,
   and the browser silently discarded every rule containing one — the map pins vanished
